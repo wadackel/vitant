@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Mutation testing for Vitest",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "vitant": "./src/cli.ts"
