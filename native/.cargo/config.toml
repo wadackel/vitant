@@ -1,0 +1,4 @@
+# Rust links musl statically unless told otherwise, and a library Node is to
+# load cannot be.
+[target.'cfg(target_env = "musl")']
+rustflags = ["-C", "target-feature=-crt-static"]

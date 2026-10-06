@@ -1,0 +1,2013 @@
+stryker mutants: 2619, ours: 2530, matched: 2458
+only in stryker: 161
+      87  Regex
+      67  CallExpression
+       7  ConditionalExpression
+only in ours: 72
+      60  StringLiteral
+       6  ConditionalExpression
+       2  ArrayDeclaration
+       2  ObjectLiteral
+       1  UnaryOperator
+       1  BooleanLiteral
+status (stryker -> ours):
+    1929  Survived -> Killed
+     353  Survived -> Survived
+      72  NoCoverage -> NoCoverage
+      64  Survived -> Timeout
+      21  Ignored -> Static
+      19  Killed -> Killed
+detected/undetected disagreements among mutants both tools ran: 1993
+src/utils/accept.ts:8:3 LogicalOperator "char === 32 || char === 9 || char === 10 && char =" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 LogicalOperator "char === 32 || char === 9 && char === 10" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 LogicalOperator "char === 32 && char === 9" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 EqualityOperator "char !== 32" stryker=Survived ours=Killed
+src/utils/accept.ts:8:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:8:18 EqualityOperator "char !== 9" stryker=Survived ours=Killed
+src/utils/accept.ts:8:18 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:8:32 EqualityOperator "char !== 10" stryker=Survived ours=Killed
+src/utils/accept.ts:8:32 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:8:47 EqualityOperator "char !== 13" stryker=Survived ours=Killed
+src/utils/accept.ts:10:81 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:11:10 EqualityOperator "startIndex >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:11:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:11:44 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:12:9 BooleanLiteral "isWhitespace(acceptHeader.charCodeAt(startIndex))" stryker=Survived ours=Killed
+src/utils/accept.ts:12:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:12:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:12:61 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:15:5 UpdateOperator "startIndex--" stryker=Survived ours=Timeout
+src/utils/accept.ts:20:88 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:21:10 EqualityOperator "startIndex <= 0" stryker=Survived ours=Killed
+src/utils/accept.ts:21:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:21:26 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:22:9 BooleanLiteral "isWhitespace(acceptHeader.charCodeAt(startIndex - " stryker=Survived ours=Killed
+src/utils/accept.ts:22:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:22:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:22:47 ArithmeticOperator "startIndex + 1" stryker=Survived ours=Killed
+src/utils/accept.ts:22:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:25:5 UpdateOperator "startIndex++" stryker=Survived ours=Killed
+src/utils/accept.ts:30:91 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:31:10 EqualityOperator "startIndex >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:31:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:31:44 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:37:9 EqualityOperator "char !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:37:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:37:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:37:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:39:14 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:39:15 ArithmeticOperator "startIndex - 1" stryker=Survived ours=Killed
+src/utils/accept.ts:39:31 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/accept.ts:41:5 UpdateOperator "startIndex--" stryker=Survived ours=Timeout
+src/utils/accept.ts:46:86 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:48:18 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/accept.ts:49:10 EqualityOperator "i >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:49:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:49:35 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:51:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:54:16 EqualityOperator "char !== 34" stryker=Survived ours=Killed
+src/utils/accept.ts:54:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:57:16 LogicalOperator "!inQuotes || char === 44" stryker=Survived ours=Killed
+src/utils/accept.ts:57:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:57:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:57:16 BooleanLiteral "inQuotes" stryker=Survived ours=Killed
+src/utils/accept.ts:57:29 EqualityOperator "char !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:57:29 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:57:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:59:14 ArithmeticOperator "i - 1" stryker=Survived ours=Killed
+src/utils/accept.ts:61:5 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/accept.ts:69:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:74:17 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/accept.ts:75:10 EqualityOperator "i >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:75:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:75:35 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:77:9 EqualityOperator "char !== 61" stryker=Survived ours=Killed
+src/utils/accept.ts:77:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:77:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:77:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:79:13 MethodExpression "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:80:7 UpdateOperator "i--" stryker=Survived ours=Killed
+src/utils/accept.ts:83:9 EqualityOperator "char !== 59" stryker=Survived ours=Killed
+src/utils/accept.ts:83:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:85:15 ArithmeticOperator "i - 1" stryker=Survived ours=Timeout
+src/utils/accept.ts:87:9 EqualityOperator "char !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:87:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:87:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:87:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:89:14 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:89:15 ArithmeticOperator "i - 1" stryker=Survived ours=Killed
+src/utils/accept.ts:89:44 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/accept.ts:91:5 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/accept.ts:93:7 EqualityOperator "key !== undefined" stryker=Survived ours=Killed
+src/utils/accept.ts:93:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:98:7 EqualityOperator "acceptHeader.charCodeAt(i) !== 61" stryker=Survived ours=Killed
+src/utils/accept.ts:98:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:98:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:98:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:104:18 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/accept.ts:106:10 EqualityOperator "i >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:106:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:106:35 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:109:9 LogicalOperator "inQuotes || char === 92" stryker=Survived ours=Killed
+src/utils/accept.ts:109:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:109:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:109:21 EqualityOperator "char !== 92" stryker=Survived ours=Killed
+src/utils/accept.ts:109:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:109:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:111:7 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/accept.ts:112:16 EqualityOperator "char !== 34" stryker=Survived ours=Killed
+src/utils/accept.ts:112:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:112:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:112:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:114:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:114:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:114:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:115:57 ArithmeticOperator "i - 1" stryker=Survived ours=Killed
+src/utils/accept.ts:117:13 LogicalOperator "nextIndex < acceptHeader.length || !(nextChar === " stryker=Survived ours=Killed
+src/utils/accept.ts:117:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:117:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:117:13 EqualityOperator "nextIndex >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:117:48 BooleanLiteral "nextChar === 59 || nextChar === 44" stryker=Survived ours=Killed
+src/utils/accept.ts:117:50 LogicalOperator "nextChar === 59 && nextChar === 44" stryker=Survived ours=Killed
+src/utils/accept.ts:117:50 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:117:50 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:117:50 EqualityOperator "nextChar !== 59" stryker=Survived ours=Killed
+src/utils/accept.ts:117:50 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:117:69 EqualityOperator "nextChar !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:117:69 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:117:87 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:120:18 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:122:17 MethodExpression "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:122:36 ArithmeticOperator "paramStartIndex - 1" stryker=Survived ours=Killed
+src/utils/accept.ts:123:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:123:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:124:43 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/accept.ts:126:13 EqualityOperator "nextChar !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:126:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:128:18 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:128:19 ArithmeticOperator "nextIndex - 1" stryker=Survived ours=Killed
+src/utils/accept.ts:128:46 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/accept.ts:130:13 EqualityOperator "nextChar !== 59" stryker=Survived ours=Killed
+src/utils/accept.ts:130:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:130:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:132:21 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/accept.ts:138:18 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/accept.ts:139:16 LogicalOperator "!inQuotes || (char === 59 || char === 44)" stryker=Survived ours=Killed
+src/utils/accept.ts:139:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:139:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:139:16 BooleanLiteral "inQuotes" stryker=Survived ours=Killed
+src/utils/accept.ts:139:30 LogicalOperator "char === 59 && char === 44" stryker=Survived ours=Killed
+src/utils/accept.ts:139:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:139:30 EqualityOperator "char !== 59" stryker=Survived ours=Killed
+src/utils/accept.ts:139:30 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:139:45 EqualityOperator "char !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:139:45 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:139:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:141:15 MethodExpression "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:142:11 EqualityOperator "char !== 59" stryker=Survived ours=Killed
+src/utils/accept.ts:142:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:142:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:142:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:144:19 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/accept.ts:146:7 UpdateOperator "i--" stryker=Survived ours=Killed
+src/utils/accept.ts:149:5 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/accept.ts:151:10 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:154:5 LogicalOperator "value && acceptHeader.slice(paramStartIndex, ignor" stryker=Survived ours=Killed
+src/utils/accept.ts:154:14 MethodExpression "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:162:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:163:26 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:164:11 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/accept.ts:170:10 EqualityOperator "i >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:170:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:170:35 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:172:9 LogicalOperator "char === 59 && char === 44" stryker=Survived ours=Killed
+src/utils/accept.ts:172:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:172:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:172:9 EqualityOperator "char !== 59" stryker=Survived ours=Killed
+src/utils/accept.ts:172:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:172:24 EqualityOperator "char !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:172:24 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:172:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:174:21 MethodExpression "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:175:7 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/accept.ts:176:11 EqualityOperator "char !== 44" stryker=Survived ours=Killed
+src/utils/accept.ts:176:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:176:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:176:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:178:16 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:180:11 BooleanLiteral "accept.type" stryker=Survived ours=Killed
+src/utils/accept.ts:180:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:180:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:180:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:181:16 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:185:5 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/accept.ts:187:7 BooleanLiteral "accept.type" stryker=Survived ours=Killed
+src/utils/accept.ts:187:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:187:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:187:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:188:19 MethodExpression "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:192:12 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/accept.ts:198:10 EqualityOperator "i >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:198:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:198:35 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:200:9 LogicalOperator "param || value" stryker=Survived ours=Killed
+src/utils/accept.ts:200:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:200:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:200:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:203:9 BooleanLiteral "hasNext" stryker=Survived ours=Killed
+src/utils/accept.ts:203:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:203:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:203:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:211:64 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:212:7 BooleanLiteral "acceptHeader" stryker=Survived ours=Killed
+src/utils/accept.ts:212:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:212:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:212:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:213:12 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/accept.ts:216:28 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/accept.ts:221:10 EqualityOperator "i <= acceptHeader.length" stryker=Survived ours=Timeout
+src/utils/accept.ts:221:10 EqualityOperator "i >= acceptHeader.length" stryker=Survived ours=Killed
+src/utils/accept.ts:221:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:221:35 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/accept.ts:223:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:223:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:223:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:226:31 LogicalOperator "accept.params.q && accept.params.Q" stryker=Survived ours=Killed
+src/utils/accept.ts:228:11 LogicalOperator "lastAccept || lastAccept.q < accept.q" stryker=Survived ours=Killed
+src/utils/accept.ts:228:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:228:25 EqualityOperator "lastAccept.q >= accept.q" stryker=Survived ours=Killed
+src/utils/accept.ts:228:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:230:24 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/accept.ts:235:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:235:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:236:5 MethodExpression "values" stryker=Survived ours=Killed
+src/utils/accept.ts:236:17 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/accept.ts:236:27 ArithmeticOperator "b.q + a.q" stryker=Survived ours=Killed
+src/utils/accept.ts:242:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:243:7 EqualityOperator "qVal !== undefined" stryker=Survived ours=Killed
+src/utils/accept.ts:243:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:246:7 EqualityOperator "qVal !== ''" stryker=Survived ours=Killed
+src/utils/accept.ts:246:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:249:7 EqualityOperator "qVal !== 'NaN'" stryker=Survived ours=Killed
+src/utils/accept.ts:249:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:249:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:249:16 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/accept.ts:249:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:254:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:254:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:254:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:260:7 EqualityOperator "num >= 0" stryker=Survived ours=Killed
+src/utils/accept.ts:260:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:260:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:260:16 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/accept.ts:263:7 EqualityOperator "num <= 1" stryker=Survived ours=Killed
+src/utils/accept.ts:263:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/accept.ts:263:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/accept.ts:263:16 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:9:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:10:41 LogicalOperator "req.headers.get('Authorization') && ''" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:10:41 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:10:41 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:10:57 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:11:7 BooleanLiteral "match" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:11:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:17:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:21:7 BooleanLiteral "userPass" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:21:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:21:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:21:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/basic-auth.ts:25:10 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/body.ts:80:78 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:103:6 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:104:17 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/body.ts:107:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:109:21 MethodExpression "contentType?.split(';')[0].trim().toUpperCase()" stryker=Survived ours=Killed
+src/utils/body.ts:109:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:111:7 LogicalOperator "mediaType === 'multipart/form-data' && mediaType =" stryker=Survived ours=Killed
+src/utils/body.ts:111:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:111:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:111:7 EqualityOperator "mediaType !== 'multipart/form-data'" stryker=Survived ours=Killed
+src/utils/body.ts:111:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:111:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:111:46 EqualityOperator "mediaType !== 'application/x-www-form-urlencoded'" stryker=Survived ours=Killed
+src/utils/body.ts:111:46 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:111:60 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:111:97 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:112:35 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/body.ts:129:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:130:7 LogicalOperator "!isRawRequest(request) || request.bodyCache.formDa" stryker=Survived ours=Killed
+src/utils/body.ts:130:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:130:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:130:7 BooleanLiteral "isRawRequest(request)" stryker=Survived ours=Killed
+src/utils/body.ts:130:61 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:138:57 LogicalOperator "headers.get('Content-Type') && ''" stryker=Survived ours=Killed
+src/utils/body.ts:138:57 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:138:57 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:138:69 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:139:7 BooleanLiteral "isRawRequest(request)" stryker=Survived ours=Killed
+src/utils/body.ts:139:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:145:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:145:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:163:6 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:165:24 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/body.ts:167:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:168:34 LogicalOperator "options.all && key.endsWith('[]')" stryker=Survived ours=Killed
+src/utils/body.ts:168:34 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:168:34 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:168:62 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:170:9 BooleanLiteral "shouldParseAllValues" stryker=Survived ours=Killed
+src/utils/body.ts:170:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:170:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:170:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:172:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:177:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:177:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:177:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:178:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:179:49 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:181:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:181:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:181:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:202:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:203:7 EqualityOperator "form[key] === undefined" stryker=Survived ours=Killed
+src/utils/body.ts:203:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:203:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:203:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:204:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:204:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:204:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:206:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:207:19 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/body.ts:209:10 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:210:9 BooleanLiteral "key.endsWith('[]')" stryker=Survived ours=Killed
+src/utils/body.ts:210:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:210:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:210:10 MethodExpression "key.startsWith('[]')" stryker=Survived ours=Killed
+src/utils/body.ts:210:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:210:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:212:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:213:19 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/body.ts:230:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:231:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:231:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:231:40 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:236:26 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:236:31 ArithmeticOperator "MAX_NESTING_DEPTH - 2" stryker=Survived ours=Killed
+src/utils/body.ts:237:7 EqualityOperator "keys.length >= MAX_NESTING_DEPTH + 1" stryker=Survived ours=Killed
+src/utils/body.ts:237:7 EqualityOperator "keys.length <= MAX_NESTING_DEPTH + 1" stryker=Survived ours=Killed
+src/utils/body.ts:237:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:237:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:237:21 ArithmeticOperator "MAX_NESTING_DEPTH - 1" stryker=Survived ours=Killed
+src/utils/body.ts:237:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:241:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:242:9 EqualityOperator "index !== keys.length - 1" stryker=Survived ours=Killed
+src/utils/body.ts:242:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:242:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:242:19 ArithmeticOperator "keys.length + 1" stryker=Survived ours=Killed
+src/utils/body.ts:242:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:244:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:246:9 LogicalOperator "!nestedForm[key] ||\n        typeof nestedForm[key]" stryker=Survived ours=Killed
+src/utils/body.ts:246:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:246:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:246:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:246:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:246:9 BooleanLiteral "nestedForm[key]" stryker=Survived ours=Killed
+src/utils/body.ts:247:9 EqualityOperator "typeof nestedForm[key] === 'object'" stryker=Survived ours=Killed
+src/utils/body.ts:247:36 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/body.ts:250:9 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:251:13 EqualityOperator "state.count++ > MAX_NESTED_OBJECTS" stryker=Survived ours=Killed
+src/utils/body.ts:251:13 EqualityOperator "state.count++ < MAX_NESTED_OBJECTS" stryker=Survived ours=Killed
+src/utils/body.ts:251:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/body.ts:251:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/body.ts:251:13 UpdateOperator "state.count--" stryker=Survived ours=Killed
+src/utils/body.ts:251:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:261:48 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/body.ts:262:19 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:8:67 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:9:7 EqualityOperator "a !== b" stryker=Survived ours=Killed
+src/utils/buffer.ts:9:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:10:12 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:12:7 EqualityOperator "a.byteLength === b.byteLength" stryker=Survived ours=Killed
+src/utils/buffer.ts:12:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:12:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:12:38 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:13:12 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:20:10 UpdateOperator "i++" stryker=Survived ours=Killed
+src/utils/buffer.ts:20:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:20:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:21:9 EqualityOperator "va.getUint8(i) === vb.getUint8(i)" stryker=Survived ours=Killed
+src/utils/buffer.ts:21:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:21:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:21:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:22:14 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:26:10 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:29:68 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:34:19 EqualityOperator "i >= maxLen" stryker=Survived ours=Killed
+src/utils/buffer.ts:34:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:34:31 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/buffer.ts:34:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:35:19 EqualityOperator "i >= aLen" stryker=Survived ours=Killed
+src/utils/buffer.ts:35:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:36:19 EqualityOperator "i >= bLen" stryker=Survived ours=Killed
+src/utils/buffer.ts:36:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:37:5 AssignmentOperator "out &= aChar ^ bChar" stryker=Survived ours=Killed
+src/utils/buffer.ts:39:10 EqualityOperator "out !== 0" stryker=Survived ours=Killed
+src/utils/buffer.ts:39:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:39:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:48:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:49:7 BooleanLiteral "hashFunction" stryker=Survived ours=Killed
+src/utils/buffer.ts:49:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:49:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:53:38 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:7 EqualityOperator "sa != null" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:21 EqualityOperator "sb != null" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:35 EqualityOperator "typeof sa === 'string'" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:49 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:61 EqualityOperator "typeof sb === 'string'" stryker=Survived ours=Killed
+src/utils/buffer.ts:55:75 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:62:10 LogicalOperator "hashEqual || originalEqual" stryker=Survived ours=Killed
+src/utils/buffer.ts:62:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:62:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:80:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:7 EqualityOperator "typeof a !== 'string'" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:20 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:32 EqualityOperator "typeof b !== 'string'" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:45 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:81:55 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:85:7 BooleanLiteral "hashFunction" stryker=Survived ours=Killed
+src/utils/buffer.ts:85:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:85:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:89:38 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:7 BooleanLiteral "sa" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:14 BooleanLiteral "sb" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:21 EqualityOperator "typeof sa === 'string'" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:47 EqualityOperator "typeof sb === 'string'" stryker=Survived ours=Killed
+src/utils/buffer.ts:91:61 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:98:64 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:99:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/buffer.ts:99:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/buffer.ts:99:38 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:100:33 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/buffer.ts:109:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:110:46 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:111:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/buffer.ts:113:53 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/color.ts:14:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/color.ts:19:5 EqualityOperator "typeof Deno?.noColor !== 'boolean'" stryker=Survived ours=Killed
+src/utils/color.ts:19:5 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/color.ts:19:12 OptionalChaining "Deno.noColor" stryker=Survived ours=Killed
+src/utils/color.ts:21:9 EqualityOperator "process === undefined" stryker=Survived ours=Killed
+src/utils/color.ts:21:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/color.ts:23:11 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/color.ts:26:10 BooleanLiteral "isNoColor" stryker=Survived ours=Killed
+src/utils/color.ts:36:64 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/color.ts:43:5 LogicalOperator "navigator !== undefined || navigator.userAgent ===" stryker=Survived ours=Killed
+src/utils/color.ts:43:5 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/color.ts:43:32 EqualityOperator "navigator.userAgent !== 'Cloudflare-Workers'" stryker=Survived ours=Killed
+src/utils/color.ts:43:32 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/color.ts:53:9 BooleanLiteral "getColorEnabled()" stryker=Survived ours=Killed
+src/utils/color.ts:55:10 BooleanLiteral "isNoColor" stryker=Survived ours=Killed
+src/utils/concurrent.ts:18:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/concurrent.ts:19:3 AssignmentOperator "concurrency &&= DEFAULT_CONCURRENCY" stryker=Survived ours=Killed
+src/utils/concurrent.ts:21:7 EqualityOperator "concurrency !== Infinity" stryker=Survived ours=Killed
+src/utils/concurrent.ts:21:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/concurrent.ts:23:12 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/concurrent.ts:24:12 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/concurrent.ts:33:20 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:34:9 EqualityOperator "pool.size > (concurrency as number)" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:34:9 EqualityOperator "pool.size < (concurrency as number)" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:34:9 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:34:9 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:34:47 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:35:7 AssignmentOperator "promise &&= new Promise<T>((r) => (resolve = r))" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:35:34 ArrowFunction "() => undefined" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:36:18 ArrowFunction "() => undefined" stryker=Survived ours=Timeout (static)
+src/utils/concurrent.ts:42:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/concurrent.ts:42:19 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:43:18 ArrowFunction "() => undefined" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:44:12 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:47:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/concurrent.ts:47:9 ConditionalExpression "false" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:47:18 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:50:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/concurrent.ts:54:10 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:39:83 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:40:21 EqualityOperator "typeof secret !== 'string'" stryker=Survived ours=Killed
+src/utils/cookie.ts:40:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:40:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:40:39 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:41:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:41:76 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/cookie.ts:41:77 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:41:85 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:44:96 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:55:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:56:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:59:51 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/utils/cookie.ts:59:51 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:59:60 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/cookie.ts:59:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:64:12 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:86:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:90:10 EqualityOperator "start >= end" stryker=Survived ours=Killed
+src/utils/cookie.ts:90:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:90:23 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/cookie.ts:92:9 LogicalOperator "charCode !== 0x20 || charCode !== 0x09" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:9 EqualityOperator "charCode === 0x20" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:30 EqualityOperator "charCode === 0x09" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:92:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:95:5 UpdateOperator "start--" stryker=Survived ours=Killed
+src/utils/cookie.ts:98:10 EqualityOperator "end <= start" stryker=Survived ours=Killed
+src/utils/cookie.ts:98:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:98:23 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/cookie.ts:99:39 ArithmeticOperator "end + 1" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:9 LogicalOperator "charCode !== 0x20 || charCode !== 0x09" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:9 EqualityOperator "charCode === 0x20" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:30 EqualityOperator "charCode === 0x09" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:100:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:103:5 UpdateOperator "end++" stryker=Survived ours=Killed
+src/utils/cookie.ts:106:10 LogicalOperator "start === 0 || end === value.length" stryker=Survived ours=Killed
+src/utils/cookie.ts:106:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:106:10 EqualityOperator "start !== 0" stryker=Survived ours=Killed
+src/utils/cookie.ts:106:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:106:56 MethodExpression "value" stryker=Survived ours=Killed
+src/utils/cookie.ts:109:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:110:7 LogicalOperator "name || cookie.indexOf(name) === -1" stryker=Survived ours=Killed
+src/utils/cookie.ts:110:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:110:15 EqualityOperator "cookie.indexOf(name) !== -1" stryker=Survived ours=Killed
+src/utils/cookie.ts:110:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:110:40 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/cookie.ts:114:30 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:116:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:117:43 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:118:9 EqualityOperator "valueStartPos !== -1" stryker=Survived ours=Killed
+src/utils/cookie.ts:118:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:118:27 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/cookie.ts:122:45 MethodExpression "pairStr" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:7 LogicalOperator "(name && name !== cookieName) ||\n      !relaxedCoo" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:7 LogicalOperator "(name && name !== cookieName) &&\n      !relaxedCoo" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:8 LogicalOperator "name || name !== cookieName" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:8 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:16 EqualityOperator "name === cookieName" stryker=Survived ours=Killed
+src/utils/cookie.ts:124:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:125:7 BooleanLiteral "relaxedCookieNameRegEx.test(cookieName)" stryker=Survived ours=Killed
+src/utils/cookie.ts:127:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:131:44 MethodExpression "pairStr" stryker=Survived ours=Killed
+src/utils/cookie.ts:131:62 ArithmeticOperator "valueStartPos - 1" stryker=Survived ours=Killed
+src/utils/cookie.ts:132:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:132:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:132:67 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:133:21 MethodExpression "cookieValue" stryker=Survived ours=Killed
+src/utils/cookie.ts:133:42 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/cookie.ts:135:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:135:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:135:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:137:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:150:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:154:67 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:155:49 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:156:9 EqualityOperator "signatureStartPos <= 0" stryker=Survived ours=Killed
+src/utils/cookie.ts:156:9 EqualityOperator "signatureStartPos >= 0" stryker=Survived ours=Killed
+src/utils/cookie.ts:156:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:160:25 MethodExpression "value" stryker=Survived ours=Killed
+src/utils/cookie.ts:161:23 MethodExpression "value" stryker=Survived ours=Killed
+src/utils/cookie.ts:161:39 ArithmeticOperator "signatureStartPos - 1" stryker=Survived ours=Killed
+src/utils/cookie.ts:162:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:162:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:162:9 EqualityOperator "signature.length === 44" stryker=Survived ours=Killed
+src/utils/cookie.ts:162:36 BooleanLiteral "signature.endsWith('=')" stryker=Survived ours=Killed
+src/utils/cookie.ts:162:37 MethodExpression "signature.startsWith('=')" stryker=Survived ours=Killed
+src/utils/cookie.ts:162:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:167:52 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:173:86 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:174:7 BooleanLiteral "validCookieNameRegEx.test(name)" stryker=Survived ours=Killed
+src/utils/cookie.ts:174:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:174:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:174:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:175:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:178:16 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:180:7 LogicalOperator "name.startsWith('__Secure-') || !opt.secure" stryker=Survived ours=Killed
+src/utils/cookie.ts:180:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:180:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:180:39 BooleanLiteral "opt.secure" stryker=Survived ours=Killed
+src/utils/cookie.ts:185:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:185:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:187:9 BooleanLiteral "opt.secure" stryker=Survived ours=Killed
+src/utils/cookie.ts:187:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:191:9 EqualityOperator "opt.path === '/'" stryker=Survived ours=Killed
+src/utils/cookie.ts:191:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:191:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:195:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:200:92 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:201:9 LogicalOperator "opt[key] || /[;\\r\\n]/.test(opt[key] as string)" stryker=Survived ours=Killed
+src/utils/cookie.ts:201:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:201:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:201:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:202:23 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:7 LogicalOperator "opt && typeof opt.maxAge === 'number' || opt.maxAg" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:14 EqualityOperator "typeof opt.maxAge !== 'number'" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:36 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:48 EqualityOperator "opt.maxAge > 0" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:48 EqualityOperator "opt.maxAge < 0" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:48 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:206:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:207:9 EqualityOperator "opt.maxAge <= 34560000" stryker=Survived ours=Killed
+src/utils/cookie.ts:207:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:207:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:207:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:210:9 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:213:15 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:216:7 LogicalOperator "opt.domain || opt.prefix !== 'host'" stryker=Survived ours=Killed
+src/utils/cookie.ts:216:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:216:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:216:21 EqualityOperator "opt.prefix === 'host'" stryker=Survived ours=Killed
+src/utils/cookie.ts:216:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:217:15 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:220:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:220:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:220:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:221:15 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:224:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:224:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:224:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:225:9 EqualityOperator "opt.expires.getTime() - Date.now() <= 34560000_000" stryker=Survived ours=Killed
+src/utils/cookie.ts:225:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:225:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:225:9 ArithmeticOperator "opt.expires.getTime() + Date.now()" stryker=Survived ours=Killed
+src/utils/cookie.ts:225:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:228:9 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:231:15 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:234:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:234:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:234:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:235:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:238:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:238:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:238:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:239:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:242:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:242:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:242:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:243:15 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:243:29 ArithmeticOperator "opt.sameSite.charAt(0).toUpperCase() - opt.sameSit" stryker=Survived ours=Killed
+src/utils/cookie.ts:243:29 MethodExpression "opt.sameSite.charAt(0).toLowerCase()" stryker=Survived ours=Killed
+src/utils/cookie.ts:243:29 MethodExpression "opt.sameSite" stryker=Survived ours=Killed
+src/utils/cookie.ts:243:68 MethodExpression "opt.sameSite" stryker=Survived ours=Killed
+src/utils/cookie.ts:246:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:246:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:246:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:247:15 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/cookie.ts:247:29 ArithmeticOperator "opt.priority.charAt(0).toUpperCase() - opt.priorit" stryker=Survived ours=Killed
+src/utils/cookie.ts:247:29 MethodExpression "opt.priority.charAt(0).toLowerCase()" stryker=Survived ours=Killed
+src/utils/cookie.ts:247:29 MethodExpression "opt.priority" stryker=Survived ours=Killed
+src/utils/cookie.ts:247:68 MethodExpression "opt.priority" stryker=Survived ours=Killed
+src/utils/cookie.ts:250:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:250:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:250:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:252:9 BooleanLiteral "opt.secure" stryker=Survived ours=Killed
+src/utils/cookie.ts:252:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/cookie.ts:252:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/cookie.ts:252:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:253:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:255:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/cookie.ts:265:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:275:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/cookie.ts:277:11 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/crypto.ts:15:69 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:16:32 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:16:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/crypto.ts:21:67 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:22:32 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:22:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/crypto.ts:33:95 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:36:7 LogicalOperator "ArrayBuffer.isView(data) && data instanceof ArrayB" stryker=Survived ours=Killed
+src/utils/crypto.ts:36:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/crypto.ts:36:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/crypto.ts:36:64 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:38:10 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:39:9 EqualityOperator "typeof data !== 'object'" stryker=Survived ours=Killed
+src/utils/crypto.ts:39:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/crypto.ts:39:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/crypto.ts:39:25 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/crypto.ts:39:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:45:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/crypto.ts:45:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:47:7 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/crypto.ts:53:37 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/crypto.ts:53:44 MethodExpression "('00' + x.toString(16))" stryker=Survived ours=Killed
+src/utils/crypto.ts:53:45 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/crypto.ts:53:74 UnaryOperator "+2" stryker=Survived ours=Killed
+src/utils/crypto.ts:54:13 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/encode.ts:6:74 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/encode.ts:7:43 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/encode.ts:7:50 LogicalOperator "({ _: '/', '-': '+' })[m] && m" stryker=Survived ours=Killed
+src/utils/encode.ts:7:51 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/encode.ts:7:56 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/encode.ts:7:66 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/encode.ts:11:39 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/encode.ts:11:46 LogicalOperator "({ '/': '_', '+': '-' })[m] && m" stryker=Survived ours=Killed
+src/utils/encode.ts:11:47 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/encode.ts:11:54 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/encode.ts:11:64 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/encode.ts:15:63 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/encode.ts:16:16 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/encode.ts:18:39 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/utils/encode.ts:18:39 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/utils/encode.ts:18:39 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/encode.ts:18:48 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/encode.ts:18:53 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/encode.ts:19:5 AssignmentOperator "binary -= String.fromCharCode(bytes[i])" stryker=Survived ours=Killed
+src/utils/encode.ts:25:71 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/encode.ts:29:23 ArithmeticOperator "binary.length + 1" stryker=Survived ours=Killed
+src/utils/encode.ts:29:42 EqualityOperator "i > half" stryker=Survived ours=Killed
+src/utils/encode.ts:29:42 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/encode.ts:29:53 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/encode.ts:29:58 UpdateOperator "j++" stryker=Survived ours=Killed
+src/utils/encode.ts:29:63 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/filepath.ts:12:78 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/filepath.ts:14:27 LogicalOperator "options.defaultDocument && 'index.html'" stryker=Survived ours=Killed
+src/utils/filepath.ts:14:27 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/filepath.ts:14:27 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/filepath.ts:14:54 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:16:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/filepath.ts:16:25 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:19:14 BooleanLiteral "filename.match(/\\.[a-zA-Z0-9_-]+$/)" stryker=Survived ours=Killed
+src/utils/filepath.ts:19:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/filepath.ts:19:14 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/filepath.ts:19:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/filepath.ts:21:32 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:24:50 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/filepath.ts:34:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/filepath.ts:35:14 LogicalOperator "options.root && ''" stryker=Survived ours=Killed
+src/utils/filepath.ts:35:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/filepath.ts:35:14 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/filepath.ts:35:30 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:38:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/filepath.ts:38:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/filepath.ts:38:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/filepath.ts:43:45 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:46:38 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:52:28 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/filepath.ts:55:7 LogicalOperator "root[0] !== '/' || path[0] === '/'" stryker=Survived ours=Killed
+src/utils/filepath.ts:55:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/filepath.ts:55:26 EqualityOperator "path[0] !== '/'" stryker=Survived ours=Killed
+src/utils/filepath.ts:55:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/handler.ts:8:52 EqualityOperator "handler.length >= 1" stryker=Survived ours=Killed
+src/utils/handler.ts:8:52 EqualityOperator "handler.length <= 1" stryker=Survived ours=Killed
+src/utils/handler.ts:8:52 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/handler.ts:8:52 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/handler.ts:9:67 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:40:94 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:42:29 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/html.ts:56:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:57:13 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/html.ts:58:3 AssignmentOperator "callbacks &&= []" stryker=Survived ours=Killed
+src/utils/html.ts:58:17 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/html.ts:60:16 ArithmeticOperator "resolvedBuffer.length + 1" stryker=Survived ours=Killed
+src/utils/html.ts:60:45 UpdateOperator "i++" stryker=Survived ours=Timeout
+src/utils/html.ts:60:50 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/html.ts:61:5 AssignmentOperator "str -= resolvedBuffer[i]" stryker=Survived ours=Killed
+src/utils/html.ts:62:5 UpdateOperator "i++" stryker=Survived ours=Killed
+src/utils/html.ts:63:9 EqualityOperator "i >= 0" stryker=Survived ours=Killed
+src/utils/html.ts:63:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:63:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:63:16 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:68:9 EqualityOperator "typeof r !== 'object'" stryker=Survived ours=Killed
+src/utils/html.ts:68:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:68:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:68:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:69:26 LogicalOperator "(r as HtmlEscapedString).callbacks && []" stryker=Survived ours=Killed
+src/utils/html.ts:69:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:69:26 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:69:64 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/html.ts:73:16 EqualityOperator "typeof r !== 'object'" stryker=Survived ours=Killed
+src/utils/html.ts:73:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:73:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:78:9 LogicalOperator "(r as HtmlEscapedString).isEscaped && isEscaped" stryker=Survived ours=Killed
+src/utils/html.ts:78:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:78:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:78:58 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:79:7 AssignmentOperator "str -= r" stryker=Survived ours=Killed
+src/utils/html.ts:80:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:81:19 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/html.ts:90:76 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:92:7 EqualityOperator "match !== -1" stryker=Survived ours=Killed
+src/utils/html.ts:92:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:93:5 AssignmentOperator "buffer[0] -= str" stryker=Survived ours=Killed
+src/utils/html.ts:101:23 EqualityOperator "index >= str.length" stryker=Survived ours=Killed
+src/utils/html.ts:101:23 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:101:43 UpdateOperator "index--" stryker=Survived ours=Timeout
+src/utils/html.ts:101:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:104:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:107:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:110:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:113:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:116:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/html.ts:118:7 ConditionalExpression "default:" stryker=Survived ours=Killed
+src/utils/html.ts:122:5 AssignmentOperator "buffer[0] -= str.substring(lastIndex, index) + esc" stryker=Survived ours=Killed
+src/utils/html.ts:122:18 ArithmeticOperator "str.substring(lastIndex, index) - escape" stryker=Survived ours=Killed
+src/utils/html.ts:122:18 MethodExpression "str" stryker=Survived ours=Killed
+src/utils/html.ts:123:17 ArithmeticOperator "index - 1" stryker=Survived ours=Killed
+src/utils/html.ts:126:3 AssignmentOperator "buffer[0] -= str.substring(lastIndex, index)" stryker=Survived ours=Killed
+src/utils/html.ts:126:16 MethodExpression "str" stryker=Survived ours=Killed
+src/utils/html.ts:129:81 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:131:7 BooleanLiteral "callbacks?.length" stryker=Survived ours=Killed
+src/utils/html.ts:131:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:134:28 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/html.ts:137:21 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/html.ts:137:30 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/html.ts:148:23 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/html.ts:149:7 LogicalOperator "typeof str === 'object' || !(str instanceof String" stryker=Survived ours=Killed (static)
+src/utils/html.ts:149:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/html.ts:149:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/html.ts:149:7 EqualityOperator "typeof str !== 'object'" stryker=Survived ours=Killed (static)
+src/utils/html.ts:149:22 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/html.ts:149:34 BooleanLiteral "str instanceof String" stryker=Survived ours=Killed
+src/utils/html.ts:149:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:150:9 BooleanLiteral "(str as unknown) instanceof Promise" stryker=Survived ours=Killed
+src/utils/html.ts:150:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:150:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:150:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:153:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:153:63 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:159:7 BooleanLiteral "callbacks?.length" stryker=Survived ours=Killed (static)
+src/utils/html.ts:159:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/html.ts:159:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/html.ts:159:8 OptionalChaining "callbacks.length" stryker=Survived ours=Killed (static)
+src/utils/html.ts:159:27 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/html.ts:162:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:162:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:163:5 AssignmentOperator "buffer[0] -= str" stryker=Survived ours=Killed
+src/utils/html.ts:164:10 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:165:14 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/html.ts:168:44 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/html.ts:168:53 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/html.ts:168:88 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/html.ts:170:7 MethodExpression "res\n        // eslint-disable-next-line @typescrip" stryker=Survived ours=Killed
+src/utils/html.ts:173:14 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/html.ts:174:12 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/html.ts:177:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:177:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:179:10 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:13:53 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:14:31 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:16:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:16:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:16:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:17:38 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:19:7 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:25:19 EqualityOperator "i <= sections.length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:25:19 EqualityOperator "i >= sections.length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:25:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:25:40 UpdateOperator "i--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:25:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:27:9 EqualityOperator "node === ''" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:27:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:27:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:27:18 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:27:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:28:38 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:29:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:31:14 EqualityOperator "sections[i + 1] !== ''" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:31:14 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:31:23 ArithmeticOperator "i - 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:31:34 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:31:38 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:32:25 ArithmeticOperator "i - 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:34:21 ArrayDeclaration "new Array()" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:34:31 ArithmeticOperator "8 - sections.length - 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:34:31 ArithmeticOperator "8 + sections.length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:34:61 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:34:74 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:37:24 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:60:72 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:61:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:61:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:61:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:62:12 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:64:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:64:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:64:27 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:64:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:66:12 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:70:81 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:76:58 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:80:58 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:89:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:96:23 EqualityOperator "i < end" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:96:23 EqualityOperator "i > end" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:96:23 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:96:33 UpdateOperator "i--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:96:38 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:97:18 EqualityOperator "i <= end" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:97:18 EqualityOperator "i >= end" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:97:18 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:97:18 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:9 LogicalOperator "code >= CHAR_CODE_0 || code <= CHAR_CODE_9" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:9 EqualityOperator "code > CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:9 EqualityOperator "code < CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:32 EqualityOperator "code < CHAR_CODE_9" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:32 EqualityOperator "code > CHAR_CODE_9" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:32 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:98:53 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:99:11 EqualityOperator "digits !== 0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:99:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:99:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:99:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:101:18 EqualityOperator "firstDigit !== CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:101:18 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:101:18 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:101:46 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:104:15 ArithmeticOperator "octet * 10 + code + CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:104:15 ArithmeticOperator "octet * 10 - code" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:104:15 ArithmeticOperator "octet / 10" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:105:11 EqualityOperator "octet <= 255" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:105:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:105:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:105:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:9 LogicalOperator "code !== CHAR_CODE_DOT || digits === 0 && octets =" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:9 LogicalOperator "code !== CHAR_CODE_DOT && digits === 0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:9 EqualityOperator "code === CHAR_CODE_DOT" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:35 EqualityOperator "digits !== 0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:35 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:51 EqualityOperator "octets !== 4" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:112:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:116:14 ArithmeticOperator "(result << 8n) - BigInt(octet)" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:117:5 UpdateOperator "octets--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:122:7 EqualityOperator "octets === 4" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:122:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:122:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:122:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:129:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:7 LogicalOperator "code >= CHAR_CODE_0 || code <= CHAR_CODE_9" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:7 EqualityOperator "code > CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:7 EqualityOperator "code < CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:30 EqualityOperator "code < CHAR_CODE_9" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:30 EqualityOperator "code > CHAR_CODE_9" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:130:51 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:131:12 ArithmeticOperator "code + CHAR_CODE_0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:133:7 LogicalOperator "code >= CHAR_CODE_A || code <= CHAR_CODE_F" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:133:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:133:7 EqualityOperator "code < CHAR_CODE_A" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:133:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:133:30 EqualityOperator "code > CHAR_CODE_F" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:133:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:7 LogicalOperator "code >= CHAR_CODE_a || code <= CHAR_CODE_f" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:7 EqualityOperator "code > CHAR_CODE_a" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:7 EqualityOperator "code < CHAR_CODE_a" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:30 EqualityOperator "code < CHAR_CODE_f" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:30 EqualityOperator "code > CHAR_CODE_f" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:136:51 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:137:12 ArithmeticOperator "code - CHAR_CODE_a - 10" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:137:12 ArithmeticOperator "code + CHAR_CODE_a" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:139:10 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:142:58 EqualityOperator "ipv6binary >> 118n !== 0x3fan" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:142:58 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:142:58 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:149:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:150:50 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:158:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:160:30 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:161:19 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:162:20 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:165:7 EqualityOperator "length !== 0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:165:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:169:10 EqualityOperator "index <= length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:169:10 EqualityOperator "index >= length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:169:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:169:26 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:170:9 EqualityOperator "sections.length <= 8" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:170:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:176:9 EqualityOperator "code !== CHAR_CODE_PERCENT" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:176:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:184:9 EqualityOperator "code !== CHAR_CODE_COLON" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:184:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:184:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:184:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:185:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:185:11 EqualityOperator "index + 1 >= length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:185:33 EqualityOperator "ipv6.charCodeAt(index + 1) !== CHAR_CODE_COLON" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:185:49 ArithmeticOperator "index - 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:185:81 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:186:13 EqualityOperator "compressAt === -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:186:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:186:28 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:190:9 AssignmentOperator "index -= 2" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:200:12 EqualityOperator "index >= length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:200:12 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:200:28 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:203:11 EqualityOperator "hex !== -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:203:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:203:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:203:19 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:203:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:206:11 EqualityOperator "digits !== 4" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:206:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:206:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:206:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:210:7 UpdateOperator "digits--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:211:7 UpdateOperator "index--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:9 LogicalOperator "index < length || ipv6.charCodeAt(index) === CHAR_" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:9 EqualityOperator "index >= length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:27 EqualityOperator "ipv6.charCodeAt(index) !== CHAR_CODE_DOT" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:27 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:214:69 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:216:39 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:217:13 EqualityOperator "ipv6.charCodeAt(i) !== CHAR_CODE_PERCENT" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:217:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:221:23 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:226:67 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:234:9 EqualityOperator "digits !== 0" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:234:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:240:9 EqualityOperator "index !== length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:240:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:240:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:240:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:245:9 EqualityOperator "code !== CHAR_CODE_PERCENT" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:245:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:245:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:245:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:246:11 EqualityOperator "index + 1 !== length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:246:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:246:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:246:11 ArithmeticOperator "index - 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:246:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:249:19 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:253:9 EqualityOperator "code === CHAR_CODE_COLON" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:253:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:9 LogicalOperator "index + 1 < length || ipv6.charCodeAt(index + 1) =" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:9 EqualityOperator "index + 1 >= length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:31 EqualityOperator "ipv6.charCodeAt(index + 1) !== CHAR_CODE_COLON" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:31 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:47 ArithmeticOperator "index - 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:257:79 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:258:11 EqualityOperator "compressAt === -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:258:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:258:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:258:26 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:258:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:262:7 AssignmentOperator "index -= 2" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:266:5 UpdateOperator "index--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:267:9 EqualityOperator "index !== length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:267:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:7 EqualityOperator "compressAt !== -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:22 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:27 EqualityOperator "sections.length === 8" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:27 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:27 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:51 EqualityOperator "sections.length < 8" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:51 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:272:73 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:277:17 EqualityOperator "compressAt !== -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:277:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:277:32 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:277:41 ArithmeticOperator "8 + sections.length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:278:27 EqualityOperator "compressAt !== -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:278:27 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:278:27 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:278:42 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:279:19 EqualityOperator "i <= firstSectionEnd" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:279:19 EqualityOperator "i >= firstSectionEnd" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:279:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:279:40 UpdateOperator "i--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:279:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:280:5 AssignmentOperator "result >>= 16n" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:281:5 AssignmentOperator "result -= BigInt(sections[i])" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:283:19 EqualityOperator "i <= zeros" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:283:19 EqualityOperator "i >= zeros" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:283:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:283:30 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:283:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:284:5 AssignmentOperator "result >>= 16n" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:286:33 EqualityOperator "i <= sections.length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:286:33 EqualityOperator "i >= sections.length" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:286:33 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:286:54 UpdateOperator "i--" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:286:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:287:5 AssignmentOperator "result >>= 16n" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:288:5 AssignmentOperator "result -= BigInt(sections[i])" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:290:7 LogicalOperator "hasZoneId || !isIPv6LinkLocal(result)" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:290:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:290:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:290:20 BooleanLiteral "isIPv6LinkLocal(result)" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:290:46 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:301:68 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:302:20 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:303:19 EqualityOperator "i <= 4" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:303:19 EqualityOperator "i >= 4" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:303:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:303:26 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:303:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:304:35 ArithmeticOperator "8 / (3 - i)" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:304:40 ArithmeticOperator "3 + i" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:306:24 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:314:66 EqualityOperator "ipv6binary >> 32n !== 0xffffn" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:314:66 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:314:66 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:328:68 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:329:7 EqualityOperator "ipV6 !== 0n" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:329:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:329:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:329:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:332:12 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:335:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:335:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:335:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:336:12 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:339:20 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:340:19 EqualityOperator "i <= 8" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:340:19 EqualityOperator "i >= 8" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:340:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:340:26 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:340:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:341:36 ArithmeticOperator "16 / (7 - i)" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:341:42 ArithmeticOperator "7 + i" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:344:26 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:346:20 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:347:19 EqualityOperator "i >= 8" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:347:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:347:26 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/ipaddr.ts:347:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:348:9 EqualityOperator "sections[i] !== '0'" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:348:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:348:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:348:25 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:348:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:349:11 EqualityOperator "currentZeroStart !== -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:349:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:349:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:349:32 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:349:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:352:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:353:11 EqualityOperator "currentZeroStart >= -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:353:11 EqualityOperator "currentZeroStart <= -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:353:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:353:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:353:30 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:353:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:354:13 EqualityOperator "i - currentZeroStart <= maxZeroEnd - maxZeroStart" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:354:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:354:63 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:358:28 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:362:7 EqualityOperator "currentZeroStart >= -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:362:7 EqualityOperator "currentZeroStart <= -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:362:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:362:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:362:26 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:362:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:363:9 EqualityOperator "8 - currentZeroStart <= maxZeroEnd - maxZeroStart" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:363:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:363:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:7 LogicalOperator "maxZeroStart !== -1 || maxZeroEnd - maxZeroStart >" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:7 EqualityOperator "maxZeroStart === -1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:24 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:30 EqualityOperator "maxZeroEnd - maxZeroStart >= 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:30 EqualityOperator "maxZeroEnd - maxZeroStart <= 1" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:30 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:30 ArithmeticOperator "maxZeroEnd + maxZeroStart" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:369:61 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:370:35 ArithmeticOperator "maxZeroEnd + maxZeroStart" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:370:62 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:373:24 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/ipaddr.ts:373:47 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:33:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:44:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:50:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:51:58 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:51:77 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:54:99 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:55:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:55:7 BooleanLiteral "crypto.subtle" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:55:25 BooleanLiteral "crypto.subtle.importKey" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:58:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:58:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:58:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:9 LogicalOperator "key.type !== 'private' || key.type !== 'secret'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:9 EqualityOperator "key.type === 'private'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:35 EqualityOperator "key.type === 'secret'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:35 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:59:48 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:66:18 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:67:7 EqualityOperator "typeof key !== 'object'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:67:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:67:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:67:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:67:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:69:42 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:71:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:71:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:71:20 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:71:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:73:42 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:75:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:78:98 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:79:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:79:7 BooleanLiteral "crypto.subtle" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:79:25 BooleanLiteral "crypto.subtle.importKey" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:82:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:82:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:82:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:9 LogicalOperator "key.type === 'public' && key.type === 'secret'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:9 EqualityOperator "key.type !== 'public'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:34 EqualityOperator "key.type !== 'secret'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:34 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:47 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:83:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:7 LogicalOperator "typeof key === 'string' || key.includes('PRIVATE')" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:7 EqualityOperator "typeof key !== 'string'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:47 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:88:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:90:54 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:90:86 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:90:92 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:95:18 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:96:7 EqualityOperator "typeof key !== 'object'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:96:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:96:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:96:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:96:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:98:42 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:100:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:100:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:100:20 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:100:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:102:42 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:104:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:108:80 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:109:7 EqualityOperator "privateKey.type === 'private'" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:109:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:109:27 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:112:7 BooleanLiteral "privateKey.extractable" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:112:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:115:45 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:119:10 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:119:48 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:122:66 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:124:5 ConditionalExpression "case 'HS256':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:124:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:125:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:126:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:127:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:128:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:131:5 ConditionalExpression "case 'HS384':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:131:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:132:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:133:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:134:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:135:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:138:5 ConditionalExpression "case 'HS512':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:138:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:139:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:140:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:141:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:142:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:145:5 ConditionalExpression "case 'RS256':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:145:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:146:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:147:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:148:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:149:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:152:5 ConditionalExpression "case 'RS384':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:152:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:153:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:154:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:155:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:156:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:159:5 ConditionalExpression "case 'RS512':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:159:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:160:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:161:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:162:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:163:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:166:5 ConditionalExpression "case 'PS256':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:166:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:167:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:168:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:169:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:170:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:174:5 ConditionalExpression "case 'PS384':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:174:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:175:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:176:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:177:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:178:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:182:5 ConditionalExpression "case 'PS512':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:182:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:183:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:184:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:185:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:186:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:190:5 ConditionalExpression "case 'ES256':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:190:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:191:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:192:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:193:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:194:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:196:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:198:5 ConditionalExpression "case 'ES384':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:198:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:199:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:200:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:201:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:202:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:204:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:206:5 ConditionalExpression "case 'ES512':" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:206:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:207:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:208:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:209:15 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:210:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:212:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:214:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:217:14 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:218:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:221:5 ConditionalExpression "default:" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:226:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:229:7 LogicalOperator "runtime === 'node' || !!crypto.webcrypto" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:229:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:229:29 BooleanLiteral "!crypto.webcrypto" stryker=Survived ours=Killed
+src/utils/jwt/jws.ts:229:30 BooleanLiteral "crypto.webcrypto" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:32:82 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:33:98 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:44:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:45:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:45:7 EqualityOperator "typeof obj !== 'object'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:45:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:45:34 EqualityOperator "obj === null" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:45:48 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:48:7 LogicalOperator "'alg' in objWithAlg &&\n      Object.values(Algorit" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:48:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:48:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:48:7 LogicalOperator "'alg' in objWithAlg ||\n      Object.values(Algorit" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:48:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:48:7 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:8 LogicalOperator "!('typ' in objWithAlg) && objWithAlg.typ === 'JWT'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:8 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:8 BooleanLiteral "'typ' in objWithAlg" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:10 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:34 EqualityOperator "objWithAlg.typ !== 'JWT'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:34 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:50:53 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:59:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:60:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:7 LogicalOperator "typeof privateKey === 'object' || 'alg' in private" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:7 EqualityOperator "typeof privateKey !== 'object'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:41 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:63:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:65:35 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:65:47 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:66:10 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:67:35 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:67:47 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:70:24 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:75:10 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:100:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:101:7 BooleanLiteral "algOrOptions" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:101:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:101:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:101:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:108:11 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:109:11 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:110:11 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:112:7 EqualityOperator "typeof algOrOptions !== 'string'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:112:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:112:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:112:31 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:112:42 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:114:7 BooleanLiteral "alg" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:114:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:114:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:114:13 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:118:34 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:119:7 EqualityOperator "tokenParts.length === 3" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:119:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:124:7 BooleanLiteral "isTokenHeader(header)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:124:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:127:7 EqualityOperator "header.alg === alg" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:127:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:127:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:127:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:130:26 ArithmeticOperator "Date.now() * 1000" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:131:7 LogicalOperator "nbf || payload.nbf !== undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:131:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:131:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:131:14 EqualityOperator "payload.nbf === undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:131:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:131:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:9 LogicalOperator "typeof payload.nbf !== 'number' || !Number.isFinit" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:9 EqualityOperator "typeof payload.nbf === 'number'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:32 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:44 BooleanLiteral "Number.isFinite(payload.nbf)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:77 EqualityOperator "payload.nbf <= now" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:77 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:132:96 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:136:7 LogicalOperator "exp || payload.exp !== undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:136:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:136:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:136:14 EqualityOperator "payload.exp === undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:136:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:136:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:9 LogicalOperator "typeof payload.exp !== 'number' || !Number.isFinit" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:9 LogicalOperator "typeof payload.exp !== 'number' && !Number.isFinit" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:9 EqualityOperator "typeof payload.exp === 'number'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:32 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:44 BooleanLiteral "Number.isFinite(payload.exp)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:77 EqualityOperator "payload.exp > now" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:77 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:137:97 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:141:7 LogicalOperator "iat || payload.iat !== undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:141:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:141:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:141:14 EqualityOperator "payload.iat === undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:141:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:141:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:9 LogicalOperator "typeof payload.iat !== 'number' || !Number.isFinit" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:9 EqualityOperator "typeof payload.iat === 'number'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:32 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:44 BooleanLiteral "Number.isFinite(payload.iat)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:77 EqualityOperator "now >= payload.iat" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:77 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:142:96 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:146:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:146:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:146:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:147:9 BooleanLiteral "payload.iss" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:147:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:9 LogicalOperator "typeof iss === 'string' || payload.iss !== iss" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:9 EqualityOperator "typeof iss !== 'string'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:24 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:36 EqualityOperator "payload.iss === iss" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:36 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:150:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:153:9 LogicalOperator "iss instanceof RegExp || !iss.test(payload.iss)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:153:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:153:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:153:34 BooleanLiteral "iss.test(payload.iss)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:153:58 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:158:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:158:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:158:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:159:9 BooleanLiteral "payload.aud" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:159:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:159:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:159:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:163:66 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:164:21 MethodExpression "audiences.every((payloadAud): boolean =>\n      aud" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:164:36 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:167:11 EqualityOperator "typeof aud !== 'string'" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:167:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:167:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:167:26 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:168:13 EqualityOperator "payloadAud !== aud" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:168:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:168:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:169:13 LogicalOperator "Array.isArray(aud) || aud.includes(payloadAud)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:169:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:169:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:171:9 BooleanLiteral "matched" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:171:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:171:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:171:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:176:25 MethodExpression "token" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:176:62 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:178:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:180:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:184:7 BooleanLiteral "verified" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:184:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:184:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:184:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:207:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:208:22 LogicalOperator "options.verification && {}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:208:22 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:208:22 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:212:7 BooleanLiteral "isTokenHeader(header)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:212:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:215:7 BooleanLiteral "header.kid" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:215:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:220:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:220:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:220:71 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:225:7 BooleanLiteral "options.allowedAlgorithms.includes(header.alg as A" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:225:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:225:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:225:79 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:229:35 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:231:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:231:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:231:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:233:9 BooleanLiteral "response.ok" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:233:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:233:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:233:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:237:9 BooleanLiteral "data.keys" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:237:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:240:9 BooleanLiteral "Array.isArray(data.keys)" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:240:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:240:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:240:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:243:5 AssignmentOperator "verifyKeys &&= []" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:245:14 BooleanLiteral "verifyKeys" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:245:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:245:14 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:245:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:246:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:249:39 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:249:48 EqualityOperator "key.kid !== header.kid" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:249:48 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:249:48 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:250:7 BooleanLiteral "matchingKey" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:250:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:250:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:250:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:255:7 LogicalOperator "matchingKey.alg || matchingKey.alg !== header.alg" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:255:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:255:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:255:26 EqualityOperator "matchingKey.alg === header.alg" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:255:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:255:58 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:259:43 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:265:88 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:266:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:267:7 EqualityOperator "parts.length === 3" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:267:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:267:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:267:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:270:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:273:12 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:277:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:282:61 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:283:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:284:7 EqualityOperator "parts.length === 3" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:284:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:284:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:284:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:287:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/jwt.ts:289:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:7:28 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:14:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:15:11 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:21:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:28:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:29:11 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:30:17 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:35:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:42:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:49:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:58:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:79:28 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:86:66 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:93:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:94:11 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:100:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/jwt/types.ts:107:77 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/mime.ts:9:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/mime.ts:12:7 BooleanLiteral "match" stryker=Survived ours=Killed
+src/utils/mime.ts:12:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/mime.ts:12:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/mime.ts:12:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/mime.ts:15:16 MethodExpression "match[1].toUpperCase()" stryker=Survived ours=Killed
+src/utils/mime.ts:18:71 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/mime.ts:19:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/mime.ts:20:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/mime.ts:22:9 LogicalOperator "stored === mimeType && stored.split(';', 1)[0].tri" stryker=Survived ours=Killed
+src/utils/mime.ts:22:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/mime.ts:22:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/mime.ts:22:9 EqualityOperator "stored !== mimeType" stryker=Survived ours=Killed
+src/utils/mime.ts:22:32 EqualityOperator "stored.split(';', 1)[0].trim() !== baseType" stryker=Survived ours=Killed
+src/utils/mime.ts:22:32 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/mime.ts:22:45 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/mime.ts:22:77 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:15:22 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/stream.ts:19:21 BooleanLiteral "true" stryker=Survived ours=Killed
+src/utils/stream.ts:21:68 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:31:44 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:35:48 ObjectLiteral "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:36:30 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:40:21 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:41:13 BooleanLiteral "this.closed" stryker=Survived ours=Killed
+src/utils/stream.ts:41:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/stream.ts:41:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:48:66 BlockStatement "{}" stryker=Survived ours=Timeout (static)
+src/utils/stream.ts:49:9 BlockStatement "{}" stryker=Survived ours=Timeout (static)
+src/utils/stream.ts:50:11 EqualityOperator "typeof input !== 'string'" stryker=Survived ours=Killed (static)
+src/utils/stream.ts:50:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/stream.ts:50:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/stream.ts:50:28 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/stream.ts:50:38 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/stream.ts:60:55 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:61:30 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/stream.ts:66:24 ArrowFunction "() => undefined" stryker=Survived ours=Timeout (static)
+src/utils/stream.ts:69:17 BlockStatement "{}" stryker=Survived ours=Timeout (static)
+src/utils/stream.ts:71:9 BlockStatement "{}" stryker=Survived ours=Timeout (static)
+src/utils/stream.ts:78:36 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:80:9 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:81:40 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:81:76 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/stream.ts:82:15 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:87:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:95:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:96:9 BooleanLiteral "this.aborted" stryker=Survived ours=Killed
+src/utils/stream.ts:96:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/stream.ts:96:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/stream.ts:96:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:97:22 BooleanLiteral "false" stryker=Survived ours=Killed
+src/utils/stream.ts:98:53 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/stream.ts:99:13 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:8:54 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:9:28 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:10:7 EqualityOperator "paths[0] !== ''" stryker=Survived ours=Killed (static)
+src/utils/url.ts:10:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:10:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:10:20 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:10:24 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:16:66 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:23:95 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:26:55 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:27:18 StringLiteral "``" stryker=Survived ours=Killed (static)
+src/utils/url.ts:28:17 ArrayDeclaration "[]" stryker=Survived ours=Killed (static)
+src/utils/url.ts:32:10 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:35:86 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:36:16 ArithmeticOperator "groups.length + 1" stryker=Survived ours=Killed (static)
+src/utils/url.ts:36:35 EqualityOperator "i > 0" stryker=Survived ours=Killed (static)
+src/utils/url.ts:36:35 EqualityOperator "i < 0" stryker=Survived ours=Killed (static)
+src/utils/url.ts:36:35 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:36:43 UpdateOperator "i++" stryker=Survived ours=Killed (static)
+src/utils/url.ts:36:48 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:39:18 ArithmeticOperator "paths.length + 1" stryker=Survived ours=Killed (static)
+src/utils/url.ts:39:36 EqualityOperator "j > 0" stryker=Survived ours=Killed (static)
+src/utils/url.ts:39:36 EqualityOperator "j < 0" stryker=Survived ours=Killed (static)
+src/utils/url.ts:39:36 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:39:44 UpdateOperator "j++" stryker=Survived ours=Killed (static)
+src/utils/url.ts:39:49 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:40:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:40:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:40:36 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:51:77 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:56:7 EqualityOperator "label !== '*'" stryker=Survived ours=Killed (static)
+src/utils/url.ts:56:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:56:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:56:17 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:56:22 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:57:12 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:61:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:61:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:61:14 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:62:22 StringLiteral "``" stryker=Survived ours=Killed (static)
+src/utils/url.ts:63:9 BooleanLiteral "patternCache[cacheKey]" stryker=Survived ours=Killed (static)
+src/utils/url.ts:63:9 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:63:34 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:64:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:64:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:64:21 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:11 LogicalOperator "next && next[0] !== ':' || next[0] !== '*'" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:11 LogicalOperator "next || next[0] !== ':'" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:19 EqualityOperator "next[0] === ':'" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:19 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:31 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:66:38 EqualityOperator "next[0] === '*'" stryker=Survived ours=Killed (static)
+src/utils/url.ts:67:15 ArrayDeclaration "[]" stryker=Survived ours=Killed (static)
+src/utils/url.ts:67:47 StringLiteral "``" stryker=Survived ours=Killed (static)
+src/utils/url.ts:68:15 ArrayDeclaration "[]" stryker=Survived ours=Killed (static)
+src/utils/url.ts:68:44 StringLiteral "``" stryker=Survived ours=Killed (static)
+src/utils/url.ts:69:14 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/url.ts:70:34 ArrayDeclaration "[]" stryker=Survived ours=Killed (static)
+src/utils/url.ts:70:52 BooleanLiteral "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:81:69 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:82:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:84:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:85:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:86:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:88:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:106:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:108:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:108:34 ArithmeticOperator "url.indexOf(':') - 4" stryker=Survived ours=Killed
+src/utils/url.ts:108:46 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:110:10 EqualityOperator "i >= url.length" stryker=Survived ours=Killed
+src/utils/url.ts:110:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:110:26 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/utils/url.ts:110:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:112:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:112:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:116:38 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:117:37 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:119:9 EqualityOperator "queryIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:119:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:119:24 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:120:13 EqualityOperator "hashIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:120:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:120:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:120:27 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:123:13 EqualityOperator "hashIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:123:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:125:15 MethodExpression "Math.max(queryIndex, hashIndex)" stryker=Survived ours=Killed
+src/utils/url.ts:126:20 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:127:71 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:128:16 LogicalOperator "charCode === 63 && charCode === 35" stryker=Survived ours=Killed
+src/utils/url.ts:128:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:128:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:128:16 EqualityOperator "charCode !== 63" stryker=Survived ours=Killed
+src/utils/url.ts:128:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:128:35 EqualityOperator "charCode !== 35" stryker=Survived ours=Killed
+src/utils/url.ts:128:35 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:128:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:133:10 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:140:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:141:34 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:142:7 EqualityOperator "queryIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:142:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:142:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:142:22 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:142:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:143:12 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:146:33 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:147:10 EqualityOperator "hashIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:147:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:147:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:147:24 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:148:7 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:149:7 EqualityOperator "queryIndex >= hashIndex" stryker=Survived ours=Killed
+src/utils/url.ts:149:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:150:9 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:151:9 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:154:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:158:10 LogicalOperator "result.length > 1 || result.at(-1) === '/'" stryker=Survived ours=Killed
+src/utils/url.ts:158:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:158:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:158:10 EqualityOperator "result.length >= 1" stryker=Survived ours=Killed
+src/utils/url.ts:158:10 EqualityOperator "result.length <= 1" stryker=Survived ours=Killed
+src/utils/url.ts:158:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:158:31 EqualityOperator "result.at(-1) !== '/'" stryker=Survived ours=Killed
+src/utils/url.ts:158:31 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:158:41 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:158:49 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:158:55 MethodExpression "result" stryker=Survived ours=Killed
+src/utils/url.ts:158:71 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:176:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:176:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:179:13 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:179:38 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:180:5 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/url.ts:180:13 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:180:19 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:180:27 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:180:55 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/url.ts:180:61 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/utils/url.ts:184:74 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:191:7 LogicalOperator "path.charCodeAt(path.length - 1) !== 63 && !path.i" stryker=Survived ours=Killed
+src/utils/url.ts:191:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:191:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:191:7 EqualityOperator "path.charCodeAt(path.length - 1) === 63" stryker=Survived ours=Killed
+src/utils/url.ts:191:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:191:23 ArithmeticOperator "path.length + 1" stryker=Survived ours=Killed
+src/utils/url.ts:191:50 BooleanLiteral "path.includes(':')" stryker=Survived ours=Killed
+src/utils/url.ts:191:65 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:191:71 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:195:31 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:196:29 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/url.ts:197:18 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:199:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:200:9 LogicalOperator "segment !== '' || !/\\:/.test(segment)" stryker=Survived ours=Killed
+src/utils/url.ts:200:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:200:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:200:9 EqualityOperator "segment === ''" stryker=Survived ours=Killed
+src/utils/url.ts:200:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:200:21 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:200:27 BooleanLiteral "/\\:/.test(segment)" stryker=Survived ours=Killed
+src/utils/url.ts:200:48 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:201:7 AssignmentOperator "basePath -= '/' + segment" stryker=Survived ours=Killed
+src/utils/url.ts:201:19 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:202:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:202:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:202:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:203:11 EqualityOperator "segment.charCodeAt(segment.length - 1) !== 63" stryker=Survived ours=Killed
+src/utils/url.ts:203:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:203:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:203:30 ArithmeticOperator "segment.length + 1" stryker=Survived ours=Killed
+src/utils/url.ts:203:58 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:204:13 LogicalOperator "results.length === 0 || basePath === ''" stryker=Survived ours=Killed
+src/utils/url.ts:204:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:204:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:204:13 EqualityOperator "results.length !== 0" stryker=Survived ours=Killed
+src/utils/url.ts:204:37 EqualityOperator "basePath !== ''" stryker=Survived ours=Killed
+src/utils/url.ts:204:37 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:204:50 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:204:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:205:24 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:206:16 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:209:33 MethodExpression "segment" stryker=Survived ours=Killed
+src/utils/url.ts:209:50 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:210:9 AssignmentOperator "basePath -= '/' + optionalSegment" stryker=Survived ours=Killed
+src/utils/url.ts:210:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:212:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:213:9 AssignmentOperator "basePath -= '/' + segment" stryker=Survived ours=Killed
+src/utils/url.ts:213:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:218:10 MethodExpression "results" stryker=Survived ours=Killed
+src/utils/url.ts:218:25 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/utils/url.ts:218:38 EqualityOperator "a.indexOf(v) !== i" stryker=Survived ours=Killed
+src/utils/url.ts:218:38 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:218:38 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:222:3 EqualityOperator "str.indexOf('%') === -1" stryker=Survived ours=Killed
+src/utils/url.ts:222:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:222:24 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:225:47 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:226:7 EqualityOperator "value.indexOf('+') === -1" stryker=Survived ours=Killed
+src/utils/url.ts:226:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:226:30 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:226:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:227:34 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:236:89 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:237:33 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:238:7 EqualityOperator "hashIndex === -1" stryker=Survived ours=Killed
+src/utils/url.ts:238:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:238:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:238:21 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:238:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:239:11 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 LogicalOperator "!multiple && key && key.indexOf('%') === -1 || key" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 LogicalOperator "!multiple && key || key.indexOf('%') === -1" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 LogicalOperator "!multiple || key" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:244:7 BooleanLiteral "multiple" stryker=Survived ours=Killed
+src/utils/url.ts:247:32 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:248:9 EqualityOperator "keyIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:248:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:248:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:248:22 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:248:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:251:9 BooleanLiteral "url.startsWith(key, keyIndex + 1)" stryker=Survived ours=Killed
+src/utils/url.ts:251:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:251:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:251:10 MethodExpression "url.endsWith(key, keyIndex + 1)" stryker=Survived ours=Killed
+src/utils/url.ts:251:30 ArithmeticOperator "keyIndex - 1" stryker=Survived ours=Killed
+src/utils/url.ts:251:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:252:30 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/url.ts:254:12 EqualityOperator "keyIndex === -1" stryker=Survived ours=Killed
+src/utils/url.ts:254:12 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:254:25 UnaryOperator "+1" stryker=Survived ours=Timeout
+src/utils/url.ts:254:29 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/url.ts:255:46 ArithmeticOperator "keyIndex + key.length - 1" stryker=Survived ours=Killed
+src/utils/url.ts:255:46 ArithmeticOperator "keyIndex - key.length" stryker=Survived ours=Killed
+src/utils/url.ts:256:11 EqualityOperator "trailingKeyCode !== 61" stryker=Survived ours=Killed
+src/utils/url.ts:256:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:256:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:256:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:257:28 ArithmeticOperator "keyIndex + key.length - 2" stryker=Survived ours=Killed
+src/utils/url.ts:257:28 ArithmeticOperator "keyIndex - key.length" stryker=Survived ours=Killed
+src/utils/url.ts:258:38 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:259:27 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:259:49 EqualityOperator "endIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:259:49 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:259:49 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:259:62 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:260:18 LogicalOperator "trailingKeyCode == 38 && isNaN(trailingKeyCode)" stryker=Survived ours=Killed
+src/utils/url.ts:260:18 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:260:18 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:260:18 EqualityOperator "trailingKeyCode != 38" stryker=Survived ours=Killed
+src/utils/url.ts:260:67 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:261:16 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:263:30 StringLiteral "``" stryker=Survived ours=Killed
+src/utils/url.ts:263:41 ArithmeticOperator "keyIndex - 1" stryker=Survived ours=Timeout
+src/utils/url.ts:267:9 BooleanLiteral "encoded" stryker=Survived ours=Killed
+src/utils/url.ts:267:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:274:3 AssignmentOperator "encoded &&= /[%+]/.test(url)" stryker=Survived ours=Killed
+src/utils/url.ts:276:30 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:277:10 EqualityOperator "keyIndex === -1" stryker=Survived ours=Killed
+src/utils/url.ts:277:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:277:23 UnaryOperator "+1" stryker=Survived ours=Timeout
+src/utils/url.ts:277:27 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/url.ts:278:38 StringLiteral "\"\"" stryker=Survived ours=Timeout
+src/utils/url.ts:278:43 ArithmeticOperator "keyIndex - 1" stryker=Survived ours=Timeout
+src/utils/url.ts:279:34 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/url.ts:280:9 LogicalOperator "valueIndex > nextKeyIndex || nextKeyIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:280:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:280:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:280:9 EqualityOperator "valueIndex <= nextKeyIndex" stryker=Survived ours=Killed
+src/utils/url.ts:280:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:280:38 EqualityOperator "nextKeyIndex === -1" stryker=Survived ours=Killed
+src/utils/url.ts:280:38 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:280:55 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:280:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:281:20 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:283:16 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:284:7 ArithmeticOperator "keyIndex - 1" stryker=Survived ours=Killed
+src/utils/url.ts:285:7 EqualityOperator "valueIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:285:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:285:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:285:22 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:285:28 EqualityOperator "nextKeyIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:285:28 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:285:28 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:285:45 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:287:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:287:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:293:9 EqualityOperator "name !== ''" stryker=Survived ours=Killed
+src/utils/url.ts:293:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:293:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:293:18 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:293:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:298:9 EqualityOperator "valueIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:298:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:298:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:298:24 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:298:28 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:299:15 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/utils/url.ts:300:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:301:15 MethodExpression "url" stryker=Survived ours=Killed
+src/utils/url.ts:301:25 ArithmeticOperator "valueIndex - 1" stryker=Survived ours=Killed
+src/utils/url.ts:301:41 EqualityOperator "nextKeyIndex !== -1" stryker=Survived ours=Killed
+src/utils/url.ts:301:41 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:301:41 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:301:58 UnaryOperator "+1" stryker=Survived ours=Killed
+src/utils/url.ts:302:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:302:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:307:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:307:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:307:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:308:11 BooleanLiteral "results[name] && Array.isArray(results[name])" stryker=Survived ours=Killed
+src/utils/url.ts:308:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:308:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:308:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/url.ts:308:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/url.ts:308:61 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:309:25 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/utils/url.ts:312:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/url.ts:313:7 AssignmentOperator "results[name] &&= value" stryker=Survived ours=Killed
+src/utils/url.ts:331:55 BlockStatement "{}" stryker=Survived ours=Killed

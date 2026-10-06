@@ -1,0 +1,30 @@
+{
+  "target": "hono",
+  "scope": "router",
+  "commit": "08a023cbfde55b434fb0fb30fae35d42e4bf20aa",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        190.1
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        48.2
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

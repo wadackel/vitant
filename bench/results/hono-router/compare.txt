@@ -1,0 +1,940 @@
+stryker mutants: 1190, ours: 1121, matched: 1091
+only in stryker: 99
+      67  Regex
+      30  CallExpression
+       1  LogicalOperator
+       1  ConditionalExpression
+only in ours: 30
+      10  ConditionalExpression
+       6  ArrayDeclaration
+       4  LogicalOperator
+       3  BlockStatement
+       2  StringLiteral
+       2  MethodExpression
+       2  ArrowFunction
+       1  BooleanLiteral
+status (stryker -> ours):
+     906  Survived -> Killed
+     109  Survived -> Survived
+      49  NoCoverage -> NoCoverage
+      11  Survived -> Timeout
+      10  Killed -> Killed
+       6  Ignored -> Static
+detected/undetected disagreements among mutants both tools ran: 917
+src/router/linear-router/router.ts:12:18 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/router/linear-router/router.ts:15:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:17:26 LogicalOperator "checkOptionalParameter(path) && [path]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:17:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:17:26 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:17:58 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:18:7 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:18:7 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:18:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:19:7 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/router/linear-router/router.ts:20:7 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:21:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:25:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:26:37 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:27:61 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:27:61 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:27:61 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:27:70 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:27:75 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:11 LogicalOperator "routeMethod === method && routeMethod === METHOD_N" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:11 EqualityOperator "routeMethod !== method" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:37 EqualityOperator "routeMethod !== METHOD_NAME_ALL" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:37 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:29:70 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:30:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:30:13 EqualityOperator "routePath !== '*'" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:30:34 EqualityOperator "routePath !== '/*'" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:31:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:35:25 EqualityOperator "routePath.indexOf('*') === -1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:35:25 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:35:25 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:35:43 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:35:52 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:36:26 EqualityOperator "routePath.indexOf(':') === -1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:36:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:36:26 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:36:44 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:36:53 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:37:13 LogicalOperator "!hasStar || !hasLabel" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:37:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:37:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:37:13 BooleanLiteral "hasStar" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:37:25 BooleanLiteral "hasLabel" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:37:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:15 LogicalOperator "routePath === path && routePath + '/' === path" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:15 EqualityOperator "routePath !== path" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:37 EqualityOperator "routePath + '/' !== path" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:37 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:49 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:38:63 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:39:27 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:41:20 LogicalOperator "hasStar || !hasLabel" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:41:20 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:41:20 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:41:31 BooleanLiteral "hasLabel" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:41:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:42:32 EqualityOperator "routePath.charCodeAt(routePath.length - 1) !== 42" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:42:32 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:42:53 ArithmeticOperator "routePath.length + 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:43:37 MethodExpression "routePath.startsWith('/*')" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:43:56 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:45:28 MethodExpression "routePath" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:45:67 UnaryOperator "+2" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:45:72 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:48:29 ArithmeticOperator "parts.length + 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:49:56 EqualityOperator "j <= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:49:56 EqualityOperator "j >= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:49:56 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:49:65 UpdateOperator "j--" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:49:70 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:52:17 EqualityOperator "index === pos" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:52:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:52:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:52:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:55:13 AssignmentOperator "pos -= part.length" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:56:17 EqualityOperator "j !== lastIndex" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:56:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:56:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:56:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:57:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:57:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:57:38 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:21 LogicalOperator "pos !== path.length || path.charCodeAt(pos) !== 47" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:21 EqualityOperator "pos === path.length" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:44 EqualityOperator "path.charCodeAt(pos) === 47" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:44 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:58:73 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:62:17 LogicalOperator "!endsWithStar &&\n                pos !== path.leng" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:62:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:62:17 LogicalOperator "!endsWithStar ||\n                pos !== path.leng" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:62:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:62:17 BooleanLiteral "endsWithStar" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:63:17 EqualityOperator "pos === path.length" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:63:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:68:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:69:42 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:70:19 EqualityOperator "index !== -1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:70:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:76:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:77:20 LogicalOperator "hasLabel || !hasStar" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:77:20 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:77:20 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:77:32 BooleanLiteral "hasStar" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:77:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:81:29 ArithmeticOperator "parts.length + 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:82:56 EqualityOperator "j <= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:82:56 EqualityOperator "j >= len" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:82:56 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:82:65 UpdateOperator "j--" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:82:70 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:83:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:83:17 EqualityOperator "pos !== -1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:83:31 EqualityOperator "pos < path.length" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:88:17 EqualityOperator "part.charCodeAt(1) !== 58" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:88:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:88:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:88:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:89:19 EqualityOperator "path.charCodeAt(pos) === 47" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:89:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:89:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:89:48 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:94:26 MethodExpression "part" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:97:19 EqualityOperator "name.charCodeAt(name.length - 1) !== 125" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:97:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:97:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:97:35 ArithmeticOperator "name.length + 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:97:61 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:99:51 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:100:36 ArithmeticOperator "j - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:35 LogicalOperator "next && next[1] !== ':' || next[1] !== '*'" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:35 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:35 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:35 LogicalOperator "next || next[1] !== ':'" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:35 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:43 EqualityOperator "next[1] === ':'" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:43 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:55 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:62 EqualityOperator "next[1] === '*'" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:80 StringLiteral "``" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:101:96 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:102:33 ArithmeticOperator "name.slice(openBracePos + 1, -1) - lookahead" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:102:33 MethodExpression "name" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:102:44 ArithmeticOperator "openBracePos - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:102:62 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:103:34 MethodExpression "path" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:103:45 ArithmeticOperator "pos - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:21 LogicalOperator "!match && match.indices[0][0] !== 0" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:21 BooleanLiteral "match" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:31 EqualityOperator "match.indices[0][0] === 0" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:60 EqualityOperator "match.indices[0][1] !== 0" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:105:87 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:108:24 MethodExpression "name" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:109:25 MethodExpression "restPath" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:110:17 AssignmentOperator "pos -= match.indices[0][1] + 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:110:24 ArithmeticOperator "match.indices[0][1] - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:111:22 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:112:48 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:112:53 ArithmeticOperator "pos - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:113:21 EqualityOperator "endValuePos !== -1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:113:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:113:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:113:37 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:113:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:116:21 EqualityOperator "endValuePos !== pos + 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:116:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:116:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:116:37 ArithmeticOperator "pos - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:116:46 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:120:25 MethodExpression "path" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:120:36 ArithmeticOperator "pos - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:124:15 AssignmentOperator "params[name] &&= value as string" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:125:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:127:19 EqualityOperator "index === pos" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:127:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:130:15 AssignmentOperator "pos -= part.length" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:133:17 EqualityOperator "j !== lastIndex" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:133:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:133:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:133:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:135:17 LogicalOperator "pos !== path.length ||\n                !(pos === p" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:135:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:135:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:135:17 EqualityOperator "pos === path.length" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:135:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:136:17 BooleanLiteral "pos === path.length - 1 && path.charCodeAt(pos) ==" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:136:19 LogicalOperator "pos === path.length - 1 || path.charCodeAt(pos) ==" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:136:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:136:19 EqualityOperator "pos !== path.length - 1" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:136:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:137:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:143:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:144:20 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:144:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/linear-router/router.ts:150:12 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:9:18 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/router/pattern-router/router.ts:12:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:20 MethodExpression "path.startsWith('/*')" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:34 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:42 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:54 MethodExpression "path.startsWith('*')" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:68 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:75 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:13:80 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:14:32 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:15:9 EqualityOperator "path.at(-1) !== '?'" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:15:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:15:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:15:17 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:15:25 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:15:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:16:28 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:17:49 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:20:20 LogicalOperator "path.match(/\\/?(:\\w+(?:{(?:(?:{[\\d,]+})|[^}])+})?)" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:20:20 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:20:20 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:20:89 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:21:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:24:13 StringLiteral "``" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:24:32 LogicalOperator "match[2] && '[^/]+'" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:24:32 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:24:32 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:24:44 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:25:13 EqualityOperator "part !== '/*'" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:25:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:25:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:25:22 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:26:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:27:47 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:31:9 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:32:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:32:37 StringLiteral "``" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:32:52 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:33:13 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:38:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:39:37 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:41:48 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:41:48 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:41:48 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:41:57 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:41:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:11 LogicalOperator "routeMethod === method && routeMethod === METHOD_N" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:11 EqualityOperator "routeMethod !== method" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:37 EqualityOperator "routeMethod !== METHOD_NAME_ALL" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:37 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:44:70 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:46:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:46:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:46:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:47:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:47:35 LogicalOperator "match.groups && emptyParams" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:47:35 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:47:35 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/pattern-router/router.ts:52:12 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/matcher.ts:10:97 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:22:51 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:23:7 EqualityOperator "a.length !== 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:23:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:24:12 EqualityOperator "b.length !== 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:24:12 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:24:48 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:26:7 EqualityOperator "b.length !== 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:26:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:31:75 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:32:12 EqualityOperator "b !== TAIL_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:32:12 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:32:46 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:59:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:62:42 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:62:42 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:62:42 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:62:51 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:62:56 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:65:9 EqualityOperator "token.length !== 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:65:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:65:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:66:13 EqualityOperator "token !== '*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:66:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:66:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:66:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:67:15 EqualityOperator "i !== len - 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:67:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:67:21 ArithmeticOperator "len + 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:68:17 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:68:22 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:71:13 EqualityOperator "token !== '/*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:71:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:71:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:71:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:72:15 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:72:20 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:76:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:76:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:76:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:78:25 LogicalOperator "pattern[2] && LABEL_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:78:25 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:78:25 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:79:13 LogicalOperator "name || pattern[2]" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:79:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:79:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:79:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:80:15 EqualityOperator "regexpStr !== '.*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:80:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:80:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:80:29 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:80:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:83:67 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:84:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:84:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:84:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:88:15 LogicalOperator "regexpStr.length === 1 || regExpMetaChars.has(rege" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:88:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:88:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:88:15 EqualityOperator "regexpStr.length !== 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:88:73 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:95:13 BooleanLiteral "nextNode" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:95:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:95:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:95:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:15 LogicalOperator "regexpStr !== ONLY_WILDCARD_REG_EXP_STR || regexpS" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:15 EqualityOperator "regexpStr === ONLY_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:58 EqualityOperator "regexpStr === TAIL_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:58 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:96:99 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:97:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:17 LogicalOperator "(regexpStr.length > 1 || k.length > 1) ||\n        " stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:18 LogicalOperator "regexpStr.length > 1 && k.length > 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:18 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:18 EqualityOperator "regexpStr.length >= 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:18 EqualityOperator "regexpStr.length <= 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:18 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:42 EqualityOperator "k.length >= 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:100:42 EqualityOperator "k.length <= 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:101:17 EqualityOperator "k === ONLY_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:102:17 EqualityOperator "k === TAIL_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:103:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:110:13 EqualityOperator "name === ''" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:110:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:110:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:110:22 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:110:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:111:11 AssignmentOperator "nextNode.#varIndex &&= context.varIndex++" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:111:34 UpdateOperator "context.varIndex--" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:112:25 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:114:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:116:13 BooleanLiteral "nextNode" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:116:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:116:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:116:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:117:43 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 LogicalOperator "k.length > 1 &&\n              k !== ONLY_WILDCARD_" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 LogicalOperator "k.length > 1 ||\n              k !== ONLY_WILDCARD_" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 EqualityOperator "k.length >= 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 EqualityOperator "k.length <= 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:119:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:120:15 EqualityOperator "k === ONLY_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:120:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:121:15 EqualityOperator "k === TAIL_WILDCARD_REG_EXP_STR" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:121:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:122:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:133:9 EqualityOperator "node.#index === undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:133:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:133:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:133:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:136:30 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:139:28 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:140:23 MethodExpression "Object.keys(this.#children)" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:142:21 MethodExpression "childKeys\n      .map((k) => {\n        const c = th" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:143:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:147:16 EqualityOperator "childStr !== ''" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:147:16 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:147:16 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:147:29 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:148:13 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:149:13 ArithmeticOperator "(typeof c.#varIndex === 'number'\n              ? `" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:149:14 EqualityOperator "typeof c.#varIndex !== 'number'" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:149:14 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:149:14 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:149:37 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:150:17 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:152:19 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:9 LogicalOperator "typeof this.#index === 'number' || this.#index !==" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:9 EqualityOperator "typeof this.#index !== 'number'" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:32 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:44 EqualityOperator "this.#index === -1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:44 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:60 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:157:64 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:158:23 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:161:9 EqualityOperator "strList.length !== 0" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:161:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:161:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:161:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:162:14 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:164:9 EqualityOperator "strList.length !== 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:164:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:164:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:164:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:168:12 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:168:33 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/node.ts:168:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:14:66 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:19:65 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:21:24 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:21:34 LogicalOperator "list || list.push(handlerData)" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:21:34 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:21:34 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:22:39 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:31:5 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:33:9 BooleanLiteral "map" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:33:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:33:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:33:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:35:32 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:36:12 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:37:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:38:13 EqualityOperator "typeof index !== 'number'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:38:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:38:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:38:30 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:38:40 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:39:34 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:40:16 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:41:72 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:47:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:48:9 BooleanLiteral "this.#matchers[method]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:48:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:48:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:48:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:51:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:54:32 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:9 LogicalOperator "path === '/*' && path === '*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:9 EqualityOperator "path !== '/*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:26 EqualityOperator "path !== '*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:26 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:61:40 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:62:47 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:63:11 EqualityOperator "method !== METHOD_NAME_ALL" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:63:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:63:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:63:39 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:64:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:67:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:74:9 BooleanLiteral "data" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:74:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:77:40 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:78:11 EqualityOperator "method !== METHOD_NAME_ALL" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:78:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:78:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:78:39 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:79:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:82:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:88:47 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:97:75 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:99:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:104:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:112:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:9 LogicalOperator "path === '/*' && path === '*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:9 EqualityOperator "path !== '/*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:26 EqualityOperator "path !== '*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:26 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:113:40 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:116:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:117:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:118:13 EqualityOperator "p !== path" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:118:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:118:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:118:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:119:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:119:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:119:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:120:39 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:124:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:125:33 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:125:34 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:125:35 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:127:15 EqualityOperator "relocateMap[path][0][0].findIndex((j) => j === i) " stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:127:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:127:56 EqualityOperator "j !== i" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:127:56 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:127:69 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:127:73 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:133:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:134:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:135:13 EqualityOperator "p !== path" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:135:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:135:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:135:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:136:11 AssignmentOperator "relocateMap[path] &&= [[[]]]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:136:33 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:136:34 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:136:35 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:137:25 EqualityOperator "path2 !== path" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:137:25 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:137:25 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:137:42 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:15 EqualityOperator "relocateMap[path][0][0].findIndex((v) => v === val" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:49 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:56 EqualityOperator "v !== value" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:56 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:56 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:73 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:138:77 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:146:40 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:146:40 EqualityOperator "i >= len" stryker=Survived ours=Timeout
+src/router/reg-exp-router/prepared-router.ts:146:40 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:146:49 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/router/reg-exp-router/prepared-router.ts:146:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:147:29 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:149:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:150:23 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:153:10 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:158:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:160:48 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:161:31 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:162:29 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:162:62 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/prepared-router.ts:164:10 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:22:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:23:11 AssignmentOperator "wildcardRegExpCache[path] &&= new RegExp(\n    `^${" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:24:5 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:26:7 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:28:13 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:29:13 EqualityOperator "match !== '/*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:29:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:29:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:29:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:31:15 EqualityOperator "match !== '*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:31:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:31:25 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:33:17 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:38:92 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:39:19 MethodExpression "Object.keys(middleware)" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:39:48 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:39:58 ArithmeticOperator "b.length + a.length" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:39:80 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:40:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:40:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:40:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:41:14 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:49:18 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/router/reg-exp-router/router.ts:56:20 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/router/reg-exp-router/router.ts:60:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:61:9 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:62:41 BooleanLiteral "/\\*|\\/:/.test(path)" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:63:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:64:13 EqualityOperator "e !== PATH_ERROR" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:64:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:68:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:72:9 BooleanLiteral "middleware" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:72:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:76:9 BooleanLiteral "middleware[method]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:76:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:76:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:76:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:78:32 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:78:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:80:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:81:35 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:87:9 EqualityOperator "path !== '/*'" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:87:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:87:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:87:18 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:87:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:88:14 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:90:21 EqualityOperator "method !== METHOD_NAME_ALL" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:90:21 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:90:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:90:76 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:92:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:92:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:92:27 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:94:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:95:13 BooleanLiteral "middleware[m][path]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:95:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:95:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:95:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:98:13 LogicalOperator "findMiddleware(middleware[m], path) ||\n           " stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:98:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:98:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:98:13 LogicalOperator "findMiddleware(middleware[m], path) &&\n           " stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:98:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:100:13 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:103:32 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:103:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:104:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:105:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:106:13 LogicalOperator "re.test(p) || handlerMap[m][p].push([handler, path" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:106:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:106:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:106:49 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:114:19 LogicalOperator "checkOptionalParameter(path) && [path]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:114:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:114:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:114:51 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:115:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:116:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:117:13 BooleanLiteral "routes[m][path]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:117:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:117:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:117:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:120:13 LogicalOperator "findMiddleware(middleware[m], path) ||\n           " stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:120:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:120:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:120:13 LogicalOperator "findMiddleware(middleware[m], path) &&\n           " stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:120:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:122:13 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:124:30 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:131:47 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:134:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:145:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:154:21 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:154:43 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:155:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:158:13 BooleanLiteral "pathData" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:158:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:158:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:158:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:159:29 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:159:43 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:159:52 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:162:49 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:162:71 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/router.ts:164:69 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:14:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:15:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:15:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:15:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:17:36 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:17:63 BooleanLiteral "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:25:24 BlockStatement "{}" stryker=Survived ours=Timeout
+src/router/reg-exp-router/trie.ts:26:22 BooleanLiteral "true" stryker=Survived ours=Timeout
+src/router/reg-exp-router/trie.ts:27:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:28:22 StringLiteral "``" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:29:21 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:30:9 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:34:11 BooleanLiteral "replaced" stryker=Survived ours=Timeout
+src/router/reg-exp-router/trie.ts:34:11 ConditionalExpression "false" stryker=Survived ours=Timeout
+src/router/reg-exp-router/trie.ts:34:22 BlockStatement "{}" stryker=Survived ours=Timeout
+src/router/reg-exp-router/trie.ts:44:20 LogicalOperator "markedPath.match(/(?::[^\\/]+)|(?:\\/\\*$)|./g) && []" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:44:20 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:44:20 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:45:18 ArithmeticOperator "groups.length + 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:45:37 EqualityOperator "i > 0" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:45:37 EqualityOperator "i < 0" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:45:37 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:45:45 UpdateOperator "i++" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:45:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:47:20 ArithmeticOperator "tokens.length + 1" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:47:39 EqualityOperator "j < 0" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:47:39 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:47:47 UpdateOperator "j++" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:47:52 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:48:13 EqualityOperator "tokens[j].indexOf(mark) === -1" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:48:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:48:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:48:41 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:48:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:55:71 BooleanLiteral "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:56:24 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:56:25 UpdateOperator "this.#index--" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:59:59 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:61:9 EqualityOperator "regexp !== ''" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:61:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:61:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:61:20 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:61:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:62:14 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:62:21 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:66:49 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:69:87 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:70:11 EqualityOperator "handlerIndex === undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:70:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:70:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:70:39 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:71:29 UpdateOperator "--captureIndex" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:72:16 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:74:11 EqualityOperator "paramIndex === undefined" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:74:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:74:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:75:51 UpdateOperator "--captureIndex" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:76:16 StringLiteral "\"Stryker was here!\"" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:82:12 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/reg-exp-router/trie.ts:82:24 StringLiteral "``" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:21:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:22:9 BooleanLiteral "this.#routes" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:22:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:32:12 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:32:12 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:32:21 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:32:26 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:34:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:35:46 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:35:46 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:35:46 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:35:55 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:35:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:39:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:40:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:40:48 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:47:23 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:52:9 EqualityOperator "i !== len" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:52:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:58:17 StringLiteral "``" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:63:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:64:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/smart-router/router.ts:64:25 EqualityOperator "this.#routers.length === 1" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:28:58 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:36:28 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:37:27 UpdateOperator "--i" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:39:9 LogicalOperator "getPattern(p, nextP) &&\n        (nextP === undefin" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:39:9 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:39:9 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:10 LogicalOperator "nextP === undefined && p || p.indexOf('*') === p.l" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:10 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:10 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:10 EqualityOperator "nextP !== undefined" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:38 EqualityOperator "p.indexOf('*') !== p.length - 1" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:38 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:48 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:40:57 ArithmeticOperator "p.length + 1" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:42:42 LogicalOperator "pattern && p" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:42:42 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:42:42 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:44:22 AssignmentOperator "curNode.#children[key] &&= new Node()" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:45:11 LogicalOperator "pattern || !child.#pattern" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:45:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:45:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:45:22 BooleanLiteral "child.#pattern" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:45:39 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:50:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:50:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:50:20 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:55:27 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:56:17 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:58:23 ArrayDeclaration "[]" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:59:16 UpdateOperator "--order" stryker=Survived ours=Killed (static)
+src/router/trie-router/node.ts:70:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:71:49 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:71:49 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:71:49 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:71:58 UpdateOperator "i--" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:71:63 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:74:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:74:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:74:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:77:63 EqualityOperator "i >= len" stryker=Survived ours=Timeout
+src/router/trie-router/node.ts:77:63 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:77:72 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/router/trie-router/node.ts:77:77 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:80:13 LogicalOperator "params?.[key] || !i" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:80:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:80:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:80:13 OptionalChaining "params[key]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:80:30 BooleanLiteral "i" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:80:50 LogicalOperator "nodeParams[key] && params?.[key]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:86:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:87:48 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:92:20 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:94:40 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:99:21 EqualityOperator "i <= len" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:99:21 EqualityOperator "i >= len" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:99:21 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:99:30 UpdateOperator "i--" stryker=Survived ours=Timeout
+src/router/trie-router/node.ts:99:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:101:22 EqualityOperator "i !== len - 1" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:101:22 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:101:22 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:101:28 ArithmeticOperator "len + 1" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:102:36 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:104:47 EqualityOperator "j <= len2" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:104:47 EqualityOperator "j >= len2" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:104:47 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:104:57 UpdateOperator "j--" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:104:62 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:108:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:108:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:108:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:110:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:110:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:110:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:112:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:112:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:112:36 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:112:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:113:69 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:116:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:121:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:123:26 EqualityOperator "node.#params !== emptyParams" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:123:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:123:62 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:127:15 EqualityOperator "typeof pattern !== 'string'" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:127:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:127:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:127:34 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:127:44 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:17 LogicalOperator "pattern === '*' && part.startsWith(pattern.slice(0" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:17 EqualityOperator "pattern !== '*'" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:36 MethodExpression "part.endsWith(pattern.slice(0, -1))" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:52 MethodExpression "pattern" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:69 UnaryOperator "+1" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:128:75 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:130:19 EqualityOperator "pattern !== '*'" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:130:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:130:31 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:130:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:15 LogicalOperator "!part || matcher === true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:15 BooleanLiteral "part" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:24 EqualityOperator "matcher !== true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:24 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:36 BooleanLiteral "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:140:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:145:15 EqualityOperator "matcher === true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:145:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:145:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:145:27 BooleanLiteral "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:145:33 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:146:17 BooleanLiteral "partOffsets" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:146:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:146:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:148:28 EqualityOperator "path[0] !== '/'" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:148:28 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:148:40 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:149:31 EqualityOperator "p <= len" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:149:31 EqualityOperator "p >= len" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:149:31 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:149:40 UpdateOperator "p--" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:149:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:151:17 AssignmentOperator "offset -= parts[p].length + 1" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:151:27 ArithmeticOperator "parts[p].length - 1" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:154:36 MethodExpression "path" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:157:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:157:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:157:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:162:19 LogicalOperator "m[0].length === restPathString.length || child.#ch" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:162:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:162:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:162:19 EqualityOperator "m[0].length !== restPathString.length" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:162:76 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:162:82 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:165:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:172:48 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:174:40 LogicalOperator "m[0].match(/\\//g)?.length && 0" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:174:40 OptionalChaining "m[0].match(/\\//g).length" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:175:41 AssignmentOperator "curNodesQueue[componentCount] &&= []" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:175:75 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:15 LogicalOperator "matcher === true && matcher.test(part)" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:15 EqualityOperator "matcher !== true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:27 BooleanLiteral "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:184:55 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:186:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:186:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:186:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:188:19 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:188:19 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:188:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:188:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:191:35 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:197:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:209:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:209:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:210:7 MethodExpression "handlerSets" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:210:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:211:16 ArithmeticOperator "a.score + b.score" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:215:12 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/trie-router/node.ts:215:29 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:6:18 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/router/trie-router/router.ts:9:49 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:10:26 LogicalOperator "checkOptionalParameter(path) && [path]" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:10:26 ConditionalExpression "true" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:10:26 ConditionalExpression "false" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:10:58 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:10:66 BlockStatement "{}" stryker=Survived ours=Killed
+src/router/trie-router/router.ts:15:50 BlockStatement "{}" stryker=Survived ours=Killed

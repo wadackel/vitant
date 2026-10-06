@@ -1,0 +1,48 @@
+stryker mutants: 1679, ours: 1535, matched: 1526
+only in stryker: 153
+     146  CallExpression
+       3  ConditionalExpression
+       2  LogicalOperator
+       2  EqualityOperator
+only in ours: 9
+       3  ConditionalExpression
+       2  LogicalOperator
+       2  EqualityOperator
+       1  ObjectLiteral
+       1  ArrayDeclaration
+status (stryker -> ours):
+    1164  Killed -> Killed
+     226  Survived -> Survived
+      66  Ignored -> Static
+      31  NoCoverage -> NoCoverage
+      25  Survived -> Killed
+      12  Timeout -> Timeout
+       2  Killed -> Survived
+detected/undetected disagreements among mutants both tools ran: 27
+src/core/immerClass.ts:48:25 BooleanLiteral "false" stryker=Survived ours=Killed (static)
+src/core/immerClass.ts:56:5 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/core/immerClass.ts:57:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/core/immerClass.ts:58:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/core/proxy.ts:223:31 BooleanLiteral "true" stryker=Survived ours=Killed (static)
+src/core/proxy.ts:305:3 LogicalOperator "state.type_ !== ArchType.Array ||\n\t\t!(state as Pro" stryker=Killed ours=Survived (static)
+src/core/proxy.ts:305:3 LogicalOperator "state.type_ !== ArchType.Array ||\n\t\t!(state as Pro" stryker=Killed ours=Survived (static)
+src/plugins/mapset.ts:34:32 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/plugins/mapset.ts:364:27 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:66:5 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:67:5 EqualityOperator "valueAtKey === state.base_" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:69:6 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:181:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:181:36 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:195:22 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:228:16 ArithmeticOperator "copy_.length + 1" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:228:34 EqualityOperator "base_.length < i" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:228:34 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:228:58 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:229:33 ArrayDeclaration "[]" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:230:24 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:249:8 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:283:28 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:289:4 UpdateOperator "i--" stryker=Survived ours=Killed (static)
+src/plugins/patches.ts:306:4 UpdateOperator "i--" stryker=Survived ours=Killed (static)
+src/utils/common.ts:172:2 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/utils/common.ts:172:20 StringLiteral "\"\"" stryker=Survived ours=Killed (static)

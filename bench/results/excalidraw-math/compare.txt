@@ -1,0 +1,62 @@
+stryker mutants: 1569, ours: 1604, matched: 1560
+only in stryker: 9
+       8  CallExpression
+       1  MethodExpression
+only in ours: 44
+      28  ArithmeticOperator
+      14  ArrayDeclaration
+       1  ObjectLiteral
+       1  MethodExpression
+status (stryker -> ours):
+    1109  Killed -> Killed
+     195  NoCoverage -> NoCoverage
+     167  Survived -> Survived
+      44  Killed -> Survived
+      26  Ignored -> Static
+      16  Timeout -> Timeout
+       3  Timeout -> Killed
+detected/undetected disagreements among mutants both tools ran: 44
+packages/math/src/curve.ts:158:7 LogicalOperator "t < 0 || t > 1 || s < 0 && s > 1" stryker=Killed ours=Survived
+packages/math/src/curve.ts:238:12 EqualityOperator "n - m >= e" stryker=Killed ours=Survived
+packages/math/src/curve.ts:240:11 EqualityOperator "f(k - e) <= f(k + e)" stryker=Killed ours=Survived
+packages/math/src/curve.ts:252:38 EqualityOperator "step < maxSteps" stryker=Killed ours=Survived
+packages/math/src/curve.ts:254:9 EqualityOperator "d <= min" stryker=Killed ours=Survived
+packages/math/src/curve.ts:260:14 MethodExpression "Math.min((closestStep - 1) / maxSteps, 0)" stryker=Killed ours=Survived
+packages/math/src/curve.ts:261:14 MethodExpression "Math.max((closestStep + 1) / maxSteps, 1)" stryker=Killed ours=Survived
+packages/math/src/curve.ts:261:23 ArithmeticOperator "(closestStep + 1) * maxSteps" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 LogicalOperator "Array.isArray(v) &&\n    v.length === 4 &&\n    isPo" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 LogicalOperator "Array.isArray(v) &&\n    v.length === 4 &&\n    isPo" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 LogicalOperator "Array.isArray(v) &&\n    v.length === 4 &&\n    isPo" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 LogicalOperator "Array.isArray(v) &&\n    v.length === 4 ||\n    isPo" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 LogicalOperator "Array.isArray(v) ||\n    v.length === 4" stryker=Killed ours=Survived
+packages/math/src/curve.ts:307:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/curve.ts:308:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/curve.ts:481:7 EqualityOperator "t < 0" stryker=Killed ours=Survived
+packages/math/src/curve.ts:481:7 ConditionalExpression "false" stryker=Killed ours=Survived
+packages/math/src/curve.ts:484:7 EqualityOperator "t > 1" stryker=Killed ours=Survived
+packages/math/src/curve.ts:484:7 ConditionalExpression "false" stryker=Killed ours=Survived
+packages/math/src/curve.ts:522:7 EqualityOperator "percent < 0" stryker=Killed ours=Survived
+packages/math/src/curve.ts:522:7 ConditionalExpression "false" stryker=Killed ours=Survived
+packages/math/src/curve.ts:526:7 EqualityOperator "percent > 1" stryker=Killed ours=Survived
+packages/math/src/curve.ts:526:7 ConditionalExpression "false" stryker=Killed ours=Survived
+packages/math/src/curve.ts:542:27 EqualityOperator "iteration <= maxIterations" stryker=Killed ours=Survived
+packages/math/src/curve.ts:546:9 EqualityOperator "error <= tolerance" stryker=Killed ours=Survived
+packages/math/src/point.ts:53:10 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 LogicalOperator "Array.isArray(p) &&\n    p.length === 2 &&\n    type" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 LogicalOperator "Array.isArray(p) &&\n    p.length === 2 &&\n    type" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 LogicalOperator "Array.isArray(p) &&\n    p.length === 2 &&\n    type" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 LogicalOperator "Array.isArray(p) &&\n    p.length === 2 ||\n    type" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 LogicalOperator "Array.isArray(p) ||\n    p.length === 2" stryker=Killed ours=Survived
+packages/math/src/point.ts:91:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:92:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:93:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:95:5 ConditionalExpression "true" stryker=Killed ours=Survived
+packages/math/src/point.ts:114:10 EqualityOperator "abs(a[0] - b[0]) <= tolerance" stryker=Killed ours=Survived
+packages/math/src/point.ts:114:42 EqualityOperator "abs(a[1] - b[1]) <= tolerance" stryker=Killed ours=Survived
+packages/math/src/triangle.ts:25:19 LogicalOperator "d1 > 0 || d2 > 0 && d3 > 0" stryker=Killed ours=Survived

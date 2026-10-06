@@ -1,0 +1,30 @@
+{
+  "target": "excalidraw",
+  "scope": "math",
+  "commit": "ed10ac7dca7e40f3f4a31269b4bfba980d0db41e",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        860.5
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        599.4
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

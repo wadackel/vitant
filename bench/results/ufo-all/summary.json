@@ -1,0 +1,30 @@
+{
+  "target": "ufo",
+  "scope": "all",
+  "commit": "f06c800d0c59f2a4a1b9ba65eb6cb61a84419be6",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        12.3
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        13.5
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

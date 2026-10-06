@@ -1,0 +1,15 @@
+stryker mutants: 1011, ours: 918, matched: 918
+only in stryker: 93
+      85  Regex
+       7  CallExpression
+       1  ConditionalExpression
+only in ours: 0
+
+status (stryker -> ours):
+     745  Killed -> Killed
+      93  Survived -> Survived
+      63  NoCoverage -> NoCoverage
+      12  Timeout -> Timeout
+       5  Ignored -> Static
+detected/undetected disagreements among mutants both tools ran: 0
+

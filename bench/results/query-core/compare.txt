@@ -1,0 +1,35 @@
+stryker mutants: 2910, ours: 2804, matched: 2716
+only in stryker: 194
+     162  CallExpression
+      18  OptionalChaining
+       5  MethodExpression
+       3  BlockStatement
+       3  EqualityOperator
+       2  ConditionalExpression
+       1  LogicalOperator
+only in ours: 88
+      21  OptionalChaining
+      15  ConditionalExpression
+      12  StringLiteral
+      11  BlockStatement
+       8  EqualityOperator
+       5  ObjectLiteral
+       5  MethodExpression
+       3  BooleanLiteral
+       3  LogicalOperator
+       2  ArrowFunction
+       2  UpdateOperator
+       1  ArrayDeclaration
+status (stryker -> ours):
+    2177  Killed -> Killed
+     458  Survived -> Survived
+      44  Killed -> Timeout
+      15  Ignored -> Static
+       9  NoCoverage -> NoCoverage
+       7  RuntimeError -> Killed
+       2  Survived -> Killed
+       2  Timeout -> Killed
+       2  Timeout -> Timeout
+detected/undetected disagreements among mutants both tools ran: 2
+src/focusManager.ts:26:26 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/focusManager.ts:28:33 StringLiteral "\"\"" stryker=Survived ours=Killed

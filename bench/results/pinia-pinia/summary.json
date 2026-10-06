@@ -1,0 +1,30 @@
+{
+  "target": "pinia",
+  "scope": "pinia",
+  "commit": "98587ca465b2c45e4053548261e769cad380ba5a",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        47.4
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        2.4
+      ],
+      "exitCodes": [
+        1
+      ]
+    }
+  }
+}

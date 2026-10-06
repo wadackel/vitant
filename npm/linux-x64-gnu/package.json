@@ -1,0 +1,21 @@
+{
+  "name": "vitant-linux-x64-gnu",
+  "version": "0.0.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "fork.linux-x64-gnu.node",
+  "files": [
+    "fork.linux-x64-gnu.node"
+  ],
+  "description": "Mutation testing for Vitest",
+  "engines": {
+    "node": ">=24"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}

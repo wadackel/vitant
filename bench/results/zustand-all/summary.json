@@ -1,0 +1,30 @@
+{
+  "target": "zustand",
+  "scope": "all",
+  "commit": "d7a5583cffd80af515f7dfb69583c95cbdc9e2ce",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        38.6
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        37.7
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

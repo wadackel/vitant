@@ -1,0 +1,30 @@
+{
+  "target": "query",
+  "scope": "core",
+  "commit": "f9fe54c960ffe39affe89a7b3dd8a69e6b194fda",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        212.8
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        254.2
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

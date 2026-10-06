@@ -1,0 +1,11 @@
+stryker mutants: 106, ours: 99, matched: 99
+only in stryker: 7
+       7  CallExpression
+only in ours: 0
+
+status (stryker -> ours):
+      76  Killed -> Killed
+      20  Survived -> Survived
+       3  NoCoverage -> NoCoverage
+detected/undetected disagreements among mutants both tools ran: 0
+

@@ -1,0 +1,18 @@
+{
+  "name": "vitant-darwin-x64",
+  "version": "0.0.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "fork.darwin-x64.node",
+  "files": [
+    "fork.darwin-x64.node"
+  ],
+  "description": "Mutation testing for Vitest",
+  "engines": {
+    "node": ">=24"
+  },
+  "os": [
+    "darwin"
+  ]
+}

@@ -1,0 +1,34 @@
+stryker mutants: 542, ours: 566, matched: 502
+only in stryker: 40
+      34  CallExpression
+       6  Regex
+only in ours: 64
+      21  ConditionalExpression
+       7  StringLiteral
+       7  BlockStatement
+       6  BooleanLiteral
+       5  OptionalChaining
+       4  EqualityOperator
+       4  ObjectLiteral
+       4  ArrayDeclaration
+       3  LogicalOperator
+       3  ArrowFunction
+status (stryker -> ours):
+     390  Killed -> Killed
+      70  Survived -> Survived
+      26  NoCoverage -> NoCoverage
+       7  Survived -> Killed
+       5  Ignored -> Static
+       3  Killed -> Survived
+       1  Timeout -> Timeout
+detected/undetected disagreements among mutants both tools ran: 10
+src/middleware/devtools.ts:282:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/middleware/devtools.ts:282:42 BlockStatement "{}" stryker=Survived ours=Killed
+src/middleware/devtools.ts:283:44 BooleanLiteral "true" stryker=Survived ours=Killed
+src/middleware/devtools.ts:295:44 BooleanLiteral "false" stryker=Killed ours=Survived
+src/middleware/persist.ts:158:3 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/middleware/persist.ts:187:34 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/middleware/redux.ts:39:30 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/middleware/subscribeWithSelector.ts:47:3 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/vanilla/shallow.ts:53:5 LogicalOperator "typeof valueA !== 'object' ||\n    valueA === null " stryker=Killed ours=Survived
+src/vanilla/shallow.ts:53:5 LogicalOperator "typeof valueA !== 'object' ||\n    valueA === null " stryker=Killed ours=Survived

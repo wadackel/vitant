@@ -1,0 +1,30 @@
+{
+  "target": "es-toolkit",
+  "scope": "array",
+  "commit": "43e1118884e07cebdf1e767038f6e7f697fa27ec",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        61
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        28.6
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

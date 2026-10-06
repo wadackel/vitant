@@ -1,0 +1,30 @@
+{
+  "target": "jotai",
+  "scope": "vanilla",
+  "commit": "6abd0ae3365e02ab432fba4b6e8e6f00aafbf508",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        299.9
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        204.9
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  }
+}

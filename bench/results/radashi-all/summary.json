@@ -1,0 +1,21 @@
+{
+  "target": "radashi",
+  "scope": "all",
+  "commit": "f5aa29af1e950564baec17f100164625692c1285",
+  "machine": {
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vmt": {
+      "tool": "vmt",
+      "seconds": [
+        0.2
+      ],
+      "exitCodes": [
+        1
+      ]
+    }
+  }
+}

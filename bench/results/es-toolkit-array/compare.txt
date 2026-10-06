@@ -1,0 +1,14 @@
+stryker mutants: 720, ours: 706, matched: 704
+only in stryker: 16
+      16  CallExpression
+only in ours: 2
+       1  ArrayDeclaration
+       1  ArithmeticOperator
+status (stryker -> ours):
+     609  Killed -> Killed
+      53  Timeout -> Timeout
+      39  Survived -> Survived
+       2  Timeout -> Killed
+       1  Killed -> Timeout
+detected/undetected disagreements among mutants both tools ran: 0
+
