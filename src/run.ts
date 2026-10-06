@@ -153,6 +153,8 @@ interface TestRecord {
   /** Which limit each entry of `timedOut` tripped. */
   timeoutCauses?: string[]
   survived: number[]
+  /** Mutants the test failed with and then failed without: a lead, like a failure the test did not repeat without the mutant. */
+  suspected?: number[]
   /** Mutants the test passed with although their code never ran, the tests before it having been skipped. */
   unreached?: number[]
   unverified: number[]
@@ -358,6 +360,7 @@ function inspect(records: SessionRecord[]) {
       test.judged.add(mutant)
       leads.push({ mutant, file: record.file, test: record.id })
     }
+    for (const mutant of record.suspected ?? []) leads.push({ mutant, file: record.file, test: record.id })
     for (const mutant of record.unverified) {
       test.judged.add(mutant)
       test.unverified.add(mutant)

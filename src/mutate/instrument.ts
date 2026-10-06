@@ -180,6 +180,12 @@ const probeHelpers = [
   // had to be converted. Primitives are looked up from their prototype.
   `function __vitant_get(o,k){var R=${RUNTIME_GLOBAL};if(R.a<0){if(!__vitant_plain(k))R.v++;else if(o!==null&&o!==void 0)` +
     '__vitant_data(R,__vitant_plain(o)?R.O(R.B(o)):o,k)}return o[k]}',
+  // For a property written with a dot the read itself stays where it was
+  // written: one shared `o[k]` for every property of every object of a file
+  // is the slowest read there is, and it is made on each evaluation,
+  // mutant or not.
+  `function __vitant_at(o,k){var R=${RUNTIME_GLOBAL};if(R.a<0&&o!==null&&o!==void 0)` +
+    '__vitant_data(R,__vitant_plain(o)?R.O(R.B(o)):o,k);return o}',
   // The same check for a name that may be a property of the global object.
   `function __vitant_name(k,v){var R=${RUNTIME_GLOBAL};if(R.a<0)__vitant_data(R,R.g,k);return v}`,
   'function __vitant_data(R,p,k){for(;p!==null;p=R.O(p)){if(R.P(p)){R.v++;break}var d=R.G(p,k);if(d){if(d.get)R.v++;break}}}',
@@ -677,6 +683,8 @@ export function instrument(
       if (site.global) return `__vitant_name(${JSON.stringify(site.global)},${site.global})`
       if (!site.read) return renderRange(site.start, site.end, site.children)
       const { object, key } = site.read
+      const dotted = typeof key === 'string' && /^[\p{ID_Start}$_][\p{ID_Continue}$]*$/u.test(key) && source.slice(site.end - key.length - 1, site.end) === `.${key}`
+      if (dotted) return `__vitant_at((${inside(site, object)}),${JSON.stringify(key)}).${key}`
       const name = typeof key === 'string' ? JSON.stringify(key) : `(${inside(site, key)})`
       return `__vitant_get((${inside(site, object)}),${name})`
     }

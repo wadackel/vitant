@@ -157,6 +157,14 @@ interface TestRun {
    * the test cannot try these; a run of the whole file can.
    */
   cleanup: number[]
+  /**
+   * Mutants the test failed with and went on failing without. Nothing is
+   * confirmed by that, but a mutant that leaves the worker in such a state
+   * has done something, and the file run whole with it says what; left as
+   * one more mutant nobody detected, it would cost every test that
+   * reaches it a worker before any file is run.
+   */
+  suspected: number[]
   /** Mutants whose code never ran in a worker that skipped the tests before this one. */
   unreached: number[]
   /**
@@ -678,6 +686,7 @@ function newRun(mode: TestRun['mode']): TestRun {
     timedOut: [],
     survived: [],
     cleanup: [],
+    suspected: [],
     unreached: [],
     unverified: [],
     nonRepeatable: false,
@@ -1493,10 +1502,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // The test did pass again in this worker before, so the mutant
           // broke something rather than the test being unable to re-run.
           run.unverified.push(run.mutant)
+          run.suspected.push(run.mutant)
           run.attempt = 'mutant'
         } else if (failed && replayed) {
           run.nonRepeatable = true
           run.unverified.push(run.mutant)
+          run.suspected.push(run.mutant)
           run.attempt = 'mutant'
         } else if (failed) {
           // The mutant stays pending: in this worker the test may fail only
@@ -1589,6 +1600,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         timeoutCauses: run.timeoutCauses,
         stop: run.stop,
         survived: run.survived,
+        suspected: run.suspected,
         unreached: run.unreached,
         unverified: run.unverified,
       })
