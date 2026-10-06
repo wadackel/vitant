@@ -301,6 +301,8 @@ function inspect(records: SessionRecord[]) {
    * more, in a run of a whole file, is what a timeout is.
    */
   const blocked = new Set<number>()
+  /** Mutants a run of a whole file was stopped for. */
+  const stopped = new Set<number>()
   const leads: { mutant: number; file: string; test: string }[] = []
   const wholeRecords: WholeRecord[] = []
   for (const record of records) {
@@ -315,7 +317,7 @@ function inspect(records: SessionRecord[]) {
     }
     if (record.type === 'plain') plain.add(wholeKey(record.mutant, record.file))
     // In a run of a whole file the record names no test, and the run's own record follows.
-    if (record.type === 'stall' && record.id !== '') blocked.add(record.mutant)
+    if (record.type === 'stall') (record.id === '' ? stopped : blocked).add(record.mutant)
     if (record.type === 'early') {
       if (record.site === -1) sharing.add(record.file)
       const set = staticSites.get(record.file) ?? new Set()
@@ -429,7 +431,7 @@ function inspect(records: SessionRecord[]) {
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, stopped, flaky }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -592,9 +594,14 @@ function planRound(
       // Until an unmutated run of the file has said what runs while it loads, anything may.
       early,
       // A copy that blocks holds up the copies due after it for as long as
-      // the run may take; a mutant that has blocked before gets a worker to
-      // itself.
-      plain: status.plain.has(wholeKey(mutant, file)) || state[mutant] === MUTANT_STALLED || state[mutant] === MUTANT_TIMEOUT,
+      // the run may take; a mutant that has blocked a process before gets a
+      // worker to itself. One that a test's own limits ended has not: a
+      // loop past its count or a wait nothing ends gives the process back.
+      plain:
+        status.plain.has(wholeKey(mutant, file)) ||
+        state[mutant] === MUTANT_STALLED ||
+        status.blocked.has(mutant) ||
+        status.stopped.has(mutant),
     })
     addWork(file, 0, 0, 1)
     workByFile.get(file)!.wholeMs = fileMs.get(file) ?? 0
@@ -1245,7 +1252,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // Starting one costs about as much as a second of such runs.
         const worth = Math.ceil((work.wholeRuns * (work.wholeMs / 2 + 10)) / 1000)
         const wholeUnits = cloning
-          ? Math.max(1, Math.min(work.wholeRuns, worth, Math.ceil(1.5 * options.maxWorkers * share)))
+          ? Math.max(1, Math.min(work.wholeRuns, worth, Math.ceil(3 * options.maxWorkers * share)))
           : work.wholeRuns
         for (let i = 0; i < wholeUnits; i++) {
           units.push({ spec, workMs: (work.wholeMs * work.wholeRuns) / wholeUnits / (i + 1) })

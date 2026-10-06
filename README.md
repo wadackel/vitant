@@ -117,7 +117,7 @@ node bench/run.ts excalidraw pr       # mutate only the lines the pinned commit 
 
 Results are written to `bench/results/<target>-<scope>/`: `summary.json` has the wall-clock times and `compare.txt` how the verdicts line up. StrykerJS runs with `coverageAnalysis: perTest`, `ignoreStatic: true` and no type checker, which is its fastest configuration.
 
-Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as often as times are shown.
+Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as often as times are shown. The times of this tool were taken before a loop in a whole-file run had to keep the process busy for a second to count as endless; that rule adds about a second of one core for every such mutant, which on this machine took es-toolkit `array` from 24 s to 34 s and hono `router` from 35 s to 40 s.
 
 | Target and scope | Mutants | StrykerJS | This tool | Without copies |
 |---|---|---|---|---|
@@ -140,6 +140,27 @@ Copies remove the start of a worker and, for most mutants, the imports. What is 
 StrykerJS finished on hono in 137 s and 190 s but reported nearly every mutant as survived (1,026 of the 1,121 in `router`, 917 of which this tool detects; ground truth agreed on each of the 754 detections it got to), so its times there say nothing. Why was not looked into; hono declares its tests as several Vitest projects.
 
 Started for each run, a worker costs the tests themselves where they are heavy (excalidraw: the heaviest file takes 20 s) and its own start where they are not (jotai: process, Vitest, jsdom and React come to about 1 s a run, against 0.09 s of tests). The workers keep every core busy: 12 workers took as long as 16. The main process uses under a tenth of a core.
+
+### On hosted CI runners
+
+`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners. One run each, in seconds, from the run of 6 October 2026; every report of this tool agreed with the stored ground truth on both. With a third or a quarter of the cores the times are five to nine times those above, for both tools.
+
+| Target and scope | Linux: StrykerJS | This tool | Without copies | macOS: StrykerJS | This tool | Without copies |
+|---|---|---|---|---|---|---|
+| ufo `all` | 85.6 | 24.6 | 110.2 | 78.7 | 28.2 | 78.1 |
+| zustand `all` | 196.2 | 54.2 | 196.6 | 192.0 | 48.1 | 203.8 |
+| es-toolkit `array` | 221.5 | 101.3 | 118.5 | 261.5 | 166.8 | 185.2 |
+| immer `all` | 505.2 | 331.9 | 532.3 | 467.2 | 335.1 | 599.8 |
+| jotai `vanilla` | 1,954.6 | 447.8 | 1,416.1 | 1,853.5 | 469.4 | 1,287.0 |
+| query `core` | 1,097.0 | 276.0 | 858.8 | 1,426.7 | 376.2 | 1,138.2 |
+| pinia `pinia` | failed to start | 72.3 | 348.1 | failed to start | 107.0 | 489.7 |
+| hono `router` | see above | 136.6 | 240.1 | see above | 254.2 | 339.1 |
+| hono `utils` | see above | 310.3 | 451.2 | see above | 376.2 | 547.0 |
+| excalidraw `pr` | failed | 1,466.9 | 1,415.0 | failed | 1,967.3 | 1,770.7 |
+
+Copies pay on Linux as they do on macOS, except where the tests are heavy: in excalidraw `pr`, 20 surviving mutants are each run with about 45 test files that take seconds apiece, the start of a worker is a small part of that, and workers that are to be copied run V8 on one thread, which before Vitest 4 holds for the whole run. There the tool is a little slower with copies than without.
+
+The first run of this workflow, with a third more workers than cores, reported one or two mutants of hono as killed that the suite passes with: tests that wait on the clock failed twice in a row on the overloaded runner. See Limits, tests that fail now and then.
 
 ### Checking the verdicts
 
