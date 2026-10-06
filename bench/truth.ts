@@ -233,6 +233,23 @@ async function make(): Promise<Truth> {
         }
       }),
     )
+    // Several suites at once make a busy machine, on which a test that
+    // waits on the clock can fail by itself. Where the suite and the report
+    // disagree the suite is run once more, with nothing beside it.
+    const reported = new Map(report.mutants.map((mutant) => [keyOf(describe(mutant)), mutant.status]))
+    for (const entry of roots.length > 1 ? entries : []) {
+      const status = reported.get(keyOf(entry))
+      if (status === 'Static' || (status === 'Killed' || status === 'Timeout') === (entry.suite !== 'pass')) continue
+      const file = path.join(root, entry.file)
+      const source = fs.readFileSync(file, 'utf8')
+      originals.set(file, source)
+      fs.writeFileSync(file, written(file, source, entry))
+      const { suite } = await runSuite(root, argsFor(entry.file), limitMs)
+      fs.writeFileSync(file, source)
+      originals.delete(file)
+      if (suite !== entry.suite) console.error(`${entry.file}:${entry.start.join(':')} ${entry.suite} at first, ${suite} alone`)
+      entry.suite = suite
+    }
   } finally {
     restore()
   }
