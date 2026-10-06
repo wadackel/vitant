@@ -97,6 +97,33 @@ describe('running the fixture project', () => {
     expect(statusOf('src/pool.ts', 13, 'true')).toBe('Killed')
   })
 
+  it('judges code that only a hook after the last test reaches', () => {
+    expect(statusOf('src/handles.ts', 7, '{}')).toBe('Killed')
+    expect(statusOf('src/handles.ts', 12, 'true')).toBe('Killed')
+  })
+
+  it('judges code that only the teardown of a fixture shared by the file reaches', () => {
+    expect(statusOf('src/scope.ts', 2, 'value / 2')).toBe('Killed')
+  })
+
+  it('leaves tests that are retried or repeated to run as the project has them', () => {
+    // The first try throws before the call and the first run does not look at the result.
+    expect(statusOf('src/again.ts', 2, 'value - 1')).toBe('Killed')
+    expect(result.failedBaselines).toEqual([])
+  })
+
+  it('judges what a test that skipped itself had reached', () => {
+    expect(statusOf('src/flags.ts', 2, 'true')).toBe('Killed')
+  })
+
+  it('does not take a loop for endless because it is long', () => {
+    // Three million iterations in place of two, done in milliseconds.
+    expect(statusOf('src/scan.ts', 3, 'i < values.length || i < cap')).toBe('Survived')
+    expect(statusOf('src/scan.ts', 3, 'i--')).toBe('Timeout')
+    // The loop runs in `beforeAll`, with or without the mutant.
+    expect(statusOf('src/setup.ts', 8, 'value - 1')).toBe('Survived')
+  })
+
   it('counts a mutant that ends the process as detected and goes on with the rest of the file', () => {
     expect(statusOf('src/guard.ts', 2, 'true')).toBe('Killed')
     expect(statusOf('src/guard.ts', 2, 'false')).toBe('Survived')
@@ -116,7 +143,7 @@ describe('running the fixture project', () => {
   })
 
   it('runs the whole file with a mutant that changes what the file computes while it loads', () => {
-    // The one test that calls \`double\` cannot tell the mutant apart; the
+    // The one test that calls `double` cannot tell the mutant apart; the
     // one that can only compares a list built before any test ran.
     expect(statusOf('src/registry.ts', 4, 'value / 2')).toBe('Killed')
   })
@@ -174,7 +201,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(11)
+    expect(second.reused).toBe(17)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 60_000)
@@ -194,7 +221,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(10)
+    expect(after.reused).toBe(16)
     expect(after.result.counts).toEqual(before.counts)
   }, 60_000)
 
@@ -206,8 +233,22 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(10)
+    expect(after.reused).toBe(16)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 60_000)
+})
+
+describe('a mutant that keeps a test file from ever finishing to load', () => {
+  it('is a timeout, and the run ends', () => {
+    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')
+    const cli = spawnSync(
+      process.execPath,
+      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/stuck'), '--report', report],
+      { encoding: 'utf8', timeout: 110_000 },
+    )
+    expect(cli.status, cli.stderr).toBe(0)
+    const stuck: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(stuck.mutants.map((mutant) => mutant.status)).toEqual(['Timeout'])
+  }, 120_000)
 })

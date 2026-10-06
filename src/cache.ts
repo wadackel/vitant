@@ -10,7 +10,7 @@ import path from 'node:path'
 import type { Generated } from './mutate/generate.ts'
 
 /** Bumped whenever cached data would be read differently. */
-const FORMAT = 2
+const FORMAT = 3
 
 export interface CachedTest {
   name: string
@@ -32,6 +32,8 @@ export interface CachedFile {
   /** Content hash of everything the test file loaded, by path relative to the root. */
   deps: Record<string, string>
   staticSites: string[]
+  /** Sites reached once the file had loaded, outside the tests that try mutants. */
+  hookSites: string[]
   /** Mutants that would have changed a value while the file loaded. */
   staticMutants: string[]
   /** How a run of the whole file with the mutant always on ended. */

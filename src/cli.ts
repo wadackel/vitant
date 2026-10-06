@@ -35,7 +35,7 @@ const { values, positionals } = parseArgs({
  * never below the point where every heavy test file would need a new worker.
  */
 function recycleDefault(): number {
-  const workers = Number(values['max-workers'] ?? Math.ceil((os.availableParallelism() * 4) / 3))
+  const workers = Number(values['max-workers'] ?? os.availableParallelism())
   return Math.max(512, Math.min(1536, Math.floor((os.totalmem() / 1024 / 1024) * 0.5 / workers / 1.5)))
 }
 
@@ -59,7 +59,8 @@ const result = await run({
   incremental: values.incremental,
   clone: !values['no-clone'],
   // Tests spend a third of their time waiting on timers, so a few more workers than cores keep the CPU busy.
-  maxWorkers: Number(values['max-workers'] ?? Math.ceil((os.availableParallelism() * 4) / 3)),
+  // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
+  maxWorkers: Number(values['max-workers'] ?? os.availableParallelism()),
   log: (message) => console.error(message),
 })
 
@@ -110,6 +111,10 @@ if (result.skippedFiles.length > 0) {
 }
 if (result.failedBaselines.length > 0) {
   console.log(`${result.failedBaselines.length} test(s) failed without any mutant and were ignored`)
+}
+if (result.flakyTests.length > 0) {
+  console.log(`${result.flakyTests.length} test(s) failed with a mutant and passed with the same one, and were not counted:`)
+  for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
 }
 if (result.nonRepeatableTests.length > 0) {
   console.log(`${result.nonRepeatableTests.length} test(s) do not pass when re-run in the same worker`)

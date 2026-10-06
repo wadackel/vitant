@@ -119,11 +119,11 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
   else for (const glob of scope.mutate) args.push('--mutate', glob)
   fs.rmSync(report, { force: true })
   // From the project, as its own scripts run: configs resolve paths against the working directory.
-  timings.push(time(tool, process.execPath, args, dir))
-  if (!fs.existsSync(report)) {
-    wrong = true
-    continue
-  }
+  const timing = time(tool, process.execPath, args, dir)
+  timings.push(timing)
+  // The tool exits with 1 when it gave up on a test file.
+  if (timing.exitCodes.some((code) => code !== 0)) wrong = true
+  if (!fs.existsSync(report)) continue
   const { counts, wholeRuns, rounds, abandonedFiles } = JSON.parse(fs.readFileSync(report, 'utf8'))
   reports[tool] = { counts, wholeRuns, rounds, abandonedFiles: abandonedFiles.length }
   if (!fs.existsSync(truth)) continue
@@ -138,13 +138,16 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
 }
 
 const summaryPath = path.join(outDir, 'summary.json')
-const previous = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
+const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version }
+// Times taken on another machine do not belong next to these.
+const earlier = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
+const previous = JSON.stringify(earlier.machine) === JSON.stringify(machine) ? earlier : {}
 const summary = {
   ...previous,
   target: targetName,
   scope: scopeName,
   commit: targets[targetName].commit,
-  machine: { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version },
+  machine,
   timings: { ...previous.timings, ...Object.fromEntries(timings.map((t) => [t.tool, t])) },
   reports: { ...previous.reports, ...reports },
 }

@@ -1,12 +1,13 @@
 // Ground truth for a report: what the project's own suite does with each
 // mutant written into the source for real.
 //
-//   node bench/truth.ts make --root <project> --report <report.json> --out <truth.json>
+//   node bench/truth.ts make --root <project> [--report <report.json>] [--out <truth.json>]
 //        [--related] [--jobs N] [--timeout seconds] [--statuses Killed,Survived,...]
 //   node bench/truth.ts check --report <report.json> --truth <truth.json>
 //
 // `make` runs the suite once per mutant and then checks the report against
-// what it saw; `check` does only the latter, against what an earlier `make`
+// what it saw, running the tool over the whole project first where no
+// report is given; `check` does only the latter, against what an earlier `make`
 // wrote. Both exit with 1 when a verdict and the suite disagree.
 //
 // `--related` runs only the test files that import the mutated file
@@ -18,7 +19,7 @@
 // workspace package or a link to itself resolves to the original, where
 // the mutant is not.
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -55,11 +56,11 @@ const { values, positionals } = parseArgs({
     related: { type: 'boolean', default: false },
     jobs: { type: 'string', default: '1' },
     timeout: { type: 'string' },
-    statuses: { type: 'string', default: 'Killed,Timeout,Survived,NoCoverage' },
+    statuses: { type: 'string', default: 'Killed,Timeout,Survived,NoCoverage,Static' },
   },
 })
 const [mode] = positionals
-if ((mode !== 'make' && mode !== 'check') || !values.report || (mode === 'make' ? !values.root : !values.truth)) {
+if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root : !values.report || !values.truth)) {
   console.error(
     'usage: node bench/truth.ts make --root <project> --report <report.json> [--out <truth.json>] [--related] [--jobs N]\n' +
       '       node bench/truth.ts check --report <report.json> --truth <truth.json>',
@@ -67,6 +68,15 @@ if ((mode !== 'make' && mode !== 'check') || !values.report || (mode === 'make' 
   process.exit(2)
 }
 
+if (!values.report) {
+  values.report = path.join(import.meta.dirname, '..', 'build', `${path.basename(values.root!)}.json`)
+  const cli = path.join(import.meta.dirname, '..', 'src', 'cli.ts')
+  const run = spawnSync(process.execPath, [cli, '--root', values.root!, '--report', values.report], { stdio: 'ignore' })
+  if (run.status !== 0) {
+    console.error(`the tool exited with ${run.status} on ${values.root}`)
+    process.exit(1)
+  }
+}
 const report: RunResult = JSON.parse(fs.readFileSync(values.report, 'utf8'))
 
 const keyOf = (entry: Pick<TruthEntry, 'file' | 'start' | 'end' | 'mutator' | 'replacement'>) =>
@@ -97,7 +107,7 @@ function written(file: string, source: string, entry: Omit<TruthEntry, 'suite'>)
   const end = offset(source, entry.end)
   const put = (text: string) => source.slice(0, start) + text + source.slice(end)
   // These replace statements, not expressions.
-  const statement = entry.mutator === 'BlockStatement' || /^(case\b.*|default):$/s.test(entry.replacement)
+  const statement = entry.mutator === 'BlockStatement' || /^(case\b|default\s*:)/.test(entry.replacement)
   if (statement) return put(entry.replacement)
   for (const prefix of ['', ';']) {
     const text = put(`${prefix}(${entry.replacement})`)
@@ -194,6 +204,7 @@ async function make(): Promise<Truth> {
     for (const [file, source] of originals) fs.writeFileSync(file, source)
     if (roots.length > 1) for (const copy of roots) fs.rmSync(copy, { recursive: true, force: true })
   }
+  process.on('exit', restore)
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       restore()
@@ -230,7 +241,7 @@ async function make(): Promise<Truth> {
 
 function check(truth: Truth): boolean {
   const byKey = new Map(report.mutants.map((mutant) => [keyOf(describe(mutant)), mutant]))
-  const tally = { agree: 0, explained: 0, 'not judged': 0, 'not in the report': 0 }
+  const tally = { agree: 0, explained: 0, 'not judged': 0, 'not judged that fail the suite': 0, 'not in the report': 0 }
   const wrong: string[] = []
   for (const entry of truth.mutants) {
     const mutant = byKey.get(keyOf(entry))
@@ -239,8 +250,12 @@ function check(truth: Truth): boolean {
       continue
     }
     // A mutant that only runs while a file loads is reported as such, without a verdict.
-    if (mutant.status === 'Static' || mutant.status === 'Pending') {
-      tally['not judged']++
+    if (mutant.status === 'Static') {
+      tally[entry.suite === 'pass' ? 'not judged' : 'not judged that fail the suite']++
+      continue
+    }
+    if (mutant.status === 'Pending') {
+      wrong.push(`${entry.file}:${entry.start.join(':')} ${entry.mutator}: left pending`)
       continue
     }
     const detected = mutant.status === 'Killed' || mutant.status === 'Timeout'

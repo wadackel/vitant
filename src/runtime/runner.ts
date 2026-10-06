@@ -252,6 +252,7 @@ const fs = require('node:fs')
 const beat = new Float64Array(workerData.shared, 0, 2)
 const mutant = new Int32Array(workerData.shared, 16, 2)
 const testId = new Uint8Array(workerData.shared, 24, 256)
+const deadline = new Float64Array(workerData.deadline)
 const sleeper = new Int32Array(new SharedArrayBuffer(4))
 const fd = fs.openSync(workerData.statePath, 'r+')
 const cpu = () => { const u = process.cpuUsage(); return (u.user + u.system) / 1000 }
@@ -259,13 +260,17 @@ for (;;) {
   Atomics.wait(sleeper, 0, 0, 100)
   const started = beat[0]
   const stalled = mutant[0]
-  if (beat[1] > 0 && cpu() - started > beat[1]) {
+  // A run of a whole file can also wait for good on what a mutant keeps
+  // from happening while the file loads, using no CPU time at all and with
+  // no test's time limit to end it.
+  const overdue = deadline[0] > 0 && Date.now() > deadline[0]
+  if ((beat[1] > 0 && cpu() - started > beat[1]) || overdue) {
     const end = testId.indexOf(0)
     const id = new TextDecoder().decode(testId.subarray(0, end === -1 ? testId.length : end))
     // The attempt may have ended while this thread was getting here; the
     // record and the state must name the same mutant, and only one that is
     // still running.
-    if (beat[0] !== started || mutant[0] !== stalled || beat[1] === 0) continue
+    if (!overdue && (beat[0] !== started || mutant[0] !== stalled || beat[1] === 0)) continue
     fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
     // In a whole-file run the stall is the verdict. Either way it must not
     // replace what another worker has already found out.
@@ -284,6 +289,8 @@ const beat = new Float64Array(shared, 0, 2)
 /** [0] the active mutant, [1] 1 in a whole-file run. */
 const beatMutant = new Int32Array(shared, 16, 2)
 const beatTest = new Uint8Array(shared, 24, 256)
+/** When a run of a whole file has to be over, by the clock; 0 outside one. */
+const wallDeadline = new Float64Array(new SharedArrayBuffer(8))
 let watching = false
 /** Whether this process is a copy made for one whole-file run. */
 let cloned = false
@@ -299,6 +306,7 @@ function watch(): void {
     eval: true,
     workerData: {
       shared,
+      deadline: wallDeadline.buffer,
       statePath: paths.state,
       resultsPath: path.join(paths.results, `${process.pid}.jsonl`),
     },
@@ -427,6 +435,16 @@ async function quiet(): Promise<void> {
 
 const staticHits = new Uint8Array(config.siteCount)
 const staticMutants = new Uint8Array(config.mutantCount)
+/**
+ * The same for what ran once the file had loaded, outside the tests that
+ * try mutants: `beforeAll` and `afterAll` hooks, fixtures shared by a
+ * file, tests left to run as the project set them up. A run of the whole
+ * file is all that can judge a mutant there.
+ */
+const hookHits = new Uint8Array(config.siteCount)
+const hookMutants = new Uint8Array(config.mutantCount)
+/** Whether the test file is past its imports and `describe` bodies. */
+let loaded = false
 let plan: RoundPlan | undefined
 let retried = new Set<string>()
 let replayFiles = new Set<string>()
@@ -459,9 +477,25 @@ function replays(file: string): boolean {
  * static set, with the mutants that would have made a difference there.
  */
 function drainStaticHits(): void {
-  const { sites, mutants } = drainCoverage()
-  for (const site of sites) staticHits[site] = 1
-  for (const mutant of mutants) staticMutants[mutant] = 1
+  outside(drainCoverage())
+}
+
+function outside({ sites, mutants }: { sites: number[]; mutants: number[] }): void {
+  for (const site of sites) (loaded ? hookHits : staticHits)[site] = 1
+  for (const mutant of mutants) (loaded ? hookMutants : staticMutants)[mutant] = 1
+}
+
+function marked(flags: Uint8Array): number[] {
+  const list: number[] = []
+  for (let at = flags.indexOf(1); at !== -1; at = flags.indexOf(1, at + 1)) list.push(at)
+  return list
+}
+
+/** How often a test is run again after failing, as the project set it. */
+function retries(test: TaskLike): number {
+  const { retry } = test
+  if (typeof retry === 'number') return retry
+  return (retry as { count?: number } | undefined)?.count ?? 0
 }
 
 /**
@@ -680,6 +714,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private active: { test: TaskLike; run: TestRun } | undefined
     /** Set while a test runs that this runner only lets pass through. */
     private passive = false
+    /** Tests that run as the project set them up, without mutants being tried on them. */
+    private apart = new Set<string>()
+    private passiveApart = false
+    private loopLimit = runtime.x
     /** Every runnable test of the files this worker ran. */
     private seen: string[] = []
     /** Whether a test stopped passing unmutated in this worker, which ends the worker. */
@@ -692,6 +730,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private whole: WholeJob | undefined
     private wholeFailure: 'failed' | 'timeout' | undefined
     private wholeFile: string | undefined
+    /** The test whose failure the run's verdict is, if it was a test's. */
+    private wholeTest: string | undefined
     /** How the process making the whole-file run came to be. */
     private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
@@ -703,6 +743,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onBeforeCollect(paths: (string | { filepath: string })[]): Promise<unknown> {
       loadRound()
+      loaded = false
       const file = typeof paths[0] === 'string' ? paths[0] : paths[0]?.filepath
       this.wholeFile = file
       const jobs = plan?.whole[file] ?? []
@@ -855,6 +896,22 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const file = { baselineMs: job.fileMs }
       beat[1] = job.stalled ? limitMs(file) : hardLimitMs(file)
       heartbeat()
+      // A copy is watched, for this too, by the process it was copied from.
+      wallDeadline[0] = cloned ? 0 : realNow() + hardLimitMs(file)
+      // A count of iterations says a loop is long, not that it does not
+      // end: a mutant can send a loop over a few million elements that it
+      // is through with in milliseconds, and the suite passes. Here, where
+      // the verdict is made, a loop past its count goes on until it has
+      // also kept the process busy without a pause for longer than any
+      // loop of the file is likely to.
+      const busyMs = Math.min(beat[1], Math.max(1000, job.fileMs * 2))
+      runtime.x = (() => {
+        if (cpuMs() - beat[0] < busyMs) {
+          runtime.l += config.loopSlack
+          return
+        }
+        return this.loopLimit()
+      }) as () => never
     }
 
     async onCollected(files: TaskLike[]): Promise<unknown> {
@@ -892,6 +949,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return super.onCollected?.(files)
       }
       if (this.whole) return super.onCollected?.(files)
+      drainStaticHits()
+      loaded = true
       // One global holds the active mutant, so tests cannot interleave.
       forEachTask(files, (task) => {
         task.concurrent = false
@@ -948,7 +1007,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     /** Decides whether this worker drives the test, and how. */
     private admit(test: TaskLike): TestRun | undefined {
-      if (test.fails) {
+      // A test that is expected to fail, that only passes on a later try
+      // or that is asked to run several times cannot be run again and again
+      // with one mutant each: what it does on its first run is not what it
+      // does on the others. It runs as the project has it, and what it
+      // reaches is settled by runs of the whole file.
+      if (test.fails || retries(test) > 0 || (test.repeats ?? 0) > 0) {
+        this.apart.add(test.id)
         if (!plan) emit({ type: 'test', file: test.file.filepath, id: test.id, name: test.name, mode: 'probe', ...noMutants })
         return undefined
       }
@@ -985,6 +1050,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (test.repeats !== NEVER_ENDING) {
         drainStaticHits()
         this.passive = true
+        this.passiveApart = this.apart.has(test.id)
         return super.onBeforeTryTask?.(test, options)
       }
 
@@ -1186,15 +1252,19 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onAfterRunTask(test: TaskLike): Promise<void> {
       await super.onAfterRunTask?.(test)
-      if (!this.whole && this.active?.test === test) {
+      if (!this.whole) {
+        const driven = this.active?.test === test
         this.finishActive()
         // What the hooks after the last attempt reached is no more static
         // than what those after the first did.
-        runtime.h.fill(0)
-        runtime.i.fill(0)
-        runtime.b.fill(0)
+        if (driven) {
+          runtime.h.fill(0)
+          runtime.i.fill(0)
+          runtime.b.fill(0)
+        }
       }
       if (this.whole && test.result?.state === 'fail') {
+        if (!this.wholeFailure) this.wholeTest = test.id
         this.wholeFailure ??= runtime.t || /^Test timed out in \d+ms/.test(firstError(test) ?? '') ? 'timeout' : 'failed'
         // The first failure settles it, and nobody waits for the rest of a copy's run.
         if (cloned) await this.leave()
@@ -1214,6 +1284,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         file: this.wholeFile,
         mutant: this.whole!.mutant,
         verdict: this.wholeFailure ?? 'passed',
+        test: this.wholeTest,
         by: this.wholeBy,
       })
       cloner!.done()
@@ -1224,6 +1295,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (this.whole) {
         runtime.a = -1
         beat[1] = 0
+        wallDeadline[0] = 0
+        runtime.x = this.loopLimit
         // A hook or the file itself can fail with every test passing.
         forEachTask(files, (task) => {
           if (task.result?.state === 'fail') this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
@@ -1235,11 +1308,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             file: file.file.filepath,
             mutant: this.whole.mutant,
             verdict: this.wholeFailure ?? 'passed',
+            test: this.wholeTest,
             by: this.wholeBy,
           })
         }
         this.whole = undefined
         this.wholeFailure = undefined
+        this.wholeTest = undefined
         return super.onAfterRunFiles?.(files)
       }
       this.finishActive()
@@ -1263,6 +1338,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           tests: this.seen,
           staticSites: sites,
           staticMutants: mutants,
+          hookSites: marked(hookHits),
+          hookMutants: marked(hookMutants),
           pristine: plan?.pristine.includes(file.file.filepath) && !this.template,
           complete,
           // What the file loaded decides whether its results can be reused later.
@@ -1415,7 +1492,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     private finishActive(): void {
       if (this.passive) {
-        // A passed-through test's hits are neither static nor anyone's coverage.
+        // What a test reached that this worker only passed through is
+        // another worker's to report.
+        if (this.passiveApart) drainStaticHits()
         runtime.h.fill(0)
         runtime.i.fill(0)
         runtime.b.fill(0)
@@ -1434,6 +1513,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         this.tainted = true
         this.dropped = true
         run.unverified.push(run.mutant)
+      }
+      // A test that skips itself part-way through its unmutated run may get
+      // further with a mutant on; what it had reached by then is left to
+      // runs of the whole file.
+      if (run.attempt === 'baseline' && !run.settled && test.result?.state === 'skip') {
+        if (run.reached) outside(run.reached)
+        drainStaticHits()
       }
       // A test that skipped itself mid-attempt never came back to be settled;
       // its mutant stays pending.
