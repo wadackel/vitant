@@ -96,6 +96,8 @@ export interface RunResult {
 export interface RunOptions extends GenerateOptions {
   /** Passed to Vitest as test file filters. */
   filters: string[]
+  /** The Vitest projects to run, by name; all of them when empty. */
+  projects: string[]
   /** Run only test files that import a mutated file. */
   related: boolean
   timeoutFactor: number
@@ -198,6 +200,8 @@ interface WholeRecord {
 }
 
 interface WholeState {
+  /** Every run that left a record, counted or not. */
+  runs: number
   /** Runs whose worker was gone without a word. */
   died: number
   failed: number
@@ -404,8 +408,9 @@ function inspect(records: SessionRecord[]) {
   }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
-    const entry = whole.get(key) ?? { died: 0, failed: 0, timedOut: 0, passed: 0 }
+    const entry = whole.get(key) ?? { runs: 0, died: 0, failed: 0, timedOut: 0, passed: 0 }
     whole.set(key, entry)
+    entry.runs++
     if (record.verdict === 'passed') entry.passed++
     else if (record.test && flaky.has(record.test)) continue
     else if (record.died) entry.died++
@@ -526,11 +531,19 @@ function planRound(
     entry.wholeRuns += wholeRuns
     workByFile.set(file, entry)
   }
+  // A test whose unmutated run failed gets another, after the tests before
+  // it have run as in a plain run. They have not if a test before it tried
+  // mutants in the same worker: what a mutant leaves in a module or in the
+  // document is there for the tests that follow. So in a file with such a
+  // test nothing tries a mutant in that round.
+  const retrying = new Set<string>()
+  for (const test of status.tests.values()) if (test.retry && !test.done) retrying.add(test.file)
   for (const [id, list] of lists) {
     // Tests that run at the same time would otherwise all start on the same
     // mutants, and a kill by one comes too late to spare the others.
     const mutants = rotate(list, id)
     const { coverage, file } = status.tests.get(id)!
+    if (retrying.has(file)) continue
     const chunk = chunkSize(coverage!.baselineMs)
     plan.tests[id] = { mutants, chunk, baselineMs: coverage!.baselineMs, baselineLoops: coverage!.baselineLoops }
     addWork(file, mutants.length * coverage!.baselineMs, Math.ceil(mutants.length / chunk))
@@ -540,6 +553,7 @@ function planRound(
     plan.tests[id] = { chunk: 1, baselineMs: 0, baselineLoops: 0 }
     addWork(test.file, 1000, 1)
   }
+  plan.pristine.push(...retrying)
   // A worker that died during the first round left the rest of its file
   // without coverage; those tests are probed again, in order.
   for (const file of files) {
@@ -895,7 +909,8 @@ function lineMap(file: string, source: string) {
 }
 
 /**
- * The pool Vitest uses up to version 3 answers a worker's unexpected exit by
+ * Workers here end themselves on purpose, and die of mutants. The pool
+ * Vitest uses up to version 3 answers a worker's unexpected exit by
  * sending it a teardown task. The send fails, the failure counts as another
  * error of that worker, and it is answered the same way: a loop that keeps
  * this process busy until the run ends, while every worker waits on it for
@@ -907,8 +922,15 @@ function dropSendsToDeadWorkers(): void {
   childProcess.fork = ((...args: Parameters<typeof fork>) => {
     const child = fork(...args)
     const send = child.send
-    child.send = ((...sendArgs: Parameters<typeof send>) =>
-      child.connected ? send.apply(child, sendArgs) : false) as typeof send
+    child.send = ((...sendArgs: unknown[]) => {
+      if (!child.connected) return false
+      // A worker can be gone before its channel is known to be closed. The
+      // send then fails later; without someone to tell, that is an error
+      // event on the child, which Vitest 4 passes on to nobody and which
+      // ends this process.
+      if (typeof sendArgs.at(-1) !== 'function') sendArgs.push(() => {})
+      return (send as (...args: unknown[]) => boolean).apply(child, sendArgs)
+    }) as typeof send
     return child
   }) as typeof fork
   syncBuiltinESMExports()
@@ -951,7 +973,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const hints = options.incremental ? hintKeys(generated, options.root) : []
   const earlierKillers = options.incremental ? loadKillers(options.root) : {}
 
-  if (major < 4) dropSendsToDeadWorkers()
+  dropSendsToDeadWorkers()
   // Every run of a file starts a process that compiles Vitest, the test
   // environment and the dependencies again; where files are small that is
   // most of what a run costs.
@@ -961,13 +983,22 @@ export async function run(options: RunOptions): Promise<RunResult> {
     enforce: 'pre' as const,
     // Projects declared in the config get their own servers, which take
     // neither the plugins nor the runner given to the root.
-    config(config: { test?: { projects?: unknown[] } }) {
+    config(config: { test?: Record<string, unknown> & { projects?: unknown[] } }) {
+      // What the project starts its workers with stays: tests can depend
+      // on it, `--expose-gc` for one.
+      const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
+        if (major >= 4) return { ...test, execArgv: [...((test.execArgv as string[]) ?? []), ...workerArgv] }
+        const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
+        const forks = { ...pools.forks, isolate: true, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
+        return { ...test, poolOptions: { ...pools, forks } }
+      }
       for (const project of config.test?.projects ?? []) {
         if (typeof project !== 'object' || project === null) continue
-        const inline = project as { plugins?: unknown[]; test?: { runner?: string; execArgv?: string[] } }
+        const inline = project as { plugins?: unknown[]; test?: Record<string, unknown> }
         inline.plugins = [...(inline.plugins ?? []), instrumentPlugin]
-        inline.test = { ...inline.test, runner: paths.runner, execArgv: workerArgv }
+        inline.test = { ...withArgv(inline.test), runner: paths.runner }
       }
+      config.test = withArgv(config.test)
     },
     // As the file is loaded rather than as a transform of what was
     // loaded: other plugins rewrite the source first, `import.meta.env`
@@ -994,13 +1025,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
     'test',
     {
       root: options.root,
+      ...(options.projects.length > 0 ? { project: options.projects } : {}),
       watch: false,
       runner: paths.runner,
       pool: 'forks',
       // A fresh worker has to mean fresh modules.
-      ...(major < 4
-        ? { poolOptions: { forks: { isolate: true, execArgv: workerArgv } } }
-        : { isolate: true, execArgv: workerArgv }),
+      ...(major < 4 ? {} : { isolate: true }),
       sequence: { sequencer: PlannedOrder },
       maxWorkers: options.maxWorkers,
       // The pool only starts a worker while it has fewer workers than queued
@@ -1108,9 +1138,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // which slows down the tests they run themselves. Before Vitest 4
         // the pool takes its arguments once, for all rounds.
         if (cloning && major >= 4) {
-          const argv = copying ? workerArgv : []
           for (const project of new Set(plan.map((spec) => spec.project))) {
-            ;(project.config as { execArgv?: string[] }).execArgv = argv
+            const config = project.config as { execArgv?: string[] }
+            const own = (config.execArgv ?? []).filter((argument) => !workerArgv.includes(argument))
+            config.execArgv = copying ? [...own, ...workerArgv] : own
           }
         }
         await vitest.runTestSpecifications(plan, true)
@@ -1124,7 +1155,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       let status = inspect(readRecords())
       // A whole-file run that blocks is stopped by the watchdog, which marks
       // the mutant and kills the worker before it can write its verdict.
-      const total = (entry?: WholeState) => (entry ? entry.died + entry.failed + entry.timedOut + entry.passed : 0)
+      const total = (entry?: WholeState) => entry?.runs ?? 0
       const stopped = planned.filter(
         (job) =>
           state[job.mutant] === MUTANT_TIMEOUT &&

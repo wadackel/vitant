@@ -1,0 +1,262 @@
+stryker mutants: 1474, ours: 1339, matched: 1323
+only in stryker: 151
+     148  CallExpression
+       2  LogicalOperator
+       1  EqualityOperator
+only in ours: 16
+       3  LogicalOperator
+       3  ConditionalExpression
+       3  ArrayDeclaration
+       2  EqualityOperator
+       2  StringLiteral
+       1  ObjectLiteral
+       1  BlockStatement
+       1  ArrowFunction
+status (stryker -> ours):
+     750  Killed -> Killed
+     217  Survived -> Survived
+     186  Survived -> Killed
+      54  NoCoverage -> NoCoverage
+      51  Ignored -> Static
+      48  Timeout -> Survived
+       9  Timeout -> Killed
+       5  Timeout -> Timeout
+       2  Killed -> Survived
+       1  RuntimeError -> Killed
+detected/undetected disagreements among mutants both tools ran: 236
+src/react/continuablePromise.ts:27:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/react/continuablePromise.ts:32:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/react/continuablePromise.ts:44:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/internals.ts:331:10 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:348:7 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:348:7 EqualityOperator "process.env.NODE_ENV === 'production'" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:348:7 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:348:32 StringLiteral "\"\"" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:359:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/internals.ts:359:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/internals.ts:360:12 BooleanLiteral "true" stryker=Survived ours=Killed
+src/vanilla/internals.ts:365:5 LogicalOperator "(name === 'RangeError' || name === 'InternalError'" stryker=Survived ours=Killed
+src/vanilla/internals.ts:365:6 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/internals.ts:365:31 EqualityOperator "name !== 'InternalError'" stryker=Survived ours=Killed
+src/vanilla/internals.ts:366:6 LogicalOperator "message.includes('call stack') ||\n      message.in" stryker=Killed ours=Survived
+src/vanilla/internals.ts:395:7 BooleanLiteral "pendingDependents.size" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:395:7 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:395:7 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:395:32 BlockStatement "{}" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:454:33 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/vanilla/internals.ts:477:4 AssignmentOperator "(storeHooks as SH).i &&= createStoreHookForAtoms()" stryker=Survived ours=Killed
+src/vanilla/internals.ts:478:4 AssignmentOperator "(storeHooks as SH).r &&= createStoreHookForAtoms()" stryker=Survived ours=Killed
+src/vanilla/internals.ts:549:5 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:553:5 BlockStatement "{}" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:589:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:592:12 LogicalOperator "changedAtoms.size || unmountCallbacks.size && moun" stryker=Killed ours=Survived
+src/vanilla/internals.ts:611:7 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:611:27 BlockStatement "{}" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:635:9 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:645:11 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:649:9 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:649:9 EqualityOperator "process.env.NODE_ENV === 'production'" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:649:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:649:34 StringLiteral "\"\"" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:663:11 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:674:26 BooleanLiteral "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:676:11 LogicalOperator "dep !== a || changedAtoms.has(dep)" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:676:11 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:676:11 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:681:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:721:8 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:744:16 BooleanLiteral "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:754:31 BooleanLiteral "changedAtoms.size" stryker=Survived ours=Killed
+src/vanilla/internals.ts:756:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/internals.ts:756:28 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/internals.ts:766:13 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:795:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/internals.ts:796:11 BooleanLiteral "controller" stryker=Survived ours=Killed
+src/vanilla/internals.ts:796:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/internals.ts:796:24 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/internals.ts:805:9 EqualityOperator "process.env.NODE_ENV === 'production'" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:805:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:805:9 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:805:34 StringLiteral "\"\"" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:805:48 BlockStatement "{}" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:815:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:815:34 StringLiteral "\"\"" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:822:67 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/vanilla/internals.ts:869:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/internals.ts:907:13 ConditionalExpression "false" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:911:13 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:911:38 StringLiteral "\"\"" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:919:11 UpdateOperator "--storeEpochHolder[0]" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:956:18 EqualityOperator "atomState.d.size >= 0" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:956:18 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:958:11 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:1009:9 LogicalOperator "isActuallyWritableAtom(atom) || hasOnMount(atom)" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:1009:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:1011:22 BooleanLiteral "false" stryker=Survived ours=Killed
+src/vanilla/internals.ts:1016:17 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/internals.ts:1026:24 BooleanLiteral "false" stryker=Survived ours=Killed
+src/vanilla/internals.ts:1029:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/internals.ts:1030:26 BooleanLiteral "true" stryker=Survived ours=Killed
+src/vanilla/internals.ts:1108:5 UpdateOperator "--atomState.n" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:1109:9 ConditionalExpression "true" stryker=Timeout ours=Survived
+src/vanilla/internals.ts:1203:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/internals.ts:1203:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/store.ts:31:9 EqualityOperator "(globalThis as { __JOTAI_DEFAULT_STORE__?: unknown" stryker=Timeout ours=Survived
+src/vanilla/utils/atomWithRefresh.ts:42:18 EqualityOperator "process.env.NODE_ENV === 'production'" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithRefresh.ts:42:18 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithRefresh.ts:42:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:6:3 EqualityOperator "typeof (x as PromiseLike<unknown>)?.then !== 'func" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:6:3 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:6:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:6:10 OptionalChaining "(x as PromiseLike<unknown>).then" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:6:48 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:61:3 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:62:76 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:63:21 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:65:54 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:66:46 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:67:15 BooleanLiteral "validator(value)" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:67:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:67:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:67:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:73:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:73:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:73:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:115:45 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:119:61 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:120:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:121:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:122:15 LogicalOperator "str && ''" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:122:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:122:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:123:13 EqualityOperator "lastStr === str" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:123:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:123:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:124:15 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:125:41 OptionalChaining "options.reviver" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:126:19 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:133:19 LogicalOperator "getStringStorage()?.getItem(key) && null" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:133:19 OptionalChaining "getStringStorage().getItem" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:134:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:134:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:134:31 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:139:14 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:142:34 OptionalChaining "options.replacer" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:144:17 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:148:5 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:149:5 ArrowFunction "() => undefined" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:150:30 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:152:13 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:153:33 LogicalOperator "v && ''" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:153:33 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:153:33 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:153:42 OptionalChaining "options.reviver" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:154:17 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:161:7 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 LogicalOperator "!subscriber &&\n    typeof window !== 'undefined' &" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 LogicalOperator "!subscriber &&\n    typeof window !== 'undefined' |" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 LogicalOperator "!subscriber ||\n    typeof window !== 'undefined'" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:167:5 BooleanLiteral "subscriber" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:168:5 EqualityOperator "typeof window === 'undefined'" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:169:5 EqualityOperator "typeof window.addEventListener !== 'function'" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:169:5 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:169:40 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:171:5 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:172:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:173:11 BooleanLiteral "getStringStorage() instanceof window.Storage" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:173:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:173:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:173:60 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:176:57 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:13 LogicalOperator "e.storageArea === getStringStorage() || e.key === " stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:13 EqualityOperator "e.storageArea !== getStringStorage()" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:53 EqualityOperator "e.key !== key" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:177:68 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:181:31 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:188:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:188:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:188:19 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/vanilla/utils/atomWithStorage.ts:221:3 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:222:21 OptionalChaining "options.getOnInit" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:233:35 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:235:12 OptionalChaining "storage.subscribe(key, setAtom, initialValue)" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:239:5 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:240:76 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:242:9 EqualityOperator "typeof update !== 'function'" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:242:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:242:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:242:27 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:249:11 EqualityOperator "nextValue !== RESET" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:249:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:249:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:249:32 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:253:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:253:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:253:37 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/atomWithStorage.ts:254:50 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/freezeAtom.ts:58:39 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:7:70 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:13:3 EqualityOperator "typeof (p as PromiseLike<unknown>)?.then !== 'func" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:13:3 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:13:3 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:13:48 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:38:3 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:40:11 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:53:55 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:54:39 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:55:11 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:55:40 ArrowFunction "() => undefined" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:66:25 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:69:13 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:75:13 BooleanLiteral "isPromiseLike(promise)" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:75:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:75:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:75:38 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:76:18 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:78:13 EqualityOperator "promise === prev?.p" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:78:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:78:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:78:25 OptionalChaining "prev.p" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:78:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:80:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:85:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:92:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:92:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:92:45 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:93:15 LogicalOperator "prev && 'e' in prev || prev.p === promise" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:93:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:93:15 LogicalOperator "prev || 'e' in prev" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:93:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:97:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:97:23 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:97:36 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:98:20 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:100:18 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:102:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:102:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:102:46 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:103:18 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:108:13 LogicalOperator "prev || 'v' in prev" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:108:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:108:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:108:21 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:108:34 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:109:18 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:111:16 ObjectLiteral "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:121:18 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:123:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:123:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:123:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:123:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:126:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:126:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:126:15 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:126:29 BlockStatement "{}" stryker=Survived ours=Killed
+src/vanilla/utils/unwrap.ts:132:9 ArrowFunction "() => undefined" stryker=Survived ours=Killed

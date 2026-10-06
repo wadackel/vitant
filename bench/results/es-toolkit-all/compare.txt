@@ -1,0 +1,47 @@
+stryker mutants: 11329, ours: 11070, matched: 10993
+only in stryker: 336
+     241  CallExpression
+      89  Regex
+       3  LogicalOperator
+       2  ConditionalExpression
+       1  EqualityOperator
+only in ours: 77
+      13  BlockStatement
+      12  MethodExpression
+      11  ConditionalExpression
+       9  ArrayDeclaration
+       8  ArrowFunction
+       7  EqualityOperator
+       5  LogicalOperator
+       4  BooleanLiteral
+       3  ArithmeticOperator
+       2  UpdateOperator
+       1  UnaryOperator
+       1  OptionalChaining
+       1  ObjectLiteral
+status (stryker -> ours):
+    8777  Killed -> Killed
+     975  Survived -> Survived
+     820  Ignored -> Static
+     290  Timeout -> Timeout
+      50  NoCoverage -> NoCoverage
+      36  Timeout -> Killed
+      29  Killed -> Timeout
+       8  Survived -> Killed
+       3  Killed -> Survived
+       3  RuntimeError -> Killed
+       2  Timeout -> Survived
+detected/undetected disagreements among mutants both tools ran: 13
+src/_internal/DOMException.ts:6:3 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/_internal/globalThis.ts:5:3 LogicalOperator "(typeof globalThis === 'object' && globalThis) ||\n" stryker=Killed ours=Survived (static)
+src/_internal/globalThis.ts:5:3 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/_internal/globalThis.ts:5:3 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/_internal/globalThis.ts:5:4 LogicalOperator "typeof globalThis === 'object' || globalThis" stryker=Survived ours=Killed (static)
+src/compat/array/orderBy.ts:211:9 LogicalOperator "criterion == null || typeof criterion === 'functio" stryker=Killed ours=Survived
+src/compat/string/words.ts:36:9 StringLiteral "``" stryker=Survived ours=Killed
+src/compat/string/words.ts:39:9 StringLiteral "``" stryker=Survived ours=Killed
+src/compat/string/words.ts:40:9 StringLiteral "``" stryker=Survived ours=Killed
+src/compat/string/words.ts:41:9 StringLiteral "``" stryker=Survived ours=Killed
+src/compat/util/toArray.ts:59:7 LogicalOperator "isArrayLike(value) || isMap(value) && isSet(value)" stryker=Killed ours=Survived
+src/iterator/_internal/iterator.ts:59:14 ObjectLiteral "{}" stryker=Timeout ours=Survived
+src/iterator/zip.ts:29:42 BooleanLiteral "false" stryker=Timeout ours=Survived

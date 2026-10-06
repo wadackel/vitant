@@ -15,7 +15,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { changedLines } from '../src/changed.ts'
 import { defaultExclude } from '../src/mutate/generate.ts'
-import { projectDir, targets } from './targets.ts'
+import { projectDir, targets, vitestArgs } from './targets.ts'
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -46,6 +46,8 @@ interface Timing {
 function time(tool: string, command: string, args: string[], cwd: string): Timing {
   const timing: Timing = { tool, seconds: [], exitCodes: [] }
   for (let i = 0; i < Number(values.runs); i++) {
+    // A run of StrykerJS that failed leaves its copy of the project, tests and all, where the next run finds them.
+    fs.rmSync(path.join(dir, '.stryker-tmp'), { recursive: true, force: true })
     const startedAt = performance.now()
     const log = fs.openSync(path.join(outDir, `${tool}.log`), 'w')
     const result = spawnSync(command, args, { cwd, stdio: ['ignore', log, log] })
@@ -87,12 +89,26 @@ let wrong = false
 
 if (tools.has('stryker')) {
   const config = path.join(dir, `stryker.${scopeName}.json`)
+  // StrykerJS has no way to name the Vitest projects to run; it gets a config that holds only those.
+  const { projects } = targets[targetName]
+  const vitestConfig = path.join(dir, 'vitest.stryker.config.mjs')
+  if (projects) {
+    const own = ['ts', 'mts', 'js', 'mjs'].map((ext) => `vitest.config.${ext}`).find((name) => fs.existsSync(path.join(dir, name)))
+    fs.writeFileSync(
+      vitestConfig,
+      `import base from './${own}'\n` +
+        `const config = await (typeof base === 'function' ? base({ mode: 'test', command: 'serve' }) : base)\n` +
+        `const names = ${JSON.stringify(projects)}\n` +
+        `export default { ...config, test: { ...config.test, projects: config.test.projects.filter((project) => names.includes(project.test?.name)) } }\n`,
+    )
+  }
   fs.writeFileSync(
     config,
     JSON.stringify(
       {
         testRunner: 'vitest',
         plugins: ['@stryker-mutator/vitest-runner'],
+        ...(projects ? { vitest: { configFile: vitestConfig } } : {}),
         mutate: strykerMutate(),
         coverageAnalysis: 'perTest',
         // Matches this tool, which does not run mutants that are only
@@ -113,7 +129,7 @@ if (tools.has('stryker')) {
 for (const tool of ['vitant-no-clone', 'vitant']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
-  const args = [path.join(repoRoot, 'src/cli.ts'), '--root', dir, '--report', report]
+  const args = [path.join(repoRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if ('changed' in scope) args.push('--changed', scope.changed)
   else for (const glob of scope.mutate) args.push('--mutate', glob)

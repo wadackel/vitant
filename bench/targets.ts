@@ -18,7 +18,16 @@ export interface Target {
   installStryker: string
   /** The package to run in, for a repository that holds several. */
   dir?: string
+  /** The Vitest projects to run, where the others need what the benchmark does not set up, a browser for one. */
+  projects?: string[]
+  /** Test file filters, as Vitest takes them, for the same reason. */
+  filters?: string[]
   scopes: Record<string, Scope>
+}
+
+/** What a target adds to a Vitest command line. */
+export function vitestArgs(target: Target): string[] {
+  return [...(target.projects ?? []).flatMap((project) => ['--project', project]), ...(target.filters ?? [])]
 }
 
 const stryker = '@stryker-mutator/core@10.0.0 @stryker-mutator/vitest-runner@10.0.0'
@@ -122,6 +131,44 @@ export const targets: Record<string, Target> = {
     installStryker: `npx -y pnpm@10.29.3 add -D ${stryker}`,
     scopes: {
       all: { mutate: ['src/**/*.ts'] },
+    },
+  },
+  // Vitest 4, a monorepo run from its root config: threads as the pool, a
+  // setup file whose hooks fail a test for a warning nobody asserted, one
+  // project that starts its workers with `--expose-gc`. The two projects
+  // left out drive a browser.
+  vue: {
+    repo: 'https://github.com/vuejs/core',
+    commit: '4ab865a848a1da3d10fb674f857e5fff13094644',
+    install: ['npx -y pnpm@12.4.2 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@12.4.2 add -D -w ${stryker}`,
+    projects: ['unit', 'unit-gc', 'unit-jsdom'],
+    scopes: {
+      reactivity: { mutate: ['packages/reactivity/src/**/*.ts'] },
+    },
+  },
+  // Vitest 4: two test files register over a thousand sample directories
+  // each as tests, compile every sample to files next to it and import
+  // those. The file left out starts a browser.
+  svelte: {
+    repo: 'https://github.com/sveltejs/svelte',
+    commit: '10fdca7d705081cae17bf7d609d46ee6eb237d17',
+    install: ['npx -y pnpm@10.33.4 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@10.33.4 add -D -w ${stryker}`,
+    scopes: {
+      reactivity: { mutate: ['packages/svelte/src/internal/client/reactivity/*.js'] },
+    },
+  },
+  // Vitest 4, one package of a workspace: every test file in one worker
+  // without isolation, so what a file leaves in a module is there for the next.
+  solid: {
+    repo: 'https://github.com/solidjs/solid',
+    commit: 'b25c557754f2ced0d86490e6dbfded9b1745b663',
+    dir: 'packages/solid',
+    install: ['npx -y pnpm@9.15.0 install --frozen-lockfile'],
+    installStryker: `cd packages/solid && npx -y pnpm@9.15.0 add -D ${stryker}`,
+    scopes: {
+      reactive: { mutate: ['src/reactive/*.ts'] },
     },
   },
   // Vitest 3.2, node environment: a few large test files.

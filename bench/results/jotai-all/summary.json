@@ -1,0 +1,51 @@
+{
+  "target": "jotai",
+  "scope": "all",
+  "commit": "6abd0ae3365e02ab432fba4b6e8e6f00aafbf508",
+  "machine": {
+    "platform": "darwin-arm64",
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        345.1
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vitant": {
+      "tool": "vitant",
+      "seconds": [
+        77.8
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 956,
+        "Survived": 272,
+        "Timeout": 5,
+        "NoCoverage": 54,
+        "Static": 52,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 0,
+        "copied before load": 325,
+        "copied after load": 3202,
+        "lost": 0
+      },
+      "rounds": 9,
+      "abandonedFiles": 0
+    }
+  }
+}

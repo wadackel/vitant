@@ -1,0 +1,51 @@
+{
+  "target": "vue",
+  "scope": "reactivity",
+  "commit": "4ab865a848a1da3d10fb674f857e5fff13094644",
+  "machine": {
+    "platform": "darwin-arm64",
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vitant": {
+      "tool": "vitant",
+      "seconds": [
+        290.1
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        3.2
+      ],
+      "exitCodes": [
+        1
+      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 1377,
+        "Survived": 182,
+        "Timeout": 9,
+        "NoCoverage": 49,
+        "Static": 58,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 33,
+        "copied before load": 390,
+        "copied after load": 3492,
+        "lost": 37
+      },
+      "rounds": 31,
+      "abandonedFiles": 0
+    }
+  }
+}

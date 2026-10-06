@@ -1,0 +1,51 @@
+{
+  "target": "es-toolkit",
+  "scope": "all",
+  "commit": "43e1118884e07cebdf1e767038f6e7f697fa27ec",
+  "machine": {
+    "platform": "darwin-arm64",
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        532.8
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vitant": {
+      "tool": "vitant",
+      "seconds": [
+        356.9
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 8889,
+        "Survived": 989,
+        "Timeout": 320,
+        "NoCoverage": 52,
+        "Static": 820,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 70,
+        "copied before load": 5439,
+        "copied after load": 15859,
+        "lost": 2
+      },
+      "rounds": 15,
+      "abandonedFiles": 0
+    }
+  }
+}

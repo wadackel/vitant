@@ -2,7 +2,7 @@
 // mutant written into the source for real.
 //
 //   node bench/truth.ts make --root <project> [--report <report.json>] [--out <truth.json>]
-//        [--related] [--jobs N] [--timeout seconds] [--statuses Killed,Survived,...]
+//        [--related] [--jobs N] [--sample N] [--timeout seconds] [--statuses Killed,Survived,...]
 //   node bench/truth.ts check --report <report.json> --truth <truth.json>
 //
 // `make` runs the suite once per mutant and then checks the report against
@@ -56,6 +56,10 @@ const { values, positionals } = parseArgs({
     related: { type: 'boolean', default: false },
     jobs: { type: 'string', default: '1' },
     timeout: { type: 'string' },
+    // Check this many mutants, spread evenly over the report, in place of all.
+    sample: { type: 'string' },
+    // Further arguments for every Vitest run and for the tool: `--project` and test file filters.
+    vitest: { type: 'string', multiple: true, default: [] },
     statuses: { type: 'string', default: 'Killed,Timeout,Survived,NoCoverage,Static' },
   },
 })
@@ -71,7 +75,9 @@ if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root : !
 if (!values.report) {
   values.report = path.join(import.meta.dirname, '..', 'build', `${path.basename(values.root!)}.json`)
   const cli = path.join(import.meta.dirname, '..', 'src', 'cli.ts')
-  const run = spawnSync(process.execPath, [cli, '--root', values.root!, '--report', values.report], { stdio: 'ignore' })
+  const run = spawnSync(process.execPath, [cli, '--root', values.root!, '--report', values.report, ...values.vitest!], {
+    stdio: 'ignore',
+  })
   if (run.status !== 0) {
     console.error(`the tool exited with ${run.status} on ${values.root}`)
     process.exit(1)
@@ -182,9 +188,13 @@ function copies(root: string, count: number): string[] {
 async function make(): Promise<Truth> {
   const root = fs.realpathSync(values.root!)
   const command = values.related ? 'related' : 'run'
-  const argsFor = (file: string) => (values.related ? ['related', '--run', file] : ['run'])
+  const argsFor = (file: string) => [...(values.related ? ['related', '--run', file] : ['run']), ...values.vitest!]
   const wanted = new Set(values.statuses!.split(','))
-  const mutants = report.mutants.filter((mutant) => wanted.has(mutant.status))
+  const eligible = report.mutants.filter((mutant) => wanted.has(mutant.status))
+  const step = values.sample ? Math.max(1, eligible.length / Number(values.sample)) : 1
+  const mutants = values.sample
+    ? Array.from({ length: Math.min(eligible.length, Number(values.sample)) }, (_, index) => eligible[Math.floor(index * step)])
+    : eligible
 
   // What every run is held against: the same command with no mutant, which has to pass.
   let slowest = 0

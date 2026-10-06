@@ -201,7 +201,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(17)
+    expect(second.reused).toBe(20)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 60_000)
@@ -221,7 +221,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(16)
+    expect(after.reused).toBe(19)
     expect(after.result.counts).toEqual(before.counts)
   }, 60_000)
 
@@ -233,7 +233,7 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(16)
+    expect(after.reused).toBe(19)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 60_000)

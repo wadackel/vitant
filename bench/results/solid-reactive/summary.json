@@ -1,0 +1,42 @@
+{
+  "target": "solid",
+  "scope": "reactive",
+  "commit": "b25c557754f2ced0d86490e6dbfded9b1745b663",
+  "machine": {
+    "platform": "darwin-arm64",
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vitant": {
+      "tool": "vitant",
+      "seconds": [
+        848
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 1021,
+        "Survived": 363,
+        "Timeout": 44,
+        "NoCoverage": 119,
+        "Static": 13,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 7,
+        "copied before load": 376,
+        "copied after load": 2672,
+        "lost": 0
+      },
+      "rounds": 49,
+      "abandonedFiles": 0
+    }
+  }
+}

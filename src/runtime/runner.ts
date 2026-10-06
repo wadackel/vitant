@@ -144,6 +144,11 @@ interface TestRun {
   killed: number[]
   timedOut: number[]
   survived: number[]
+  /**
+   * The unmutated attempt is made again with the probes off, having run
+   * out of the test's time with them on.
+   */
+  unprobed?: boolean
   /** What the unmutated attempt had reached when the test itself was over. */
   reached?: { sites: number[]; mutants: number[] }
   /**
@@ -502,6 +507,12 @@ function retries(test: TaskLike): number {
  * Reads what the unmutated attempt touched. A tracked mutant whose probe never
  * saw a different value cannot change the test's outcome, so it is left out.
  */
+function mutantsAt(site: number): number[] {
+  const list: number[] = []
+  for (let mutant = siteMutants[site]; mutant < siteMutants[site + 1]; mutant++) list.push(mutant)
+  return list
+}
+
 function drainCoverage(): { sites: number[]; mutants: number[] } {
   const hits = runtime.h
   const infected = runtime.i
@@ -1107,6 +1118,23 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       run.settled = false
       runtime.n = 0
       runtime.t = false
+      if (run.attempt === 'baseline') {
+        run.startedAt = preciseNow()
+        run.reached = undefined
+        runtime.a = NO_MUTANT
+      }
+      // The run without the mutant that follows a failure with it can meet
+      // what the mutant left behind: a graph of dependencies that was built
+      // wrong and now takes a billion steps to walk. With no mutant on
+      // nothing would end that, and a worker that is silent for a minute
+      // is given up on by Vitest without being stopped.
+      if (run.attempt === 'control') {
+        heartbeat()
+        beatMutant[0] = run.mutant
+        beatMutant[1] = 0
+        beat[1] = limitMs(run)
+        runtime.l = run.baselineLoops * config.loopFactor + config.loopSlack
+      }
       if (run.attempt === 'mutant') {
         heartbeat()
         beatMutant[0] = run.mutant
@@ -1399,7 +1427,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       run.lastError = undefined
       const replayed = replays(test.file.filepath)
 
-      if (run.attempt === 'baseline') {
+      // The probes that tell which mutants could change anything cost many
+      // times the code they watch where it is a tight loop, and a test that
+      // takes a tenth of its time limit can run out of it. That says
+      // nothing about the test: it gets another unmutated run without
+      // them, after which every mutant in the code it reached counts as
+      // one it could be changed by.
+      if (run.attempt === 'baseline' && failed && !run.unprobed && /^Test timed out in \d+ms/.test(error ?? '')) {
+        run.unprobed = true
+      } else if (run.attempt === 'baseline') {
         run.baselineMs = preciseNow() - run.startedAt
         run.baselineLoops = runtime.n
         run.baselineState = failed ? 'fail' : 'pass'
@@ -1409,9 +1445,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // broke the test. A fresh worker replays the tests before it instead.
           run.baselineRetry = !(replayed && retried.has(test.id))
         } else {
-          const coverage = run.reached ?? drainCoverage()
+          const all = (reached: { sites: number[]; mutants: number[] }) =>
+            run.unprobed ? { sites: reached.sites, mutants: reached.sites.flatMap(mutantsAt) } : reached
+          const coverage = all(run.reached ?? drainCoverage())
           // Taken apart only where the end of the test itself was seen.
-          const later = run.reached ? drainCoverage() : { sites: [], mutants: [] }
+          const later = all(run.reached ? drainCoverage() : { sites: [], mutants: [] })
           run.sites = [...new Set([...coverage.sites, ...later.sites])]
           run.covered = coverage.mutants
           const covered = new Set(coverage.mutants)
@@ -1449,7 +1487,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // this worker's state cannot be trusted for the tests that follow:
         // a mutant that throws halfway can leave module state behind that
         // fails every one of them.
-        if (failed) this.tainted = true
+        const broken = failed || runtime.t
+        if (broken) this.tainted = true
         if (failed && run.repeated) {
           // The test did pass again in this worker before, so the mutant
           // broke something rather than the test being unable to re-run.
