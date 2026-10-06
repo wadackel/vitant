@@ -307,8 +307,6 @@ function inspect(records: SessionRecord[]) {
    * more, in a run of a whole file, is what a timeout is.
    */
   const blocked = new Set<number>()
-  /** Mutants a run of a whole file was stopped for. */
-  const stopped = new Set<number>()
   const leads: { mutant: number; file: string; test: string }[] = []
   const wholeRecords: WholeRecord[] = []
   for (const record of records) {
@@ -323,7 +321,8 @@ function inspect(records: SessionRecord[]) {
     }
     if (record.type === 'plain') plain.add(wholeKey(record.mutant, record.file))
     // In a run of a whole file the record names no test, and the run's own record follows.
-    if (record.type === 'stall') (record.id === '' ? stopped : blocked).add(record.mutant)
+    // In a run of a whole file the record names no test, and the run's own record follows.
+    if (record.type === 'stall' && record.id !== '') blocked.add(record.mutant)
     if (record.type === 'early') {
       if (record.site === -1) sharing.add(record.file)
       const set = staticSites.get(record.file) ?? new Set()
@@ -439,7 +438,7 @@ function inspect(records: SessionRecord[]) {
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, stopped, flaky }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -610,15 +609,13 @@ function planRound(
       site: siteOf[mutant],
       // Until an unmutated run of the file has said what runs while it loads, anything may.
       early,
-      // A copy that blocks holds up the copies due after it for as long as
-      // the run may take; a mutant that has blocked a process before gets a
-      // worker to itself. One that a test's own limits ended has not: a
-      // loop past its count or a wait nothing ends gives the process back.
+      // A copy that runs into a limit holds up the copies due after it for
+      // as long as that takes, a second or more where a loop does not end;
+      // started for the run, the workers of such mutants wait side by side.
       plain:
         status.plain.has(wholeKey(mutant, file)) ||
         state[mutant] === MUTANT_STALLED ||
-        status.blocked.has(mutant) ||
-        status.stopped.has(mutant),
+        state[mutant] === MUTANT_TIMEOUT,
     })
     addWork(file, 0, 0, 1)
     workByFile.get(file)!.wholeMs = fileMs.get(file) ?? 0
@@ -1328,7 +1325,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
     }
     for (const file of vitest.state.getFiles()) collectSuiteErrors(file, options.root, suiteErrors)
   } finally {
-    await vitest.close()
+    // A worker that does not end when asked keeps Vitest waiting, and once
+    // nothing else is left to wait for, Node ends the process there, with
+    // no word and no report. The wait gets a limit of its own, which is
+    // also what keeps the process alive until it is over.
+    let limit: NodeJS.Timeout | undefined
+    await Promise.race([vitest.close(), new Promise((resolve) => (limit = setTimeout(resolve, 15_000)))])
+    clearTimeout(limit)
   }
   const vitestMs = performance.now() - vitestStartedAt
   if (process.env.VITANT_DEBUG) options.log(`console messages from tests: ${consoleMessages}`)

@@ -1190,14 +1190,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         await fn()
         return
       }
-      if (run.attempt === 'control') {
-        try {
-          await fn()
-        } catch (error) {
-          throw plainError(error)
-        }
-        return
-      }
+      // The run without the mutant that follows a failure with it is held
+      // to the same limits as the run with it: it meets what the mutant
+      // left behind, which can be a promise nothing will settle, and the
+      // test's own time limit, half a minute in some projects, is a long
+      // time to find that out.
       // A mutant can leave the test awaiting something that never happens.
       // The abandoned promise stays pending; the control run that follows
       // shows whether it did any harm. A test that is still computing when

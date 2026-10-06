@@ -95,7 +95,7 @@ Nothing is published yet. The intended shape is one package per platform (`npm/`
 
 ## Benchmark
 
-The benchmark runs StrykerJS 10 and this tool over the same files of nine projects at pinned commits, and checks the verdicts against ground truth: each mutant put into the source for real and the plain suite run on the test files that reach it.
+The benchmark runs StrykerJS 10 and this tool over the same files of twelve projects at pinned commits, and checks the verdicts against ground truth: each mutant put into the source for real and the plain suite run on the test files that reach it.
 
 | Target | Vitest | Tests |
 |---|---|---|
@@ -108,6 +108,9 @@ The benchmark runs StrykerJS 10 and this tool over the same files of nine projec
 | [TanStack Query](https://github.com/TanStack/query) `query-core` | 4.1.11 | one package of a pnpm workspace; fake timers throughout, type tests next to the tests |
 | [pinia](https://github.com/vuejs/pinia) | 4.1.11 | Vue, a workspace run from its root config; two test files of another package fail to load |
 | [ufo](https://github.com/unjs/ufo) | 4.1.5 | node, one small module, 13 files |
+| [vue](https://github.com/vuejs/core) | 4.1.11 | 183 files in five projects of one config, two of which need a browser and are left out; threads as the pool, a setup file whose hooks fail a test for a warning nobody asserted |
+| [solid](https://github.com/solidjs/solid) | 4.1.10 | jsdom, one package of a workspace; every file in one worker without isolation, and one test that fails one run in four with no mutant |
+| [svelte](https://github.com/sveltejs/svelte) | 4.1.7 | 21 files, two of which register over a thousand sample directories each as tests, compile them to files on disk and import those |
 
 ```sh
 node bench/setup.ts excalidraw        # clone the pinned commit, install it and StrykerJS
@@ -140,6 +143,28 @@ Copies remove the start of a worker and, for most mutants, the imports. What is 
 StrykerJS finished on hono in 137 s and 190 s but reported nearly every mutant as survived (1,026 of the 1,121 in `router`, 917 of which this tool detects; ground truth agreed on each of the 754 detections it got to), so its times there say nothing. Why was not looked into; hono declares its tests as several Vitest projects.
 
 Started for each run, a worker costs the tests themselves where they are heavy (excalidraw: the heaviest file takes 20 s) and its own start where they are not (jotai: process, Vitest, jsdom and React come to about 1 s a run, against 0.09 s of tests). The workers keep every core busy: 12 workers took as long as 16. The main process uses under a tenth of a core.
+
+### The three targets added last
+
+Chosen for shapes the first nine do not have, and each run for the first time found something. One run each on the same machine; the check against the suite is of a sample, spread evenly over the mutants.
+
+| Target and scope | Mutants | This tool | Against the suite | StrykerJS |
+|---|---|---|---|---|
+| vue `reactivity`: `packages/reactivity/src` | 1,675 | 120.8 s | 400 checked: 386 agree, none wrong, 14 not judged | does not start: a test fails in its first run |
+| solid `reactive`: `src/reactive` | 1,560 | 474 s | 300 checked: 296 agree, none wrong, 4 not judged | not run |
+| svelte `sources`: one file of the runtime | 244 | 940.8 s | not checked | not run |
+
+What they showed, each fixed:
+
+- **The run without the mutant after a failure with it had no limits of its own.** In vue a mutant left a dependency graph built wrong, and the run that was to show whether the test still passes took a billion loop iterations; the worker was silent for over a minute and Vitest gave up on it without stopping it, so the tool never ended. In svelte the same run waited on a promise nothing would settle, for the half minute the project gives a test, hundreds of times. That run is held to the limits of the run with the mutant.
+- **Probes make a tight loop some 25 times slower.** A test of solid that takes 0.3 s ran out of its 5 s on its unmutated run and was left out as failing without any mutant. Such a run is made again without probes, and every mutant in the code it reached then counts as one that can change it. Reads of a property written with a dot no longer go through one shared `o[k]` per file, which took solid from 524 s to 474 s.
+- **A mutant that leaves a test failing for good** was one more mutant nobody detected, and every test reaching it gave up a worker to it before any file was run: 50 rounds on solid and four files given up on. It is a lead for a whole-file run, like a failure the test did not repeat without the mutant.
+- **A test whose unmutated run failed was tried again in a worker where tests before it had tried mutants,** and failed again on what they left. In a file with such a test nothing tries a mutant in that round.
+- **A send to a worker that had just died** ended the main process on Vitest 4; **a worker that does not end when asked** kept Vitest waiting at the very end until Node ended the process without a report; **a project's own worker arguments** (`--expose-gc`) were replaced by the tool's.
+
+solid and svelte are slow for the reason excalidraw is: one or two test files that take seconds, run whole for every mutant not caught early (solid: 222 runs of a file that takes 3 s instrumented).
+
+In vue, 13 of the 14 mutants not judged fail the suite: code that only runs while a module loads is not run here (Limits), and in a library that builds its tables at load that is about one mutant in thirty.
 
 ### On hosted CI runners
 
@@ -232,6 +257,7 @@ Things that turned out to matter, each measured:
 
 Ideas that were implemented, measured on the benchmark, and removed because they did not pay off:
 
+- **Copies for mutants a test's own limits ended.** A mutant whose loop count or timer ended a test has not blocked a process, so its whole-file run could be a copy like any other. But in that run the loop goes on until it has kept the process busy for a second, and a worker makes its copies one after another: ufo's twelve such mutants took the run from 6.4 s to 9 s. They get workers started for them, which wait side by side.
 - **Copies made at the first test that runs a mutant's code.** The worker went through the file's tests with no mutant on and copied itself, for each mutant, just before the test recorded as the first to reach it, so that the tests before it ran once and not once per mutant. Verdicts were the same on every target and CPU time fell by a tenth on excalidraw `math`, but no run got shorter (498 s against 496 s, immer 68 s against 62 s): a worker makes its copies one after another, and the tests most mutants are first reached by come early in a file.
 - **Copies made the moment a mutant's code first runs while a file loads**, in place of copies made before loading. Each site was marked before its switch was read, and the worker, loading with no mutant on, copied itself on the first mark of a site that had runs waiting. Verdicts were the same on every target and no run got shorter: in immer, where half the mutants run while some test file loads, 538 of 2,863 runs were made this way and the rest were copies made after loading already.
 - **Dropping the round in which every test tries what is left**, now that a whole-file run is a copy. Verdicts were the same; the other targets ran between as long and a seventh shorter, excalidraw `math` went from 498 s to 560 s. A whole-file run remains a costly way to find the test that fails where the tests are heavy.

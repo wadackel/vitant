@@ -3,28 +3,41 @@
   "scope": "core",
   "commit": "f9fe54c960ffe39affe89a7b3dd8a69e6b194fda",
   "machine": {
+    "platform": "darwin-arm64",
     "cpu": "Apple M6",
     "cores": 12,
     "node": "v24.21.0"
   },
   "timings": {
-    "vitant-no-clone": {
-      "tool": "vitant-no-clone",
+    "vitant": {
+      "tool": "vitant",
       "seconds": [
-        212.8
+        120.6
       ],
       "exitCodes": [
         0
       ]
-    },
-    "stryker": {
-      "tool": "stryker",
-      "seconds": [
-        254.2
-      ],
-      "exitCodes": [
-        0
-      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 2258,
+        "Survived": 476,
+        "Timeout": 46,
+        "NoCoverage": 9,
+        "Static": 15,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 0,
+        "copied before load": 296,
+        "copied after load": 3597,
+        "lost": 0
+      },
+      "rounds": 14,
+      "abandonedFiles": 0,
+      "truth": "472 mutants checked against the suite: 472 agree"
     }
   }
 }

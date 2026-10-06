@@ -3,28 +3,41 @@
   "scope": "router",
   "commit": "08a023cbfde55b434fb0fb30fae35d42e4bf20aa",
   "machine": {
+    "platform": "darwin-arm64",
     "cpu": "Apple M6",
     "cores": 12,
     "node": "v24.21.0"
   },
   "timings": {
-    "stryker": {
-      "tool": "stryker",
+    "vitant": {
+      "tool": "vitant",
       "seconds": [
-        190.1
+        45.3
       ],
       "exitCodes": [
         0
       ]
-    },
-    "vitant-no-clone": {
-      "tool": "vitant-no-clone",
-      "seconds": [
-        48.2
-      ],
-      "exitCodes": [
-        0
-      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 946,
+        "Survived": 109,
+        "Timeout": 11,
+        "NoCoverage": 49,
+        "Static": 6,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 0,
+        "copied before load": 499,
+        "copied after load": 1642,
+        "lost": 0
+      },
+      "rounds": 8,
+      "abandonedFiles": 0,
+      "truth": "735 mutants checked against the suite: 735 agree"
     }
   }
 }

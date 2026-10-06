@@ -156,6 +156,8 @@ export const targets: Record<string, Target> = {
     install: ['npx -y pnpm@10.33.4 install --frozen-lockfile'],
     installStryker: `npx -y pnpm@10.33.4 add -D -w ${stryker}`,
     scopes: {
+      // One file of the runtime: the two big test files run whole for every mutant that is not caught early.
+      sources: { mutate: ['packages/svelte/src/internal/client/reactivity/sources.js'] },
       reactivity: { mutate: ['packages/svelte/src/internal/client/reactivity/*.js'] },
     },
   },

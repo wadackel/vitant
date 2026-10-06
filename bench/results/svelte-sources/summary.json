@@ -1,7 +1,7 @@
 {
-  "target": "es-toolkit",
-  "scope": "array",
-  "commit": "43e1118884e07cebdf1e767038f6e7f697fa27ec",
+  "target": "svelte",
+  "scope": "sources",
+  "commit": "10fdca7d705081cae17bf7d609d46ee6eb237d17",
   "machine": {
     "platform": "darwin-arm64",
     "cpu": "Apple M6",
@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        29
+        940.8
       ],
       "exitCodes": [
         0
@@ -22,22 +22,21 @@
   "reports": {
     "vitant": {
       "counts": {
-        "Killed": 612,
+        "Killed": 198,
         "Survived": 40,
-        "Timeout": 54,
-        "NoCoverage": 0,
-        "Static": 0,
+        "Timeout": 0,
+        "NoCoverage": 5,
+        "Static": 1,
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 55,
-        "copied before load": 0,
-        "copied after load": 834,
+        "started": 27,
+        "copied before load": 3,
+        "copied after load": 439,
         "lost": 0
       },
-      "rounds": 9,
-      "abandonedFiles": 0,
-      "truth": "686 mutants checked against the suite: 686 agree"
+      "rounds": 18,
+      "abandonedFiles": 0
     }
   }
 }
