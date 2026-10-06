@@ -142,11 +142,20 @@ function vitestBin(root: string): string {
   return path.join(path.dirname(manifest), 'vitest.mjs')
 }
 
-function runSuite(root: string, args: string[], limitMs: number): Promise<{ suite: Suite; ms: number }> {
+/** Tests that fail the suite now and then with no mutant; a run that fails by these alone says nothing. */
+const flaky = new Set<string>()
+let runs = 0
+
+function runSuite(
+  root: string,
+  args: string[],
+  limitMs: number,
+): Promise<{ suite: Suite; ms: number; failed: string[] }> {
   return new Promise((resolve) => {
     const startedAt = performance.now()
+    const results = path.join(root, 'node_modules', `.truth-${process.pid}-${runs++}.json`)
     // Its own process group: a mutant can leave workers the suite never ends.
-    const child = spawn(process.execPath, [vitestBin(root), ...args], {
+    const child = spawn(process.execPath, [vitestBin(root), ...args, '--reporter=json', `--outputFile=${results}`], {
       cwd: root,
       stdio: 'ignore',
       detached: true,
@@ -161,7 +170,24 @@ function runSuite(root: string, args: string[], limitMs: number): Promise<{ suit
     }, limitMs)
     child.on('exit', (code) => {
       clearTimeout(timer)
-      resolve({ suite: timedOut ? 'timeout' : code === 0 ? 'pass' : 'fail', ms: performance.now() - startedAt })
+      const failed: string[] = []
+      let known = false
+      try {
+        const report = JSON.parse(fs.readFileSync(results, 'utf8'))
+        known = true
+        for (const file of report.testResults) {
+          const tests = file.assertionResults.filter((test: { status: string }) => test.status === 'failed')
+          for (const test of tests) failed.push(`${path.relative(root, file.name)} > ${test.fullName}`)
+          // A file that fails without a failing test: an error while it loads, in a hook, or one nothing handled.
+          if (file.status === 'failed' && tests.length === 0) known = false
+        }
+        if (report.numFailedTestSuites > 0 && failed.length === 0) known = false
+      } catch {}
+      fs.rmSync(results, { force: true })
+      // What failed is known to be only tests that fail by themselves: not a failure of the mutant's.
+      const onlyFlaky = known && failed.length > 0 && failed.every((test) => flaky.has(test))
+      const suite = timedOut ? 'timeout' : code === 0 || onlyFlaky ? 'pass' : 'fail'
+      resolve({ suite, ms: performance.now() - startedAt, failed })
     })
   })
 }
@@ -199,14 +225,20 @@ async function make(): Promise<Truth> {
   // What every run is held against: the same command with no mutant, which has to pass.
   let slowest = 0
   for (const file of values.related ? new Set(mutants.map((mutant) => mutant.file)) : ['']) {
-    const baseline = await runSuite(root, argsFor(file), 600_000)
-    if (baseline.suite !== 'pass') {
-      throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant: ${baseline.suite}`)
+    // Several times: a test that fails one run in four with no mutant would
+    // otherwise pass for a mutant's doing in as many of the runs below.
+    let passed = false
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const baseline = await runSuite(root, argsFor(file), 600_000)
+      for (const test of baseline.failed) flaky.add(test)
+      if (baseline.suite === 'pass') passed = true
+      slowest = Math.max(slowest, baseline.ms)
     }
-    slowest = Math.max(slowest, baseline.ms)
+    if (!passed) throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant`)
   }
   const limitMs = values.timeout ? Number(values.timeout) * 1000 : Math.max(20_000, slowest * 5)
-  console.error(`suite ${(slowest / 1000).toFixed(1)}s unmutated, ${mutants.length} mutants, limit ${limitMs / 1000}s a run`)
+  console.error(`suite ${(slowest / 1000).toFixed(1)}s unmutated, ${mutants.length} mutants, limit ${Math.round(limitMs / 1000)}s a run`)
+  if (flaky.size > 0) console.error(`fail without a mutant now and then, and are not counted:\n  ${[...flaky].join('\n  ')}`)
 
   const roots = copies(root, Number(values.jobs))
   const originals = new Map<string, string>()
