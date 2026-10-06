@@ -1,5 +1,6 @@
 # Builds the addon that copies a worker process for every platform it has a
-# package for, runs the tests with it there, and keeps the binaries.
+# package for, runs the tests with it there, checks every verdict on the
+# fixture project against the project's own suite, and keeps the binaries.
 name: native
 
 on:
@@ -44,8 +45,10 @@ jobs:
         if: ${{ !matrix.musl }}
         run: |
           pnpm install --frozen-lockfile
+          pnpm typecheck
           pnpm build:native
           pnpm test
+          pnpm test:truth
 
       # musl: in an Alpine container started by hand. Actions written in
       # JavaScript do not run inside one on arm64, so only the build and the
@@ -61,6 +64,7 @@ jobs:
             pnpm install --frozen-lockfile
             pnpm build:native
             pnpm test
+            pnpm test:truth
           '
 
       - name: The package for this platform holds what was built

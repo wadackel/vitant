@@ -26,6 +26,7 @@ Node 24 runs the TypeScript sources directly; there is no build step for them.
 pnpm install
 pnpm build:native    # the addon that copies a worker process; needs Rust 1.85+
 pnpm test            # unit tests and an end-to-end run against fixtures/basic
+pnpm test:truth      # every verdict on fixtures/basic against the suite with the mutant written in
 pnpm typecheck
 
 node src/cli.ts --root <project> --mutate 'src/**/*.ts' --report report.json
@@ -35,7 +36,8 @@ Benchmarks clone third-party projects into `bench/.work/` and take minutes to ho
 
 ```sh
 node bench/setup.ts <target>
-node bench/run.ts <target> <scope> [--tool stryker|vitant|both]
+node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone]   # also checks against bench/truth/
+node bench/truth.ts make --root <project> --report <report.json> --out <truth.json> [--related]
 node bench/conformance.ts bench/.work/test262   # instrumented code against test262
 ```
 
@@ -60,7 +62,8 @@ node bench/conformance.ts bench/.work/test262   # instrumented code against test
 - Run `pnpm typecheck` and `pnpm test`.
 - For anything that touches instrumentation, planning, the runner or the addon, also run at least two benchmark targets and compare every mutant's verdict with a report made before the change. A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference.
 - Run each benchmark on a quiet machine. Times vary by about a tenth between identical runs, so one run does not show a small gain.
-- A trap that produced a wrong verdict gets a minimal reproduction in `fixtures/basic/`.
+- A trap that produced a wrong verdict gets a minimal reproduction in `fixtures/basic/`. `pnpm test:truth` must agree on every mutant there; it finds what nobody thought to assert.
+- Ground truth is the suite itself: `bench/truth.ts` writes each mutant into the source and runs Vitest. `bench/truth/` holds what that gave for the benchmark scopes, and `bench/run.ts` fails on a verdict that disagrees. An entry is changed only after running the suite by hand, never to match a report.
 - Say what was run and what was not. Do not report a platform, a target or a path as working without having run it.
 
 ## Conventions

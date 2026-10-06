@@ -186,6 +186,8 @@ export function sessionPaths(dir: string) {
     results: path.join(dir, 'results'),
     /** One empty file per test, or chunk of a test's mutants, a worker took on in the current round. */
     claims: path.join(dir, 'claims'),
+    /** One file per worker, named by its process id: an Int32, the mutant it has on for a test, or -1. */
+    trying: path.join(dir, 'trying'),
     runner: path.join(dir, 'runner.mjs'),
   }
 }

@@ -10,7 +10,7 @@ import path from 'node:path'
 import type { Generated } from './mutate/generate.ts'
 
 /** Bumped whenever cached data would be read differently. */
-const FORMAT = 1
+const FORMAT = 2
 
 export interface CachedTest {
   name: string
@@ -22,6 +22,7 @@ export interface CachedTest {
   /** Sites reached, each named by the key of its first mutant. */
   sites: string[]
   covered: string[]
+  cleanup: string[]
   killed: string[]
   timedOut: string[]
   survived: string[]

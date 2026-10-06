@@ -146,6 +146,12 @@ interface TestRun {
   survived: number[]
   /** What the unmutated attempt had reached when the test itself was over. */
   reached?: { sites: number[]; mutants: number[] }
+  /**
+   * Mutants that could only make a difference once the test itself was
+   * over, in the hooks that clean up after it. Those run unmutated here, so
+   * the test cannot try these; a run of the whole file can.
+   */
+  cleanup: number[]
   /** Mutants whose code never ran in a worker that skipped the tests before this one. */
   unreached: number[]
   /**
@@ -206,6 +212,20 @@ function readState(mutant: number): number {
 function writeState(mutant: number, value: number): void {
   stateByte[0] = value
   fs.writeSync(stateFd, stateByte, 0, 1, mutant)
+}
+
+let tryingFd: number | undefined
+const tryingMutant = new Int32Array(1)
+/**
+ * Leaves word of the mutant a test is about to run with, or -1 for none. A
+ * process the mutant takes down says nothing afterwards, and this is how
+ * the main process learns which one it was.
+ */
+function trying(mutant: number): void {
+  if (tryingFd === undefined && mutant === -1) return
+  tryingFd ??= fs.openSync(path.join(paths.trying, String(process.pid)), 'w')
+  tryingMutant[0] = mutant
+  fs.writeSync(tryingFd, new Uint8Array(tryingMutant.buffer), 0, 4, 0)
 }
 
 let resultsFd: number | undefined
@@ -612,6 +632,7 @@ function newRun(mode: TestRun['mode']): TestRun {
     killed: [],
     timedOut: [],
     survived: [],
+    cleanup: [],
     unreached: [],
     unverified: [],
     nonRepeatable: false,
@@ -671,6 +692,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private whole: WholeJob | undefined
     private wholeFailure: 'failed' | 'timeout' | undefined
     private wholeFile: string | undefined
+    /** How the process making the whole-file run came to be. */
+    private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
     private template = false
     private heldBeforeLoad = new Map<string, number>()
@@ -691,7 +714,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // it is what a new worker would be at this point.
         for (const job of jobs) {
           if (job.plain || !job.early || !this.open(job) || !claim(`whole.${job.id}`)) continue
-          if (await this.clone(job)) {
+          if (await this.clone(job, true)) {
             this.begin(job, true)
             return super.onBeforeCollect?.(paths)
           }
@@ -731,7 +754,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * Copies this process for one whole-file run and, in the process that
      * was copied, waits for the copy to end. Returns whether this is the copy.
      */
-    private async clone(job: WholeJob): Promise<boolean> {
+    private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       // An answer still on its way to this process would go to the copy.
       await quiet()
       // Calls made before the count began are not in it. Answers mostly come
@@ -739,7 +762,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // few of those outstanding, and counting again leaves none of its own.
       await (this.workerState as { rpc?: { getCountOfFailedTests?: () => Promise<number> } }).rpc?.getCountOfFailedTests?.()
       await quiet()
-      return this.copy(job)
+      return this.copy(job, beforeLoad)
     }
 
     /**
@@ -757,7 +780,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     /** The copying itself, which nothing may interrupt: see `clone`. */
-    private copy(job: WholeJob): boolean {
+    private copy(job: WholeJob, beforeLoad: boolean): boolean {
+      const by = beforeLoad ? 'copied before load' : 'copied after load'
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
       let pid: number
@@ -770,6 +794,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       if (pid === 0) {
         cloned = true
+        this.wholeBy = by
         copiedFrom = self
         // Node read the process id when it started, which was in the process
         // this is a copy of; a signal the tests send themselves must not go there.
@@ -787,7 +812,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (ended === cloner!.Ended.Blocked) {
         const state = readState(job.mutant)
         if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout' })
+        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', by })
       } else if (ended === cloner!.Ended.Lost) {
         // The copy ended without a verdict, by this process's hand or its
         // own. Whatever it was, a worker started for the job alone decides.
@@ -854,7 +879,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             continue
           }
           if (!claim(`whole.${job.id}`)) continue
-          if (await this.clone(job)) {
+          if (await this.clone(job, false)) {
             this.begin(job, false)
             return super.onCollected?.(files)
           }
@@ -1029,6 +1054,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         beat[1] = limitMs(run)
         runtime.l = run.baselineLoops * config.loopFactor + config.loopSlack
         runtime.r = 0
+        trying(run.mutant)
         runtime.a = run.mutant
         this.attempted = true
       }
@@ -1160,6 +1186,14 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onAfterRunTask(test: TaskLike): Promise<void> {
       await super.onAfterRunTask?.(test)
+      if (!this.whole && this.active?.test === test) {
+        this.finishActive()
+        // What the hooks after the last attempt reached is no more static
+        // than what those after the first did.
+        runtime.h.fill(0)
+        runtime.i.fill(0)
+        runtime.b.fill(0)
+      }
       if (this.whole && test.result?.state === 'fail') {
         this.wholeFailure ??= runtime.t || /^Test timed out in \d+ms/.test(firstError(test) ?? '') ? 'timeout' : 'failed'
         // The first failure settles it, and nobody waits for the rest of a copy's run.
@@ -1175,7 +1209,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // An error nothing handled may be on its way with an answer; the
       // verdict is read once nothing is.
       await quiet()
-      emit({ type: 'whole', file: this.wholeFile, mutant: this.whole!.mutant, verdict: this.wholeFailure ?? 'passed' })
+      emit({
+        type: 'whole',
+        file: this.wholeFile,
+        mutant: this.whole!.mutant,
+        verdict: this.wholeFailure ?? 'passed',
+        by: this.wholeBy,
+      })
       cloner!.done()
       return cloner!.exit(0)
     }
@@ -1195,6 +1235,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             file: file.file.filepath,
             mutant: this.whole.mutant,
             verdict: this.wholeFailure ?? 'passed',
+            by: this.wholeBy,
           })
         }
         this.whole = undefined
@@ -1260,6 +1301,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     /** Records the outcome of the attempt that just ended and decides what the next one is. */
     private settle(test: TaskLike, run: TestRun): void {
       runtime.a = -1
+      trying(-1)
       beat[1] = 0
       run.settled = true
       releaseMocks?.()
@@ -1291,8 +1333,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           run.baselineRetry = !(replayed && retried.has(test.id))
         } else {
           const coverage = run.reached ?? drainCoverage()
-          run.sites = coverage.sites
+          // Taken apart only where the end of the test itself was seen.
+          const later = run.reached ? drainCoverage() : { sites: [], mutants: [] }
+          run.sites = [...new Set([...coverage.sites, ...later.sites])]
           run.covered = coverage.mutants
+          const covered = new Set(coverage.mutants)
+          run.cleanup = later.mutants.filter((mutant) => !covered.has(mutant))
           // In the first round heavy tests only report what they reach; the
           // main process then decides which test tries each mutant first.
           run.pristine = !this.attempted
@@ -1412,6 +1458,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         attempts: run.attempts,
         sites: run.sites,
         covered: run.covered,
+        cleanup: run.cleanup,
         killed: run.killed,
         timedOut: run.timedOut,
         timeoutCauses: run.timeoutCauses,
@@ -1437,6 +1484,7 @@ const noMutants = {
   attempts: 0,
   sites: [],
   covered: [],
+  cleanup: [],
   killed: [],
   timedOut: [],
   survived: [],

@@ -10,6 +10,7 @@
   "scripts": {
     "build:native": "node native/build.ts",
     "test": "vitest run",
+    "test:truth": "node src/cli.ts --root fixtures/basic --report build/basic.json && node bench/truth.ts make --root fixtures/basic --report build/basic.json --jobs 4",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

@@ -28,7 +28,7 @@ Positional arguments are passed to Vitest as test file filters. `--report` write
 
 | Status | Meaning |
 |---|---|
-| Killed | A test file failed when run whole, in a fresh worker, with the mutant on from before the file was imported: either after a test had failed with the mutant while trying it, or twice. |
+| Killed | A test file failed when run whole, in a fresh worker, with the mutant on from before the file was imported: either after a test had failed with the mutant while trying it, or twice. A worker that dies in such a run counts as the file failing, as it does for Vitest. |
 | Timeout | The same, with the file running into a loop or a hang instead of failing. Counted as detected. |
 | Survived | Every test file the mutant can change anything in passed, in a fresh worker, with the mutant on from before the file was imported. |
 | NoCoverage | No test runs the mutated code. |
@@ -47,7 +47,7 @@ StrykerJS starts a new Vitest run for every mutant, so each mutant pays for a wo
 4. **Runs that cannot change anything are skipped.** During a test's unmutated run, probes compute what each mutated operator, condition or literal would have produced and follow that value through the enclosing arithmetic, comparisons and calls of built-in `Math` functions, for as long as nothing else could have seen it. If the value never differs where that chain ends, the test cannot fail because of the mutant and is not run with it: `Math.round((value + Number.EPSILON) * m) / m` with `-` for `+` almost never rounds differently. Only primitives are recomputed, so no code of the program runs twice. A mutant that replaces a condition with `true` or `false` also drops the evaluation of that condition, so it is only cleared this way when that evaluation was seen, as it ran, to do nothing else: it did not throw, every property and global it read was plain data rather than a getter or a proxy, every operator got primitives, and nothing in it that can run code was reached, which leaves a call the condition short-circuited past, and calls of built-ins such as `Number.isFinite`, `Array.isArray` and `Math.abs` that are still the original functions.
 5. **A coverage round, then a plan.** The first round runs every test once, unmutated, to learn what each one reaches; fast tests try their mutants right away. The main process then gives every remaining mutant first to the one test that reaches the most code, which in measurements found a killer first far more often than the cheapest or narrowest test, and only afterwards lets every test try what is left.
 6. **Work is cut into chunks that any worker can claim.** A test's mutants are split into chunks of about a quarter second, claimed through lock files, so several workers can share one heavy test and a round ends within one chunk of its work running out. Workers skip the tests they do not drive; a file whose tests turn out to depend on earlier ones is replayed in order instead.
-7. **Loops and hangs do not cost a restart.** Instrumented loops count iterations and throw when a mutant run goes far beyond the unmutated count. A hung `await` is abandoned by a timer that waits longer while the test is still using CPU. A mutant that is only slow is left to Vitest's own test timeout. A watchdog thread is the last resort for a mutant that blocks the event loop for good: it measures CPU time, so that a busy machine does not look like a hang, stops the worker after what a run may take, and leaves the mutant to a fresh worker, which calls it a timeout only after five times that.
+7. **Loops and hangs do not cost a restart.** Instrumented loops count iterations and throw when a mutant run goes far beyond the unmutated count. A hung `await` is abandoned by a timer that waits longer while the test is still using CPU. A mutant that is only slow is left to Vitest's own test timeout. A watchdog thread is the last resort for a mutant that blocks the event loop for good: it measures CPU time, so that a busy machine does not look like a hang, stops the worker after what a run may take, and leaves the mutant to a fresh worker, which calls it a timeout only after five times that. A mutant that ends the process outright is found the same way round: every worker leaves word of the mutant it is about to try, and one that is gone with a mutant named has that mutant left to a fresh worker and the rest of its work shared out again.
 
 ### Deciding
 
@@ -60,7 +60,7 @@ What a test does with a mutant inside such a worker is not what the suite would 
 
 Nothing the instrumented code can observe tells these apart from an ordinary pass or an ordinary failure. So no verdict comes from inside such a worker:
 
-8. **Every mutant is settled by running test files whole.** A fresh worker runs the file once, as a plain run would, with the mutant on from before the file is imported. A mutant that a test failed on gets the file of that test: if the file fails, by a test, a hook or an error nothing handles, the mutant is killed, and the run stops there. If it passes, the lead was wrong and the mutant goes on like any other. A mutant with no lead is run with each test file in which it can change a value, while the file loads or in a test, the cheapest files first and a few at a time; a failure there is run once more before it counts and ends the search. Only a mutant that passed every one of its files is reported as survived.
+8. **Every mutant is settled by running test files whole.** A fresh worker runs the file once, as a plain run would, with the mutant on from before the file is imported. A mutant that a test failed on gets the file of that test: if the file fails, by a test, a hook or an error nothing handles, the mutant is killed, and the run stops there. If it passes, the lead was wrong and the mutant goes on like any other. A mutant with no lead is run with each test file in which it can change a value, while the file loads, in a test, or in the hooks that clean up after one, the cheapest files first and a few at a time; a failure there is run once more before it counts and ends the search. Only a mutant that passed every one of its files is reported as survived. The report is made from these runs alone: what a test found is nowhere in it, and a lead whose record was lost with its worker is tried again rather than taken on trust.
 9. **Which files those are is measured with no mutant tried.** The unmutated runs of the first round can come after mutants were tried in the same worker and may have seen what one left behind. Before the whole-file runs are planned, such files are gone through once more, untouched.
 
 This costs one run of a test file per detected mutant, cut short at the failure, and one per file for every other mutant. That cannot be shared between mutants without giving up what makes it right: a process that has seen nothing else.
@@ -84,7 +84,7 @@ On Linux V8 marks the memory it allocates, the JavaScript heap included, as not 
 
 Nothing is published yet. The intended shape is one package per platform (`npm/`, in the layout `napi create-npm-dirs` makes), each an optional dependency of the tool so that a package manager installs the one that fits and nobody needs a compiler. Two things are missing for that: the root package does not list them, and it runs its TypeScript sources directly, which Node refuses for files under `node_modules`, so a published tool has to ship JavaScript.
 
-`.github/workflows/native.yml` builds and tests all six: macOS on arm64 and x64, Linux with glibc and with musl on both. The workflow has not run. Three of the six have been built and tested by hand: macOS arm64, and Linux arm64 with glibc and with musl in containers, where the tests of this repository pass with copies on.
+`.github/workflows/native.yml` builds and tests all six on every push: macOS on arm64 and x64, Linux with glibc and with musl on both. On each, the tests of this repository pass with copies on, and every verdict on the fixture project is checked against the project's own suite (see Checking the verdicts).
 
 ### Around that
 
@@ -140,6 +140,14 @@ Copies remove the start of a worker and, for most mutants, the imports. What is 
 StrykerJS finished on hono in 137 s and 190 s but reported nearly every mutant as survived (1,026 of the 1,121 in `router`, 917 of which this tool detects; ground truth agreed on each of the 754 detections it got to), so its times there say nothing. Why was not looked into; hono declares its tests as several Vitest projects.
 
 Started for each run, a worker costs the tests themselves where they are heavy (excalidraw: the heaviest file takes 20 s) and its own start where they are not (jotai: process, Vitest, jsdom and React come to about 1 s a run, against 0.09 s of tests). The workers keep every core busy: 12 workers took as long as 16. The main process uses under a tenth of a core.
+
+### Checking the verdicts
+
+`bench/truth.ts` writes each mutant of a report into the source, in parentheses where it stands for an expression and only where that parses to the same tree around it, runs Vitest, and compares: a mutant counts as agreeing when the suite fails or hangs and the report says Killed or Timeout, or the suite passes and the report says anything else. Three things are checked with it:
+
+- **The fixture project, on every push and every platform.** `pnpm test:truth` runs the whole suite of `fixtures/basic` for each of its 105 mutants. The first time it ran it found two defects no assertion had been written for: mutants in code that only cleanup hooks reach were reported as not covered, and a mutant that ended the process left every mutant of its test file pending.
+- **The benchmark scopes, in CI.** `bench/truth/` holds what the suites gave for 6,353 mutants of nine scopes, and `bench/run.ts` fails when a report disagrees with it; `.github/workflows/bench.yml` runs that on Linux and macOS runners. The entries were made on macOS with the test files that reach each mutant; the ten that the first version of the check had written without parentheses, and so wrongly, were made again. One entry carries a note: the miss in hono described under Limits. pinia's own suite does not pass at the pinned commit, so seven of its entries that could not be made again were dropped.
+- **Mutants reported as not covered,** which the earlier checks had left out: the suite passes with each of the 121 in ufo, zustand and immer.
 
 ### How the verdicts hold up
 
@@ -250,7 +258,7 @@ With `CONFORMANCE_MUTANTS=3` the check also turns on up to three mutants per tes
 - **Copies of a worker need `fork()`** and the addon for the platform; elsewhere the tool starts a worker per run. A copy shares what the worker had open when it was made: its random number seed, its standard streams, its channel to the main process. Code that kept the process id while the file loaded has the worker's. Where a copy is stopped in the middle of a message to the main process, the rest of the worker's run on that channel is lost and the run does not end; a copy sends none of the long ones. On macOS a copy that blocks outlives a worker that dies before it; on Linux the kernel stops it. Workers run V8 single-threaded when they are to be copied, which makes the tests themselves somewhat slower.
 - **Type tests are not run.** Vitest can run a type checker next to the tests, and a mutant that only breaks types fails such a run with every test passing. Type checking is switched off here, as StrykerJS does without its checker plugin.
 - **A test file is the unit.** A whole-file run reproduces what a mutant does within one file's run. What tests in one file leave for another file, a `globalSetup`, a server or a file on disk, is outside it.
-- **Mutants that only matter in `afterEach`,** while tests try them one at a time: the mutant is switched off before cleanup hooks so that it cannot keep them from restoring shared state. The whole-file run has it on throughout.
+- **Code that only cleanup hooks reach gets no lead.** While tests try mutants one at a time the mutant is switched off before `afterEach` and the hooks like it, so that it cannot keep them from restoring shared state. A mutant in code that only they run is therefore settled by whole-file runs alone, one per test file whose hooks reach it.
 - **Code that only runs while a module loads or in `beforeAll`** and that no test reaches is reported as Static and not run, as StrykerJS does with `ignoreStatic`.
 - **Skipped runs assume deterministic tests.** If a test takes a different path on each run, a mutant judged harmless in the unmutated run might still have changed something.
 - **A mutant that changes which tests a file has** is judged by the first failure of the whole-file run, whatever the tests are then.
@@ -263,6 +271,7 @@ With `CONFORMANCE_MUTANTS=3` the check also turns on up to three mutants per tes
 
 ```sh
 pnpm test        # unit tests and an end-to-end run against fixtures/basic
+pnpm test:truth  # every verdict on fixtures/basic against the suite run with the mutant written in
 pnpm typecheck
 ```
 
@@ -275,4 +284,5 @@ pnpm typecheck
 | `src/cache.ts` | What a run stores for `--incremental` and when it still holds |
 | `native/` | The addon that copies a worker process, in Rust, and its build script |
 | `npm/` | One package per platform for the built addon |
-| `bench/` | Benchmark targets, setup, runner and verdict comparison; `conformance.ts` checks instrumented code against test262 |
+| `fixtures/basic/` | A small project whose tests each pin down one way a verdict can go wrong |
+| `bench/` | Benchmark targets, setup, runner and verdict comparison; `truth.ts` checks a report against the suite itself, `conformance.ts` instrumented code against test262 |

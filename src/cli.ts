@@ -94,6 +94,16 @@ console.log(
   `time ${(result.timings.totalMs / 1000).toFixed(1)}s ` +
     `(generate ${(result.timings.generateMs / 1000).toFixed(1)}s, run ${(result.timings.vitestMs / 1000).toFixed(1)}s, rounds ${result.rounds})`,
 )
+{
+  const { started, lost, ...copied } = result.wholeRuns
+  const copies = copied['copied before load'] + copied['copied after load']
+  console.log(
+    `whole-file runs ${started + copies}: ${copies} in copies of a worker ` +
+      `(${copied['copied before load']} made before the file loaded, ${copied['copied after load']} after), ` +
+      `${started} in workers started for them` +
+      (lost > 0 ? `; ${lost} copies ended without a verdict and were run again` : ''),
+  )
+}
 if (result.skippedFiles.length > 0) {
   console.log(`${result.skippedFiles.length} file(s) could not be mutated and were left out:`)
   for (const file of result.skippedFiles) console.log(`  ${file}`)

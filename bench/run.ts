@@ -1,9 +1,12 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker|vitant|both] [--runs N]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone] [--runs N]
 //
-// Results land in bench/results/<target>-<scope>/.
+// `vitant-no-clone` is this tool starting a worker for every whole-file run.
+// Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
+// what the suite does with the scope's mutants, each report of this tool is
+// checked against it, and a verdict that disagrees fails the run.
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -17,14 +20,14 @@ import { projectDir, targets } from './targets.ts'
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    tool: { type: 'string', default: 'both' },
+    tool: { type: 'string', default: 'stryker,vitant' },
     runs: { type: 'string', default: '1' },
   },
 })
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker|vitant|both] [--runs N]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone] [--runs N]')
   process.exit(1)
 }
 
@@ -32,6 +35,7 @@ const dir = fs.realpathSync(projectDir(targetName))
 const outDir = path.join(import.meta.dirname, 'results', `${targetName}-${scopeName}`)
 fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
+const tools = new Set(values.tool === 'both' ? ['stryker', 'vitant'] : values.tool.split(','))
 
 interface Timing {
   tool: string
@@ -76,8 +80,12 @@ function strykerMutate(): string[] {
 const timings: Timing[] = []
 const strykerReport = path.join(outDir, 'stryker.json')
 const vitantReport = path.join(outDir, 'vitant.json')
+const truth = path.join(import.meta.dirname, 'truth', `${targetName}-${scopeName}.json`)
+/** What this tool's reports say besides the verdicts, and whether those hold. */
+const reports: Record<string, unknown> = {}
+let wrong = false
 
-if (values.tool !== 'vitant') {
+if (tools.has('stryker')) {
   const config = path.join(dir, `stryker.${scopeName}.json`)
   fs.writeFileSync(
     config,
@@ -102,12 +110,31 @@ if (values.tool !== 'vitant') {
   timings.push(time('stryker', 'npx', ['stryker', 'run', config], dir))
 }
 
-if (values.tool !== 'stryker') {
-  const args = [path.join(repoRoot, 'src/cli.ts'), '--root', dir, '--report', vitantReport]
+for (const tool of ['vitant-no-clone', 'vitant']) {
+  if (!tools.has(tool)) continue
+  const report = path.join(outDir, `${tool}.json`)
+  const args = [path.join(repoRoot, 'src/cli.ts'), '--root', dir, '--report', report]
+  if (tool === 'vitant-no-clone') args.push('--no-clone')
   if ('changed' in scope) args.push('--changed', scope.changed)
   else for (const glob of scope.mutate) args.push('--mutate', glob)
+  fs.rmSync(report, { force: true })
   // From the project, as its own scripts run: configs resolve paths against the working directory.
-  timings.push(time('vitant', process.execPath, args, dir))
+  timings.push(time(tool, process.execPath, args, dir))
+  if (!fs.existsSync(report)) {
+    wrong = true
+    continue
+  }
+  const { counts, wholeRuns, rounds, abandonedFiles } = JSON.parse(fs.readFileSync(report, 'utf8'))
+  reports[tool] = { counts, wholeRuns, rounds, abandonedFiles: abandonedFiles.length }
+  if (!fs.existsSync(truth)) continue
+  const check = spawnSync(
+    process.execPath,
+    [path.join(import.meta.dirname, 'truth.ts'), 'check', '--report', report, '--truth', truth],
+    { encoding: 'utf8' },
+  )
+  console.log(`${tool}: ${check.stdout.trim()}`)
+  ;(reports[tool] as { truth?: string }).truth = check.stdout.split('\n')[0]
+  if (check.status !== 0) wrong = true
 }
 
 const summaryPath = path.join(outDir, 'summary.json')
@@ -117,8 +144,9 @@ const summary = {
   target: targetName,
   scope: scopeName,
   commit: targets[targetName].commit,
-  machine: { cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version },
+  machine: { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version },
   timings: { ...previous.timings, ...Object.fromEntries(timings.map((t) => [t.tool, t])) },
+  reports: { ...previous.reports, ...reports },
 }
 fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2))
 
@@ -131,3 +159,4 @@ if (fs.existsSync(strykerReport) && fs.existsSync(vitantReport)) {
   fs.writeFileSync(path.join(outDir, 'compare.txt'), compare.stdout)
   console.log(compare.stdout.split('\n').filter((line) => !line.startsWith('packages')).join('\n'))
 }
+process.exit(wrong ? 1 : 0)

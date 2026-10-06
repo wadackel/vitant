@@ -8,8 +8,8 @@
     "node": "v24.21.0"
   },
   "timings": {
-    "vmt": {
-      "tool": "vmt",
+    "vitant-no-clone": {
+      "tool": "vitant-no-clone",
       "seconds": [
         12.3
       ],

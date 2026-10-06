@@ -1,0 +1,79 @@
+# Runs the benchmark targets on the hosted runners: how long each tool
+# takes there, and whether this tool's verdicts are those the targets' own
+# suites give, as recorded under bench/truth.
+name: bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      tools:
+        description: Tools to run, as bench/run.ts takes them
+        default: stryker,vitant-no-clone,vitant
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - native/**
+      - bench/**
+      - .github/workflows/bench.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+        bench:
+          - { target: ufo, scope: all }
+          - { target: zustand, scope: all }
+          - { target: es-toolkit, scope: array }
+          - { target: immer, scope: all }
+          - { target: pinia, scope: pinia }
+          - { target: jotai, scope: vanilla }
+          - { target: query, scope: core }
+          - { target: hono, scope: router }
+          - { target: hono, scope: utils }
+          - { target: excalidraw, scope: math }
+          - { target: excalidraw, scope: pr }
+        exclude:
+          # More than the macOS runners' three cores get through in the time a job may take.
+          - { runner: macos-15, bench: { target: excalidraw, scope: math } }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+      - name: Build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:native
+      - name: Set up ${{ matrix.bench.target }}
+        run: node bench/setup.ts "${{ matrix.bench.target }}" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
+      - name: Run
+        env:
+          TOOLS: ${{ inputs.tools || 'stryker,vitant-no-clone,vitant' }}
+        run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}
+          path: bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}

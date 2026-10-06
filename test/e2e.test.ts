@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { addonTarget } from '../src/platform.ts'
 import type { MutantResult, RunResult } from '../src/run.ts'
 
 const root = path.join(import.meta.dirname, '..')
@@ -41,7 +42,19 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(plain)).toEqual(verdicts(result))
+    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied after load']).toBe(0)
+    expect(plain.wholeRuns.started).toBeGreaterThan(0)
   }, 60_000)
+
+  // Without this a build that quietly fell back to starting workers would pass every other test.
+  it.skipIf(!addonTarget())('makes the whole-file runs in copies of a worker', () => {
+    const runs = result.wholeRuns
+    expect(runs['copied before load']).toBeGreaterThan(0)
+    expect(runs['copied after load']).toBeGreaterThan(0)
+    expect(runs.lost).toBe(0)
+    // What is left to workers started for the run: mutants that block or end the process.
+    expect(runs.started).toBeLessThan(10)
+  })
 
   it('kills a mutant a test fails on and keeps one no test notices', () => {
     expect(statusOf('src/math.ts', 4, 'value >= min')).toBe('Killed')
@@ -74,6 +87,23 @@ describe('running the fixture project', () => {
     expect(statusOf('src/ledger.ts', 3, '{}')).toBe('Killed')
   })
 
+  it('judges code that only the hooks cleaning up after a test reach', () => {
+    // `total` is called by the hook alone, once the test is over.
+    expect(statusOf('src/ledger.ts', 9, 'sum -= amount')).toBe('Killed')
+  })
+
+  it('judges code that only afterEach reaches, where the next test is what fails', () => {
+    expect(statusOf('src/pool.ts', 9, 'false')).toBe('Killed')
+    expect(statusOf('src/pool.ts', 13, 'true')).toBe('Killed')
+  })
+
+  it('counts a mutant that ends the process as detected and goes on with the rest of the file', () => {
+    expect(statusOf('src/guard.ts', 2, 'true')).toBe('Killed')
+    expect(statusOf('src/guard.ts', 2, 'false')).toBe('Survived')
+    expect(statusOf('src/guard.ts', 3, '""')).toBe('Killed')
+    expect(result.abandonedFiles).toEqual([])
+  })
+
   it('does not take a pass for an answer when a filled cache kept the mutant from running', () => {
     expect(statusOf('src/cache.ts', 4, '40 - 2')).toBe('Killed')
   })
@@ -103,6 +133,8 @@ describe('running the fixture project', () => {
 
   it('settles what only a test that cannot be re-run sees by running the whole file', () => {
     expect([...result.nonRepeatableTests].sort()).toEqual([
+      // A mutant leaves the count below zero, where the hook does not bring it back.
+      'test/pool.test.ts > hands out the first slot again once it is back',
       'test/sequence.test.ts > starts at one',
       'test/words.test.ts > reads the first word from the start of the file',
     ])
@@ -141,7 +173,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(9)
+    expect(second.reused).toBe(11)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 60_000)
@@ -161,7 +193,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(8)
+    expect(after.reused).toBe(10)
     expect(after.result.counts).toEqual(before.counts)
   }, 60_000)
 
@@ -173,7 +205,7 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(8)
+    expect(after.reused).toBe(10)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 60_000)
