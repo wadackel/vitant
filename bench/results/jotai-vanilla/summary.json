@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        65.3
+        63.7
       ],
       "exitCodes": [
         0
@@ -22,17 +22,17 @@
   "reports": {
     "vitant": {
       "counts": {
-        "Killed": 845,
+        "Killed": 846,
         "Survived": 237,
-        "Timeout": 6,
+        "Timeout": 5,
         "NoCoverage": 25,
         "Static": 47,
         "Pending": 0
       },
       "wholeRuns": {
         "started": 6,
-        "copied before load": 318,
-        "copied after load": 2829,
+        "copied before load": 276,
+        "copied after load": 2871,
         "lost": 0
       },
       "rounds": 10,
