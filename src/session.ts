@@ -186,8 +186,10 @@ const unanswered = globalThis.__vitant_unanswered = new Set()
 const v8 = require('node:v8')
 function envelope(message, depth) {
   if (message === null || typeof message !== 'object' || depth > 3) return undefined
-  if (ArrayBuffer.isView(message)) {
-    try { return envelope(v8.deserialize(message), depth + 1) } catch { return undefined }
+  // Vitest 3 serialises its messages itself; on arrival the bytes are the plain object a buffer turns into on the way.
+  const bytes = ArrayBuffer.isView(message) ? message : message.type === 'Buffer' && Array.isArray(message.data) ? Buffer.from(message.data) : undefined
+  if (bytes) {
+    try { return envelope(v8.deserialize(bytes), depth + 1) } catch { return undefined }
   }
   if ((message.t === 'q' || message.t === 's') && typeof message.i === 'string') return message
   for (const value of Object.values(message)) {

@@ -459,9 +459,15 @@ let listening = false
 /** The call or the answer inside a message of the channel, however Vitest wraps it. */
 function envelope(message: unknown, depth = 0): { t?: unknown; i?: unknown } | undefined {
   if (message === null || typeof message !== 'object' || depth > 3) return undefined
-  if (ArrayBuffer.isView(message)) {
+  const plain = message as { type?: unknown; data?: unknown }
+  const bytes = ArrayBuffer.isView(message)
+    ? (message as Uint8Array)
+    : plain.type === 'Buffer' && Array.isArray(plain.data)
+      ? Buffer.from(plain.data as number[])
+      : undefined
+  if (bytes) {
     try {
-      return envelope(v8.deserialize(message as Uint8Array), depth + 1)
+      return envelope(v8.deserialize(bytes), depth + 1)
     } catch {
       return undefined
     }
