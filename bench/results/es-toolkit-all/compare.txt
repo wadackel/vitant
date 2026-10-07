@@ -21,17 +21,17 @@ only in ours: 77
        1  ObjectLiteral
 status (stryker -> ours):
     8777  Killed -> Killed
-     975  Survived -> Survived
+     974  Survived -> Survived
      820  Ignored -> Static
      290  Timeout -> Timeout
       50  NoCoverage -> NoCoverage
-      36  Timeout -> Killed
+      38  Timeout -> Killed
       29  Killed -> Timeout
        8  Survived -> Killed
        3  Killed -> Survived
        3  RuntimeError -> Killed
-       2  Timeout -> Survived
-detected/undetected disagreements among mutants both tools ran: 13
+       1  Survived -> NoCoverage
+detected/undetected disagreements among mutants both tools ran: 11
 src/_internal/DOMException.ts:6:3 ConditionalExpression "false" stryker=Survived ours=Killed (static)
 src/_internal/globalThis.ts:5:3 LogicalOperator "(typeof globalThis === 'object' && globalThis) ||\n" stryker=Killed ours=Survived (static)
 src/_internal/globalThis.ts:5:3 ConditionalExpression "true" stryker=Survived ours=Killed (static)
@@ -43,5 +43,3 @@ src/compat/string/words.ts:39:9 StringLiteral "``" stryker=Survived ours=Killed
 src/compat/string/words.ts:40:9 StringLiteral "``" stryker=Survived ours=Killed
 src/compat/string/words.ts:41:9 StringLiteral "``" stryker=Survived ours=Killed
 src/compat/util/toArray.ts:59:7 LogicalOperator "isArrayLike(value) || isMap(value) && isSet(value)" stryker=Killed ours=Survived
-src/iterator/_internal/iterator.ts:59:14 ObjectLiteral "{}" stryker=Timeout ours=Survived
-src/iterator/zip.ts:29:42 BooleanLiteral "false" stryker=Timeout ours=Survived
