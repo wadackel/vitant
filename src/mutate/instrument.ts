@@ -825,9 +825,29 @@ export function instrument(
     return out + source.slice(cursor, to)
   }
 
-  const renderSite = (site: Site): string => {
+  const chain = (site: Site, original: string): string => {
+    // A function without a name of its own is named after the variable,
+    // property or field it is the value of, but only when it stands there
+    // directly. A computed property of the same name gives it back.
+    const key = JSON.stringify(site.name)
+    const named = (text: string) => (site.name === undefined ? `(${text})` : `({[${key}]:${text}})[${key}]`)
+    const mutatedText = (i: number) => {
+      const mutation = site.mutations[i]
+      return source.slice(site.start, mutation.start) + mutation.replacement + source.slice(mutation.end, site.end)
+    }
+    const plain = `(${hit(site)},${site.name === undefined ? original : named(original)})`
+    // The mutants of a site are numbered in a row, so one comparison says
+    // whether any of them is on, which for all but one site of the program
+    // none is.
+    const n = site.mutations.length
+    let inner = named(mutatedText(n - 1))
+    for (let i = n - 2; i >= 0; i--) inner = `__vitant_t===${i}?${named(mutatedText(i))}:${inner}`
+    return `((__vitant_t=${active}-${site.firstMutant})>>>0<${n}?(${reached},${inner}):${plain})`
+  }
+
+  const render = (site: Site, range: (from: number, to: number, children: Site[]) => string, original: (site: Site) => string): string => {
     if (site.kind === 'loop') {
-      return `{if(++${RUNTIME_GLOBAL}.n>${RUNTIME_GLOBAL}.l)${RUNTIME_GLOBAL}.x();${renderRange(site.start, site.end, site.children)}}`
+      return `{if(++${RUNTIME_GLOBAL}.n>${RUNTIME_GLOBAL}.l)${RUNTIME_GLOBAL}.x();${range(site.start, site.end, site.children)}}`
     }
     if (site.kind === 'block') {
       // A function's body stays its body: inside a block of its own,
@@ -835,43 +855,66 @@ export function instrument(
       if (site.functionBody) {
         return (
           `${source.slice(site.start, site.bodyStart)}if(${active}===${site.firstMutant}){${reached};return}${hit(site)};` +
-          `${renderRange(site.bodyStart, site.end - 1, site.children)}}`
+          `${range(site.bodyStart, site.end - 1, site.children)}}`
         )
       }
       return (
         `${source.slice(site.start, site.bodyStart)}if(${active}===${site.firstMutant}){${reached}}else{${hit(site)};` +
-        `${renderRange(site.bodyStart, site.end - 1, site.children)}}}`
+        `${range(site.bodyStart, site.end - 1, site.children)}}}`
       )
     }
     if (site.kind === 'case') {
       const head = site.children.filter((child) => child.end <= site.bodyStart)
       const body = site.children.filter((child) => child.start >= site.bodyStart)
       return (
-        `${renderRange(site.start, site.bodyStart, head)}if(${active}===${site.firstMutant}){${reached}}else{${hit(site)};` +
-        `${renderRange(site.bodyStart, site.end, body)}}`
+        `${range(site.start, site.bodyStart, head)}if(${active}===${site.firstMutant}){${reached}}else{${hit(site)};` +
+        `${range(site.bodyStart, site.end, body)}}`
       )
     }
-    if (site.mutations.length === 0) return probe(site)
-    let original = probe(site)
-    // A function without a name of its own is named after the variable,
-    // property or field it is the value of, but only when it stands there
-    // directly. A computed property of the same name gives it back.
-    const key = JSON.stringify(site.name)
-    const named = (text: string) => (site.name === undefined ? `(${text})` : `({[${key}]:${text}})[${key}]`)
-    let out = `(${hit(site)},${site.name === undefined ? original : named(original)})`
-    for (let i = site.mutations.length - 1; i >= 0; i--) {
-      const mutation = site.mutations[i]
-      const mutated =
-        source.slice(site.start, mutation.start) +
-        mutation.replacement +
-        source.slice(mutation.end, site.end)
-      out = `${active}===${site.firstMutant + i}?(${reached},${named(mutated)}):${out}`
+    if (site.mutations.length === 0) return original(site)
+    return chain(site, original(site))
+  }
+
+  // A probe is paid for on every evaluation, a call with a `try` around
+  // the original and a checked read for every property in it, and with a
+  // mutant on it has nothing to find out: that made code with a mutant on
+  // as slow as code being probed, some twenty times the plain code in a
+  // tight loop. So each outermost probed expression is there twice, with
+  // its probes for the run without a mutant and without them for every
+  // other. The second keeps every switch and loop guard.
+  const plainCache = new Map<Site, string>()
+  const renderPlainRange = (from: number, to: number, children: Site[]): string => {
+    let out = ''
+    let cursor = from
+    for (const child of children) {
+      const rendered = renderPlain(child)
+      const guard = rendered.startsWith('(') && child.start !== from && statementStarts.has(child.start) ? ';' : ''
+      out += source.slice(cursor, child.start) + guard + rendered
+      cursor = child.end
     }
-    return `(${out})`
+    return out + source.slice(cursor, to)
+  }
+  const renderPlain = (site: Site): string => {
+    const cached = plainCache.get(site)
+    if (cached !== undefined) return cached
+    const text = render(site, renderPlainRange, (s) => renderPlainRange(s.start, s.end, s.children))
+    plainCache.set(site, text)
+    return text
+  }
+
+  let bypassDepth = 0
+  const renderSite = (site: Site): string => {
+    const probed = site.kind === 'expr' && Boolean(site.plan || site.read || site.mark || site.global)
+    const bypass = probed && bypassDepth === 0
+    if (bypass) bypassDepth++
+    const text = render(site, renderRange, probe)
+    if (!bypass) return text
+    bypassDepth--
+    return `(${RUNTIME_GLOBAL}.a<0?${text}:${renderPlain(site)})`
   }
 
   const body = renderRange(0, source.length, roots)
-  const code = probes.length ? `${body}\n${probes.join('\n')}\n${probeHelpers}\n` : body
+  const code = `${body}\nvar __vitant_t;\n${probes.length ? `${probes.join('\n')}\n${probeHelpers}\n` : ''}`
   // A construct the placement gets wrong must not take the run down with
   // it, or pass for code no test reaches: the file is left out and named.
   // The check includes what a parser alone lets through, a name declared

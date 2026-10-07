@@ -6,6 +6,7 @@
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import v8 from 'node:v8'
 import { constants, PerformanceObserver } from 'node:perf_hooks'
 import { Worker } from 'node:worker_threads'
 import {
@@ -376,10 +377,13 @@ let counting = false
  * process it was copied from: an answer to one would reach the other, and
  * half of one, if a copy ended while reading it, the next copy.
  */
-function trackCalls(state: { rpc?: object }): void {
-  if (counting || !state.rpc) return
+/** The wrapped channels: Vitest hands the runner one state and keeps another for itself. */
+const wrapped = new WeakSet<object>()
+function trackCalls(state: { rpc?: object } | undefined): void {
+  if (!state?.rpc || wrapped.has(state.rpc)) return
   counting = true
-  state.rpc = new Proxy(state.rpc, {
+  const plain = state.rpc
+  state.rpc = new Proxy(plain, {
     get(target, key, receiver) {
       const value = Reflect.get(target, key, receiver)
       if (typeof value !== 'function' || typeof key !== 'string' || key.startsWith('$')) return value
@@ -402,6 +406,7 @@ function trackCalls(state: { rpc?: object }): void {
       })
     },
   })
+  wrapped.add(state.rpc)
 }
 /**
  * Waits for what this process has under way to end, and says whether it
@@ -443,7 +448,55 @@ function openDescriptors(): Set<string> | undefined {
 
 /** Resolves once every call has its answer. */
 async function quiet(): Promise<void> {
-  while (calls > 0) await new Promise((resolve) => realSetTimeout(resolve, 0))
+  while (calls > 0 || unanswered.size > 0) await new Promise((resolve) => realSetTimeout(resolve, 0))
+}
+
+/** Ids of the calls this process has sent to the main process and has no answer to. */
+const watched = (globalThis as { __vitant_unanswered?: Set<string> }).__vitant_unanswered
+const unanswered = watched ?? new Set<string>()
+let listening = false
+
+/** The call or the answer inside a message of the channel, however Vitest wraps it. */
+function envelope(message: unknown, depth = 0): { t?: unknown; i?: unknown } | undefined {
+  if (message === null || typeof message !== 'object' || depth > 3) return undefined
+  if (ArrayBuffer.isView(message)) {
+    try {
+      return envelope(v8.deserialize(message as Uint8Array), depth + 1)
+    } catch {
+      return undefined
+    }
+  }
+  const candidate = message as { t?: unknown; i?: unknown }
+  if ((candidate.t === 'q' || candidate.t === 's') && typeof candidate.i === 'string') return candidate
+  for (const value of Object.values(message)) {
+    const found = envelope(value, depth + 1)
+    if (found) return found
+  }
+  return undefined
+}
+
+/**
+ * Counts calls by what goes over the channel. Counting them where they are
+ * made misses those made through a reference taken before the count
+ * began, what a test prints for one: with such a call under way a copy
+ * was made, the copy read the answer, and the process it was copied from
+ * waited for it for good at the end of its file.
+ */
+function trackChannel(): void {
+  // `send` itself may have been taken hold of before this runs; what it calls has not.
+  const target = process as unknown as { _send?: (...args: unknown[]) => boolean }
+  if (listening || watched || !target._send) return
+  listening = true
+  const send = target._send
+  target._send = function (this: unknown, ...args: unknown[]) {
+    const sent = envelope(args[0])
+    if (sent?.t === 'q') unanswered.add(sent.i as string)
+    return send.apply(this, args)
+  }
+  process.prependListener('message', (message: unknown) => {
+    const answer = envelope(message)
+    if (answer?.t === 's') unanswered.delete(answer.i as string)
+  })
 }
 
 const staticHits = new Uint8Array(config.siteCount)
@@ -725,7 +778,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       super(...args)
       // From the start, so that as few calls as possible are out uncounted
       // when the first copy is made.
-      if (cloner) trackCalls(this.workerState as { rpc?: object })
+      if (cloner) {
+        trackCalls(this.workerState as { rpc?: object })
+        // What a test prints is sent through the state Vitest keeps in a
+        // global, which is not always the one the runner is given: its
+        // calls went uncounted, and a copy made with one under way read
+        // the answer in place of the process that waits for it.
+        trackCalls((globalThis as { __vitest_worker__?: { rpc?: object } }).__vitest_worker__)
+        trackChannel()
+      }
     }
 
     /** Tests admitted in `onBeforeRunTask`, waiting for their first attempt. */
@@ -750,6 +811,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private whole: WholeJob | undefined
     private wholeFailure: 'failed' | 'timeout' | undefined
     private wholeFile: string | undefined
+    private wholeStartedAt = 0
     /** The test whose failure the run's verdict is, if it was a test's. */
     private wholeTest: string | undefined
     /** How the process making the whole-file run came to be. */
@@ -822,7 +884,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // in the order of the calls, so one more call and its answer leave
       // few of those outstanding, and counting again leaves none of its own.
       await (this.workerState as { rpc?: { getCountOfFailedTests?: () => Promise<number> } }).rpc?.getCountOfFailedTests?.()
-      await quiet()
+      // Getting back here from a wait gives what was queued meanwhile its
+      // turn first, and Vitest sends what a test printed from just such a
+      // queue. So the last look is made here, with nothing between it and
+      // the copy.
+      do await quiet()
+      while (calls > 0 || unanswered.size > 0)
       return this.copy(job, beforeLoad)
     }
 
@@ -869,11 +936,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // happening where no test's time limit applies, is given up on after
       // several times what the file may take.
       const limit = hardLimitMs({ baselineMs: job.fileMs })
+      const copiedAt = preciseNow()
       const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
       if (ended === cloner!.Ended.Blocked) {
         const state = readState(job.mutant)
         if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', by })
+        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', by, ms: preciseNow() - copiedAt })
       } else if (ended === cloner!.Ended.Lost) {
         // The copy ended without a verdict, by this process's hand or its
         // own. Whatever it was, a worker started for the job alone decides.
@@ -885,6 +953,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     /** Turns the job's mutant on for the rest of the file's run. */
     private begin(job: WholeJob, beforeLoad: boolean): void {
       this.whole = job
+      this.wholeStartedAt = preciseNow()
       runtime.a = job.mutant
       // The loops of the whole file share one count, with room for those
       // that run while it loads.
@@ -1320,6 +1389,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         verdict: this.wholeFailure ?? 'passed',
         test: this.wholeTest,
         by: this.wholeBy,
+        ms: preciseNow() - this.wholeStartedAt,
       })
       cloner!.done()
       return cloner!.exit(0)
@@ -1344,6 +1414,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             verdict: this.wholeFailure ?? 'passed',
             test: this.wholeTest,
             by: this.wholeBy,
+            ms: preciseNow() - this.wholeStartedAt,
           })
         }
         this.whole = undefined

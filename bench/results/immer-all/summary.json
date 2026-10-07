@@ -30,7 +30,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        58.7
+        55.3
       ],
       "exitCodes": [
         0
@@ -48,10 +48,10 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 2,
-        "copied before load": 868,
-        "copied after load": 1942,
-        "lost": 0
+        "started": 16,
+        "copied before load": 854,
+        "copied after load": 1943,
+        "lost": 1
       },
       "rounds": 18,
       "abandonedFiles": 0,

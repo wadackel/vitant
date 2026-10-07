@@ -28,6 +28,7 @@ import {
   MUTANT_TIMEOUT,
   type RoundPlan,
   type SessionConfig,
+  channelWatch,
   sessionPaths,
 } from './session.ts'
 
@@ -199,6 +200,8 @@ interface WholeRecord {
   test?: string
   /** The failure is the worker having gone without a word. */
   died?: boolean
+  /** How long the run took. */
+  ms?: number
   /** Absent on a verdict taken over from an earlier run of the tool. */
   by?: keyof WholeRuns
 }
@@ -309,6 +312,8 @@ function inspect(records: SessionRecord[]) {
    * more, in a run of a whole file, is what a timeout is.
    */
   const blocked = new Set<number>()
+  /** Per test file, how long its whole-file runs have taken and how many there were. */
+  const wholeTook = new Map<string, { ms: number; runs: number }>()
   const leads: { mutant: number; file: string; test: string }[] = []
   const wholeRecords: WholeRecord[] = []
   for (const record of records) {
@@ -339,6 +344,12 @@ function inspect(records: SessionRecord[]) {
     }
     if (record.type === 'whole') {
       wholeRecords.push(record)
+      if (record.ms !== undefined) {
+        const took = wholeTook.get(record.file) ?? { ms: 0, runs: 0 }
+        took.ms += record.ms
+        took.runs++
+        wholeTook.set(record.file, took)
+      }
       continue
     }
     if (record.type !== 'test') continue
@@ -440,7 +451,7 @@ function inspect(records: SessionRecord[]) {
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -629,7 +640,13 @@ function planRound(
         state[mutant] === MUTANT_TIMEOUT,
     })
     addWork(file, 0, 0, 1)
-    workByFile.get(file)!.wholeMs = fileMs.get(file) ?? 0
+    // What a run of the file takes with a mutant on is not what its tests
+    // took without one: a mutant can leave a test waiting out its time
+    // limit, five seconds where the file takes five milliseconds, and a
+    // file planned by the latter gets one worker to make such runs one
+    // after another. Where runs have been made, what they took counts.
+    const took = status.wholeTook.get(file)
+    workByFile.get(file)!.wholeMs = Math.max(fileMs.get(file) ?? 0, took ? took.ms / took.runs : 0)
   }
   if (workByFile.size === 0) {
     const covering = new Map<number, Set<string>>()
@@ -868,6 +885,7 @@ function writeSession(
     loopSlack: options.loopSlack,
   }
   fs.writeFileSync(paths.config, JSON.stringify(config))
+  fs.writeFileSync(paths.preload, channelWatch)
   fs.writeFileSync(paths.sites, new Uint8Array(generated.siteMutants.buffer))
   fs.writeFileSync(paths.tracked, generated.tracked)
   fs.writeFileSync(paths.state, new Uint8Array(generated.mutants.length))
@@ -1028,7 +1046,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   cloning = addon !== undefined
   workerArgv.length = 0
   if (addon) {
-    workerArgv.push('--single-threaded')
+    workerArgv.push('--single-threaded', `--require=${paths.preload}`)
     process.env.VITANT_FORK = addon
   } else {
     delete process.env.VITANT_FORK

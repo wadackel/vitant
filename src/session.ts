@@ -172,6 +172,45 @@ export function createRuntime(siteCount: number, mutantCount: number): Runtime {
   return runtime
 }
 
+/**
+ * Keeps count, from the start of a worker, of the calls it has sent to the
+ * main process and has no answer to. A copy of the worker reads the same
+ * channel, so one made with a call under way reads the answer, and the
+ * worker waits for it for good. The runner cannot keep this count itself:
+ * what Node and Vitest print while a worker starts up is already such a
+ * call, sent before any runner exists, and its answer can come after that
+ * to a call made later.
+ */
+export const channelWatch = `
+const unanswered = globalThis.__vitant_unanswered = new Set()
+const v8 = require('node:v8')
+function envelope(message, depth) {
+  if (message === null || typeof message !== 'object' || depth > 3) return undefined
+  if (ArrayBuffer.isView(message)) {
+    try { return envelope(v8.deserialize(message), depth + 1) } catch { return undefined }
+  }
+  if ((message.t === 'q' || message.t === 's') && typeof message.i === 'string') return message
+  for (const value of Object.values(message)) {
+    const found = envelope(value, depth + 1)
+    if (found) return found
+  }
+  return undefined
+}
+// What is called to send may be taken hold of by whoever comes next; what that calls is looked up each time.
+const send = process._send
+if (send) {
+  process._send = function (...args) {
+    const sent = envelope(args[0], 0)
+    if (sent && sent.t === 'q') unanswered.add(sent.i)
+    return send.apply(this, args)
+  }
+  process.prependListener('message', (message) => {
+    const answer = envelope(message, 0)
+    if (answer && answer.t === 's') unanswered.delete(answer.i)
+  })
+}
+`
+
 export function sessionPaths(dir: string) {
   return {
     config: path.join(dir, 'config.json'),
@@ -189,5 +228,7 @@ export function sessionPaths(dir: string) {
     /** One file per worker, named by its process id: an Int32, the mutant it has on for a test, or -1. */
     trying: path.join(dir, 'trying'),
     runner: path.join(dir, 'runner.mjs'),
+    /** Loaded by a worker that is to be copied before anything else, see `channelWatch`. */
+    preload: path.join(dir, 'preload.cjs'),
   }
 }

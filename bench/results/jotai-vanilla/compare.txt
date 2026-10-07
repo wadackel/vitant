@@ -13,7 +13,7 @@ only in ours: 15
        1  BlockStatement
        1  ArrowFunction
 status (stryker -> ours):
-     639  Killed -> Killed
+     640  Killed -> Killed
      193  Survived -> Survived
      183  Survived -> Killed
       47  Ignored -> Static
@@ -21,7 +21,7 @@ status (stryker -> ours):
       25  NoCoverage -> NoCoverage
       11  Timeout -> Killed
        4  Timeout -> Timeout
-       3  Killed -> Timeout
+       2  Killed -> Timeout
        2  Killed -> Survived
        1  RuntimeError -> Killed
 detected/undetected disagreements among mutants both tools ran: 222

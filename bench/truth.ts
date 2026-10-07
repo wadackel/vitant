@@ -227,10 +227,11 @@ async function make(): Promise<Truth> {
   // What every run is held against: the same command with no mutant, which has to pass.
   let slowest = 0
   for (const file of values.related ? new Set(mutants.map((mutant) => mutant.file)) : ['']) {
-    // Several times: a test that fails one run in four with no mutant would
-    // otherwise pass for a mutant's doing in as many of the runs below.
+    // More than once only where it fails: with a file per function there
+    // are hundreds of these. What fails by itself in the runs below is
+    // looked for where a run and the report disagree.
     let passed = false
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 5 && !passed; attempt++) {
       const baseline = await runSuite(root, argsFor(file), 600_000)
       for (const test of baseline.failed) flaky.add(test)
       if (baseline.suite === 'pass') passed = true
@@ -281,11 +282,24 @@ async function make(): Promise<Truth> {
     // waits on the clock can fail by itself. Where the suite and the report
     // disagree the suite is run once more, with nothing beside it.
     const reported = new Map(report.mutants.map((mutant) => [keyOf(describe(mutant)), mutant.status]))
-    for (const entry of roots.length > 1 ? entries : []) {
+    const learned = new Set<string>()
+    for (const entry of entries) {
       const status = reported.get(keyOf(entry))
       if (status === 'Static' || (status === 'Killed' || status === 'Timeout') === (entry.suite !== 'pass')) continue
       const file = path.join(root, entry.file)
       const source = fs.readFileSync(file, 'utf8')
+      // A test that fails one run in four with no mutant passes for a
+      // mutant's doing as often: the suite is run a few times as it is,
+      // and what fails there does not count in the run that follows.
+      if (entry.suite === 'fail' && !learned.has(entry.file)) {
+        learned.add(entry.file)
+        for (let attempt = 0; attempt < 4; attempt++) {
+          for (const test of (await runSuite(root, argsFor(entry.file), limitMs)).failed) {
+            if (!flaky.has(test)) console.error(`fails without a mutant now and then, and is not counted: ${test}`)
+            flaky.add(test)
+          }
+        }
+      }
       originals.set(file, source)
       fs.writeFileSync(file, written(file, source, entry))
       const { suite } = await runSuite(root, argsFor(entry.file), limitMs)

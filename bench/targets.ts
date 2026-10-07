@@ -173,6 +173,19 @@ export const targets: Record<string, Target> = {
       reactive: { mutate: ['src/reactive/*.ts'] },
     },
   },
+  // Vitest 5, a monorepo of some forty projects in one config: every test
+  // runs concurrently, through an API of the library's own that runs each
+  // as a fiber under a test clock.
+  effect: {
+    repo: 'https://github.com/Effect-TS/effect',
+    commit: '2131d44bd105766994201d3ffa3e180c0d33f655',
+    install: ['npx -y pnpm@11.20.0 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@11.20.0 add -D -w ${stryker}`,
+    projects: ['effect'],
+    scopes: {
+      data: { mutate: ['packages/effect/src/Duration.ts', 'packages/effect/src/Chunk.ts', 'packages/effect/src/Option.ts'] },
+    },
+  },
   // Vitest 3.2, node environment: a few large test files.
   immer: {
     repo: 'https://github.com/immerjs/immer',
