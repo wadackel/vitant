@@ -61,6 +61,11 @@ export interface WholeJob {
   stalled: boolean
   /** A test of the file failed with the mutant while trying it; the run is to see whether the file does. */
   confirm?: boolean
+  /**
+   * The tests that failed with the mutant while trying it and passed again
+   * without it. The file failing in one of them settles the mutant in one run.
+   */
+  witnesses?: string[]
   site: number
   /** The mutant's code runs while the file loads, as far as is known. */
   early: boolean
@@ -229,6 +234,8 @@ export function sessionPaths(dir: string) {
     claims: path.join(dir, 'claims'),
     /** One file per worker, named by its process id: an Int32, the mutant it has on for a test, or -1. */
     trying: path.join(dir, 'trying'),
+    /** One empty file per whole-file run a copy asks to have made once more, named by the job's id. */
+    again: path.join(dir, 'again'),
     runner: path.join(dir, 'runner.mjs'),
     /** Loaded by a worker that is to be copied before anything else, see `channelWatch`. */
     preload: path.join(dir, 'preload.cjs'),

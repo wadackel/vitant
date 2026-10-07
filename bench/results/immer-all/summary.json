@@ -30,7 +30,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        54.3
+        62.1
       ],
       "exitCodes": [
         0
@@ -48,12 +48,12 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 15,
-        "copied before load": 843,
-        "copied after load": 1954,
+        "started": 23,
+        "copied before load": 955,
+        "copied after load": 2039,
         "lost": 0
       },
-      "rounds": 18,
+      "rounds": 17,
       "abandonedFiles": 0,
       "truth": "1287 mutants checked against the suite: 1287 agree"
     }

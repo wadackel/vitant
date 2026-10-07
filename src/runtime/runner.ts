@@ -94,10 +94,10 @@ function trackMocksWeakly(mocks: Set<object>): () => void {
 }
 
 /**
- * A kill takes three attempts: the mutant fails, the test passes again without
- * it, and the mutant fails once more. The control rules out a test that broke
- * for good; the repeat rules out one that failed once by chance, as a flaky
- * test or the first, cold run in a worker can.
+ * What a test tries with a mutant: it fails with the mutant, then runs once
+ * more without it. The control tells a test the mutant failed from one that
+ * broke for good. Passing it makes a lead and no more; a run of the whole
+ * file decides.
  */
 type Attempt = 'baseline' | 'mutant' | 'control'
 
@@ -820,6 +820,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeStartedAt = 0
     /** The test whose failure the run's verdict is, if it was a test's. */
     private wholeTest: string | undefined
+    /** This copy repeats a run that failed where no test had failed while trying the mutant. */
+    private wholeAgain = false
     /** How the process making the whole-file run came to be. */
     private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
@@ -918,40 +920,46 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const by = beforeLoad ? 'copied before load' : 'copied after load'
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
-      let pid: number
-      try {
-        pid = cloner!.fork(forkLock)
-      } catch {
-        // No copy could be made; a worker started for the job makes the run.
-        emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
-        return false
-      }
-      if (pid === 0) {
-        cloned = true
-        this.wholeBy = by
-        copiedFrom = self
-        // Node read the process id when it started, which was in the process
-        // this is a copy of; a signal the tests send themselves must not go there.
-        Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
-        this.keepToItself()
-        return true
-      }
-      // This process waits without touching the channel to the main
-      // process, which the copy uses in its place. A copy that keeps to its
-      // heartbeat and never ends, awaiting what a mutant keeps from
-      // happening where no test's time limit applies, is given up on after
-      // several times what the file may take.
-      const limit = hardLimitMs({ baselineMs: job.fileMs })
-      const copiedAt = preciseNow()
-      const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
-      if (ended === cloner!.Ended.Blocked) {
-        const state = readState(job.mutant)
-        if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', by, ms: preciseNow() - copiedAt })
-      } else if (ended === cloner!.Ended.Lost) {
-        // The copy ended without a verdict, by this process's hand or its
-        // own. Whatever it was, a worker started for the job alone decides.
-        emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
+      const again = path.join(paths.again, String(job.id))
+      for (const second of [false, true]) {
+        let pid: number
+        try {
+          pid = cloner!.fork(forkLock)
+        } catch {
+          // No copy could be made; a worker started for the job makes the run.
+          emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
+          return false
+        }
+        if (pid === 0) {
+          cloned = true
+          this.wholeBy = by
+          this.wholeAgain = second
+          copiedFrom = self
+          // Node read the process id when it started, which was in the process
+          // this is a copy of; a signal the tests send themselves must not go there.
+          Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
+          this.keepToItself()
+          return true
+        }
+        // This process waits without touching the channel to the main
+        // process, which the copy uses in its place. A copy that keeps to its
+        // heartbeat and never ends, awaiting what a mutant keeps from
+        // happening where no test's time limit applies, is given up on after
+        // several times what the file may take.
+        const limit = hardLimitMs({ baselineMs: job.fileMs })
+        const copiedAt = preciseNow()
+        const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
+        if (ended === cloner!.Ended.Blocked) {
+          const state = readState(job.mutant)
+          if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
+          emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', by, ms: preciseNow() - copiedAt })
+        } else if (ended === cloner!.Ended.Lost) {
+          // The copy ended without a verdict, by this process's hand or its
+          // own. Whatever it was, a worker started for the job alone decides.
+          emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
+        }
+        if (!fs.existsSync(again)) break
+        fs.rmSync(again)
       }
       return false
     }
@@ -1397,6 +1405,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
       })
+      // A failure counts at once only where it repeats what a test showed
+      // while trying the mutant. Any other has to be seen twice, and the
+      // process this is a copy of can make the second run on the spot,
+      // which a round of its own for it would take seconds to get to.
+      const job = this.whole!
+      const repeats =
+        (this.wholeTest !== undefined && job.witnesses?.includes(this.wholeTest)) ||
+        (this.wholeFailure === 'timeout' && job.stalled)
+      if (this.wholeFailure && !repeats && !this.wholeAgain) fs.writeFileSync(path.join(paths.again, String(job.id)), '')
       cloner!.done()
       return cloner!.exit(0)
     }

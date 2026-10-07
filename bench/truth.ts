@@ -336,11 +336,16 @@ function check(truth: Truth): boolean {
     const detected = mutant.status === 'Killed' || mutant.status === 'Timeout'
     if (detected === (entry.suite !== 'pass')) tally.agree++
     else if (entry.note) tally.explained++
-    else wrong.push(`${entry.file}:${entry.start.join(':')} ${entry.mutator} -> ${entry.replacement.slice(0, 60)}: suite ${entry.suite}, reported ${mutant.status}`)
+    else {
+      wrong.push(`${entry.file}:${entry.start.join(':')} ${entry.mutator} -> ${entry.replacement.slice(0, 60)}: suite ${entry.suite}, reported ${mutant.status}`)
+      for (const { kind, file, test, by } of mutant.evidence ?? []) {
+        wrong.push(`  ${kind}${by ? ` (${by})` : ''}: ${file}${test ? ` > ${test}` : ''}`)
+      }
+    }
   }
   console.log(
     `${truth.mutants.length} mutants checked against the suite: ` +
-      Object.entries({ ...tally, wrong: wrong.length })
+      Object.entries({ ...tally, wrong: wrong.filter((line) => !line.startsWith('  ')).length })
         .filter(([, count]) => count > 0)
         .map(([name, count]) => `${count} ${name}`)
         .join(', '),

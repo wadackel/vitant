@@ -56,6 +56,19 @@ export interface MutantResult {
   killedBy: number
   /** For a timeout, what stopped the run: the loop limit, the timer, or a re-run in a fresh worker. */
   timeoutCause?: string
+  /**
+   * For a detected mutant, the runs of whole files that say so and the tests
+   * that led to them: what to read when the suite disagrees with the verdict.
+   */
+  evidence?: Evidence[]
+}
+
+export interface Evidence {
+  /** `lead` is a test that failed while trying the mutant, which alone decides nothing. */
+  kind: 'failed' | 'timeout' | 'died' | 'lead'
+  file: string
+  test?: string
+  by?: keyof WholeRuns
 }
 
 /**
@@ -209,6 +222,8 @@ interface WholeRecord {
 interface WholeState {
   /** Every run that left a record, counted or not. */
   runs: number
+  /** Failures that repeat what a test had shown while trying the mutant. */
+  repeated: number
   /** Runs whose worker was gone without a word. */
   died: number
   failed: number
@@ -220,15 +235,18 @@ const wholeKey = (mutant: number, file: string) => `${mutant}\n${file}`
 
 /**
  * A failure counts once it has been seen twice, as nothing can re-run a file
- * in place: in a second run of the file, or, with `seen`, by a test that
- * failed with the mutant while trying it.
+ * in place: in a second run of the file, or in the same test that failed with
+ * the mutant while trying it. A lead from another test does not do: trying a
+ * mutant in a worker can fail a test for good reasons that a whole run does
+ * not share, and then one test of the file failing by chance would settle it.
  */
-function wholeVerdict(state: WholeState | undefined, seen = false): WholeRecord['verdict'] | undefined {
+function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | undefined {
   if (!state) return undefined
   if (state.passed > 0) return 'passed'
   // A worker can die of something other than the mutant, and nothing a
   // test saw says otherwise: that counts when it has happened twice.
-  const settled = state.failed + state.timedOut >= (seen ? 1 : 2) || state.failed + state.timedOut + state.died >= 2
+  const settled =
+    state.repeated > 0 || state.failed + state.timedOut >= 2 || state.failed + state.timedOut + state.died >= 2
   if (!settled) return undefined
   return state.failed + state.died > 0 ? 'failed' : 'timeout'
 }
@@ -314,7 +332,7 @@ function inspect(records: SessionRecord[]) {
   const blocked = new Set<number>()
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
-  const leads: { mutant: number; file: string; test: string }[] = []
+  const leads: { mutant: number; file: string; test: string; passedAgain: boolean }[] = []
   const wholeRecords: WholeRecord[] = []
   for (const record of records) {
     if (record.type === 'file' && record.complete) {
@@ -327,7 +345,6 @@ function inspect(records: SessionRecord[]) {
       staticSites.set(record.file, set)
     }
     if (record.type === 'plain') plain.add(wholeKey(record.mutant, record.file))
-    // In a run of a whole file the record names no test, and the run's own record follows.
     // In a run of a whole file the record names no test, and the run's own record follows.
     if (record.type === 'stall' && record.id !== '') blocked.add(record.mutant)
     if (record.type === 'early') {
@@ -370,9 +387,11 @@ function inspect(records: SessionRecord[]) {
     for (const mutant of record.survived) test.judged.add(mutant)
     for (const mutant of [...record.killed, ...record.timedOut]) {
       test.judged.add(mutant)
-      leads.push({ mutant, file: record.file, test: record.id })
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: true })
     }
-    for (const mutant of record.suspected ?? []) leads.push({ mutant, file: record.file, test: record.id })
+    for (const mutant of record.suspected ?? []) {
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false })
+    }
     for (const mutant of record.unverified) {
       test.judged.add(mutant)
       test.unverified.add(mutant)
@@ -412,6 +431,8 @@ function inspect(records: SessionRecord[]) {
   // such a test fails says nothing, here or as a lead, and it is left out
   // of the runs that follow like a test that fails without any mutant.
   const flaky = new Set<string>()
+  const evidence = new Map<number, Evidence[]>()
+  const note = (mutant: number, entry: Evidence) => evidence.set(mutant, [...(evidence.get(mutant) ?? []), entry])
   const passedOnce = new Set<string>()
   for (const record of wholeRecords) {
     if (record.verdict === 'passed') passedOnce.add(wholeKey(record.mutant, record.file))
@@ -421,9 +442,19 @@ function inspect(records: SessionRecord[]) {
       flaky.add(record.test)
     }
   }
+  /** Per mutant, the tests that failed with it and passed again without it. */
+  const witnesses = new Map<number, Set<string>>()
+  for (const { mutant, file, test, passedAgain } of leads) {
+    if (flaky.has(test)) continue
+    note(mutant, { kind: 'lead', file, test })
+    const files = suspects.get(mutant) ?? new Set()
+    files.add(file)
+    suspects.set(mutant, files)
+    if (passedAgain) witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
+  }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
-    const entry = whole.get(key) ?? { runs: 0, died: 0, failed: 0, timedOut: 0, passed: 0 }
+    const entry = whole.get(key) ?? { runs: 0, repeated: 0, died: 0, failed: 0, timedOut: 0, passed: 0 }
     whole.set(key, entry)
     entry.runs++
     if (record.verdict === 'passed') entry.passed++
@@ -431,12 +462,16 @@ function inspect(records: SessionRecord[]) {
     else if (record.died) entry.died++
     else if (record.verdict === 'failed') entry.failed++
     else entry.timedOut++
-  }
-  for (const { mutant, file, test } of leads) {
-    if (flaky.has(test)) continue
-    const files = suspects.get(mutant) ?? new Set()
-    files.add(file)
-    suspects.set(mutant, files)
+    if (record.verdict === 'passed') continue
+    note(record.mutant, { kind: record.died ? 'died' : record.verdict, file: record.file, test: record.test, by: record.by })
+    if (record.died) continue
+    // A worker the mutant had blocked under a test and a run of the file a limit ended say the same thing.
+    if (
+      (record.test !== undefined && witnesses.get(record.mutant)?.has(record.test)) ||
+      (record.verdict === 'timeout' && blocked.has(record.mutant))
+    ) {
+      entry.repeated++
+    }
   }
   // Several workers may share a file, and one that reached its end says
   // nothing about a test another had taken and died on.
@@ -444,14 +479,14 @@ function inspect(records: SessionRecord[]) {
   for (const [key, entry] of whole) {
     const [id, file] = key.split('\n')
     const mutant = Number(id)
-    const verdict = wholeVerdict(entry, suspects.get(mutant)?.has(file) || blocked.has(mutant))
+    const verdict = wholeVerdict(entry)
     if (verdict === 'failed') detected.set(mutant, MUTANT_KILLED)
     else if (verdict === 'timeout' && !detected.has(mutant)) detected.set(mutant, MUTANT_TIMEOUT)
   }
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -628,6 +663,7 @@ function planRound(
       // Timing out under a test counts like having blocked a worker.
       stalled: state[mutant] === MUTANT_STALLED || state[mutant] === MUTANT_TIMEOUT,
       confirm,
+      witnesses: [...(status.witnesses.get(mutant) ?? [])].filter((id) => status.tests.get(id)?.file === file),
       site: siteOf[mutant],
       // Until an unmutated run of the file has said what runs while it loads, anything may.
       early,
@@ -676,7 +712,7 @@ function planRound(
       const targets = new Set(covering.get(mutant))
       for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) targets.add(file)
       const open = [...targets].filter(
-        (file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file)), status.blocked.has(mutant)),
+        (file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))),
       )
       // A failure seen once is run again before anything else: repeated, it
       // ends the search. Otherwise the cheapest files go first, a few at a
@@ -700,7 +736,7 @@ function planRound(
   // failing settles it.
   for (const [mutant, files] of status.suspects) {
     if (status.detected.has(mutant)) continue
-    const open = [...files].filter((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file)), true))
+    const open = [...files].filter((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
     if (open.length === 0) continue
     open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
@@ -873,6 +909,7 @@ function writeSession(
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(paths.results, { recursive: true })
   fs.mkdirSync(paths.trying)
+  fs.mkdirSync(paths.again)
   const config: SessionConfig = {
     runtimeGlobal: RUNTIME_GLOBAL,
     siteCount: generated.siteMutants.length - 1,
@@ -1228,17 +1265,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
         state[mutant] = MUTANT_STALLED
         writeStateByte(paths.state, mutant, MUTANT_STALLED)
       }
-      // A worker writes down what its test found when the test is through
-      // with its mutants. One that died before then left the state of those
-      // it had detected and nothing to say which file to run for them; a
-      // test tries them again.
-      const led = new Set<number>(status.suspects.keys())
-      for (const key of status.whole.keys()) led.add(Number(key.split('\n')[0]))
-      for (let mutant = 0; mutant < state.length; mutant++) {
-        if ((state[mutant] !== MUTANT_KILLED && state[mutant] !== MUTANT_TIMEOUT) || led.has(mutant)) continue
-        state[mutant] = MUTANT_PENDING
-        writeStateByte(paths.state, mutant, MUTANT_PENDING)
-      }
       // A worker stopped for stalling may have written over what another had
       // just found out.
       for (const [mutant, verdict] of status.detected) {
@@ -1246,14 +1272,16 @@ export async function run(options: RunOptions): Promise<RunResult> {
         state[mutant] = verdict
         writeStateByte(paths.state, mutant, verdict)
       }
-      // A failure that the file run whole did not repeat came from the mutant
-      // being on for one test only; the mutant is back to what tests can try.
-      for (const [mutant, files] of status.suspects) {
-        if (status.detected.has(mutant) || state[mutant] === MUTANT_PENDING) continue
-        const cleared = [...files].every(
-          (file) => wholeVerdict(status.whole.get(wholeKey(mutant, file)), true) === 'passed',
-        )
-        if (!cleared) continue
+      // What a test found is a lead and no more, and a mutant is left as
+      // found only while a run of a whole file is still to say so. Otherwise
+      // it goes back to what tests and whole runs can try: the worker died
+      // before saying which file to run, the file run whole did not repeat
+      // the failure, or the test that failed turned out to fail by chance,
+      // in which case the run it ended never got to the tests after it.
+      for (let mutant = 0; mutant < state.length; mutant++) {
+        if ((state[mutant] !== MUTANT_KILLED && state[mutant] !== MUTANT_TIMEOUT) || status.detected.has(mutant)) continue
+        const files = status.suspects.get(mutant)
+        if (files && [...files].some((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))))) continue
         state[mutant] = MUTANT_PENDING
         writeStateByte(paths.state, mutant, MUTANT_PENDING)
       }
@@ -1435,10 +1463,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
       for (const [key, entryState] of status.whole) {
         const [mutant, wholeFile] = key.split('\n')
-        const verdict = wholeVerdict(
-          entryState,
-          status.suspects.get(Number(mutant))?.has(wholeFile) || status.blocked.has(Number(mutant)),
-        )
+        const verdict = wholeVerdict(entryState)
         if (wholeFile === file && verdict) entry.whole[keys[Number(mutant)]] = verdict
       }
       for (const dep of [file, snapshot, ...pass.modules!]) {
@@ -1494,6 +1519,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
   }
   const pending = abandonedFiles.length > 0
   const { detected } = status
+  const proof = (mutant: number): Evidence[] =>
+    (status.evidence.get(mutant) ?? []).map((entry) => ({
+      ...entry,
+      file: path.relative(options.root, entry.file),
+      test: entry.test === undefined ? undefined : (status.tests.get(entry.test)?.name ?? entry.test),
+    }))
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
     let status: MutantStatus
@@ -1515,6 +1546,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       coveredBy: coveredBy[mutant.id],
       killedBy: killedBy[mutant.id],
       timeoutCause: status === 'Timeout' ? (timeoutCauses.get(mutant.id) ?? 'fresh worker') : undefined,
+      evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,
     }
   })
 

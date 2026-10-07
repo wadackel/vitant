@@ -1,0 +1,133 @@
+stryker mutants: 1644, ours: 1560, matched: 1512
+only in stryker: 132
+     129  CallExpression
+       2  ConditionalExpression
+       1  LogicalOperator
+only in ours: 48
+      16  ConditionalExpression
+       9  BooleanLiteral
+       6  BlockStatement
+       5  ArrowFunction
+       4  LogicalOperator
+       3  EqualityOperator
+       3  ObjectLiteral
+       1  StringLiteral
+       1  ArrayDeclaration
+status (stryker -> ours):
+     642  Killed -> Killed
+     287  Survived -> Survived
+     195  NoCoverage -> Killed
+     119  NoCoverage -> NoCoverage
+     102  NoCoverage -> Survived
+     100  Survived -> Killed
+      15  Timeout -> Killed
+      14  Timeout -> Timeout
+      12  Ignored -> Static
+      12  Killed -> Timeout
+       7  RuntimeError -> Killed
+       4  NoCoverage -> Timeout
+       3  Survived -> Timeout
+detected/undetected disagreements among mutants both tools ran: 103
+src/reactive/array.ts:14:19 EqualityOperator "i >= d.length" stryker=Survived ours=Killed
+src/reactive/array.ts:55:19 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:58:49 EqualityOperator "mapFn.length <= 1" stryker=Survived ours=Killed
+src/reactive/array.ts:58:49 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/array.ts:82:23 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:84:20 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:88:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/array.ts:108:9 LogicalOperator "indexes || (tempIndexes = new Array(newLen))" stryker=Survived ours=Killed
+src/reactive/array.ts:108:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/array.ts:108:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/array.ts:130:36 ArithmeticOperator "newEnd - 1" stryker=Survived ours=Killed
+src/reactive/array.ts:131:26 EqualityOperator "j < start" stryker=Survived ours=Timeout
+src/reactive/array.ts:138:25 EqualityOperator "i > end" stryker=Survived ours=Killed
+src/reactive/array.ts:144:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/array.ts:144:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/array.ts:154:17 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/array.ts:169:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/array.ts:192:19 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:207:23 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:208:19 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:209:20 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Killed
+src/reactive/array.ts:213:13 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/array.ts:232:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/array.ts:238:14 EqualityOperator "i <= items.length" stryker=Survived ours=Killed
+src/reactive/array.ts:243:24 MethodExpression "mapped" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:51:13 BooleanLiteral "hasMoreWork" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:51:13 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:146:22 BooleanLiteral "false" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:169:11 EqualityOperator "currentTask !== taskQueue[0]" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:169:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:176:10 EqualityOperator "currentTask === null" stryker=Survived ours=Killed
+src/reactive/scheduler.ts:176:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:174:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:174:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:174:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:242:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:242:15 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:243:9 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:244:9 ConditionalExpression "true" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:244:9 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:246:12 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:303:43 BooleanLiteral "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:304:7 LogicalOperator "Scheduler || Transition" stryker=Survived ours=Killed
+src/reactive/signal.ts:335:7 LogicalOperator "Scheduler || Transition" stryker=Survived ours=Killed
+src/reactive/signal.ts:460:7 LogicalOperator "Scheduler || Transition" stryker=Survived ours=Killed
+src/reactive/signal.ts:912:13 BlockStatement "{}" stryker=Survived ours=Killed
+src/reactive/signal.ts:1037:7 LogicalOperator "Transition || Transition.running" stryker=Survived ours=Killed
+src/reactive/signal.ts:1037:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1093:9 LogicalOperator "Scheduler && SuspenseContext" stryker=Survived ours=Killed
+src/reactive/signal.ts:1093:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1093:39 BlockStatement "{}" stryker=Survived ours=Killed
+src/reactive/signal.ts:1105:19 BooleanLiteral "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1165:60 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:1166:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:1166:14 BlockStatement "{}" stryker=Survived ours=Killed
+src/reactive/signal.ts:1167:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1168:28 ArrayDeclaration "[]" stryker=Survived ours=Killed
+src/reactive/signal.ts:1171:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:1212:10 ObjectLiteral "{}" stryker=Survived ours=Killed (static)
+src/reactive/signal.ts:1223:55 BlockStatement "{}" stryker=Survived ours=Killed
+src/reactive/signal.ts:1225:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1225:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1271:38 BlockStatement "{}" stryker=Survived ours=Killed
+src/reactive/signal.ts:1272:10 LogicalOperator "SuspenseContext && (SuspenseContext = createContex" stryker=Survived ours=Killed
+src/reactive/signal.ts:1272:10 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1272:10 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1333:34 ArithmeticOperator "Listener.sources.length + 1" stryker=Survived ours=Killed
+src/reactive/signal.ts:1345:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1351:11 BooleanLiteral "TransitionRunning" stryker=Survived ours=Killed
+src/reactive/signal.ts:1351:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1351:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1379:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1411:11 LogicalOperator "Transition || Transition.running" stryker=Survived ours=Killed
+src/reactive/signal.ts:1417:9 LogicalOperator "node.owned || node.owned.forEach(cleanNode)" stryker=Survived ours=Killed
+src/reactive/signal.ts:1429:9 LogicalOperator "node.updatedAt != null || \"observers\" in node" stryker=Survived ours=Killed
+src/reactive/signal.ts:1429:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1429:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1433:11 BooleanLiteral "Transition.sources.has(node as Memo<any>)" stryker=Survived ours=Killed
+src/reactive/signal.ts:1433:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1473:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1477:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1482:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1518:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1518:15 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1518:15 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1559:24 ArrayDeclaration "[\"Stryker was here\"]" stryker=Survived ours=Timeout
+src/reactive/signal.ts:1583:9 LogicalOperator "!Transition.promises.size || !Transition.queue.siz" stryker=Survived ours=Killed
+src/reactive/signal.ts:1583:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1607:25 BooleanLiteral "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1620:12 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1620:20 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1620:20 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1671:29 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1672:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1681:18 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1735:7 ConditionalExpression "false" stryker=Survived ours=Timeout
+src/reactive/signal.ts:1750:41 BlockStatement "{}" stryker=Survived ours=Killed
+src/reactive/signal.ts:1751:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1751:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1752:20 ConditionalExpression "true" stryker=Survived ours=Killed
+src/reactive/signal.ts:1779:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/reactive/signal.ts:1779:27 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/reactive/signal.ts:1796:62 BlockStatement "{}" stryker=Survived ours=Killed (static)

@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        109
+        110.7
       ],
       "exitCodes": [
         0
@@ -22,20 +22,20 @@
   "reports": {
     "vitant": {
       "counts": {
-        "Killed": 2258,
+        "Killed": 2260,
         "Survived": 476,
-        "Timeout": 46,
+        "Timeout": 44,
         "NoCoverage": 9,
         "Static": 15,
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 37,
-        "copied before load": 265,
-        "copied after load": 3591,
+        "started": 45,
+        "copied before load": 313,
+        "copied after load": 3689,
         "lost": 0
       },
-      "rounds": 14,
+      "rounds": 13,
       "abandonedFiles": 0,
       "truth": "472 mutants checked against the suite: 472 agree"
     }
