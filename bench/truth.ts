@@ -60,6 +60,8 @@ const { values, positionals } = parseArgs({
     sample: { type: 'string' },
     // Further arguments for every Vitest run and for the tool: `--project` and test file filters.
     vitest: { type: 'string', multiple: true, default: [] },
+    // Arguments for the tool alone, where it is run here.
+    tool: { type: 'string', multiple: true, default: [] },
     statuses: { type: 'string', default: 'Killed,Timeout,Survived,NoCoverage,Static' },
   },
 })
@@ -75,7 +77,7 @@ if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root : !
 if (!values.report) {
   values.report = path.join(import.meta.dirname, '..', 'build', `${path.basename(values.root!)}.json`)
   const cli = path.join(import.meta.dirname, '..', 'src', 'cli.ts')
-  const run = spawnSync(process.execPath, [cli, '--root', values.root!, '--report', values.report, ...values.vitest!], {
+  const run = spawnSync(process.execPath, [cli, '--root', values.root!, '--report', values.report, ...values.vitest!, ...values.tool!], {
     stdio: 'ignore',
   })
   if (run.status !== 0) {

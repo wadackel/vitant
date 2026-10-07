@@ -27,6 +27,7 @@ const { values, positionals } = parseArgs({
     'max-workers': { type: 'string' },
     incremental: { type: 'boolean', default: false },
     'no-clone': { type: 'boolean', default: false },
+    static: { type: 'boolean', default: false },
     report: { type: 'string' },
   },
 })
@@ -60,6 +61,7 @@ const result = await run({
   maxRounds: Number(values['max-rounds']),
   incremental: values.incremental,
   clone: !values['no-clone'],
+  static: values.static,
   // Tests spend a third of their time waiting on timers, so a few more workers than cores keep the CPU busy.
   // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
   maxWorkers: Number(values['max-workers'] ?? os.availableParallelism()),
@@ -106,6 +108,9 @@ console.log(
       `${started} in workers started for them` +
       (lost > 0 ? `; ${lost} copies ended without a verdict and were run again` : ''),
   )
+}
+if (counts.Static > 0) {
+  console.log(`${counts.Static} mutant(s) only run while a module loads and were not run; --static runs them`)
 }
 if (result.skippedFiles.length > 0) {
   console.log(`${result.skippedFiles.length} file(s) could not be mutated and were left out:`)

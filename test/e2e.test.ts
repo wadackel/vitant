@@ -239,6 +239,26 @@ describe('reusing an earlier run', () => {
   }, 60_000)
 })
 
+describe('with mutants in code that only runs while a module loads run too', () => {
+  it('judges them, and every other mutant as before', () => {
+    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')
+    const cli = spawnSync(
+      process.execPath,
+      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--static', '--report', report],
+      { encoding: 'utf8' },
+    )
+    expect(cli.status, cli.stderr).toBe(0)
+    const judged: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(judged.counts.Static).toBe(0)
+    // The array is filled while the module loads and no test looks at what it starts as.
+    const loaded = judged.mutants.find((m) => m.file === 'src/math.ts' && m.location.start.line === 1)!
+    expect(['Killed', 'Survived']).toContain(loaded.status)
+    const others = (run: RunResult) =>
+      run.mutants.filter((m) => result.mutants[m.id].status !== 'Static').map((m) => `${m.id} ${m.status}`)
+    expect(others(judged)).toEqual(others(result))
+  }, 60_000)
+})
+
 describe('a mutant that keeps a test file from ever finishing to load', () => {
   it('is a timeout, and the run ends', () => {
     const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')

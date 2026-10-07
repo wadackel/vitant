@@ -22,7 +22,7 @@ node src/cli.ts --root ../my-app --changed origin/main
 node src/cli.ts --root ../my-app --changed origin/main --incremental
 ```
 
-Positional arguments are passed to Vitest as test file filters. `--report` writes every mutant with its status as JSON. `--no-clone` starts a worker for every whole-file run instead of copying one (see How it works).
+Positional arguments are passed to Vitest as test file filters. `--report` writes every mutant with its status as JSON. `--no-clone` starts a worker for every whole-file run instead of copying one (see How it works). `--static` also runs the mutants in code that only runs while a module loads.
 
 "Fresh worker" below means a worker process in which nothing of the project has run, or a copy of one.
 
@@ -32,7 +32,7 @@ Positional arguments are passed to Vitest as test file filters. `--report` write
 | Timeout | The same, with the file running into a loop or a hang instead of failing. Counted as detected. |
 | Survived | Every test file the mutant can change anything in passed, in a fresh worker, with the mutant on from before the file was imported. |
 | NoCoverage | No test runs the mutated code. |
-| Static | The code only runs while a module loads, and no test or hook reaches it. Not run. |
+| Static | The code only runs while a module loads, and no test or hook reaches it. Not run unless `--static` is given, and then judged like any other. |
 | Pending | The run gave up on a test file before the mutant was settled. |
 
 ## How it works
@@ -309,7 +309,7 @@ With `CONFORMANCE_MUTANTS=3` the check also turns on up to three mutants per tes
 - **Tests that fail now and then.** A failure counts when it has been seen twice, and a test caught failing and passing with the same mutant is left out. A test that fails often enough to do so twice in a row before it is caught passing can still kill a mutant it has nothing to do with; the first runs on hosted CI machines, with a third more workers than processors, had one or two such verdicts among 3,000 runs of hono. The number of workers is that of the processors since.
 - **A timeout is a judgement.** A mutant counts as timed out when one stretch of a whole-file run keeps the process busy for longer than four times what the file takes plus three seconds, a second for a loop that is past fifty times its iterations, or when the run waits for longer than five times that. A mutant that makes a test take that long and still finish, within the project's own test timeout, is called a timeout here and would pass there.
 - **Code that only cleanup hooks reach gets no lead.** While tests try mutants one at a time the mutant is switched off before `afterEach` and the hooks like it, so that it cannot keep them from restoring shared state. A mutant in code that only they run is therefore settled by whole-file runs alone, one per test file whose hooks reach it.
-- **Code that only runs while a module loads** and that no test or hook reaches is reported as Static and not run, as StrykerJS does with `ignoreStatic`. The suite can fail with such a mutant; the check against it counts those apart.
+- **Code that only runs while a module loads** and that no test or hook reaches is reported as Static and not run, as StrykerJS does with `ignoreStatic`, unless `--static` is given. That is a choice of cost, not a limit: about four in five of such mutants are detected when they are run (217 of 277 over nine targets), but each takes a run of every test file that loads the module, and one that survives goes through them all. Where such code is one mutant in a hundred the run takes no longer; in pinia and jotai, at one in twenty, half as long again; in vue, where 13 survivors are each run with 180 test files, twice as long. Every verdict it adds in ufo, zustand, immer, jotai and hono agrees with the suite. The run says how many mutants were left out.
 - **Tests that only reach code when run at the same time.** Tests marked `concurrent` run one after another while what they reach is recorded; code they only get to because another test is in flight is reported as not covered.
 - **`bail` is switched off,** so that one failing run does not call off the others of its round.
 - **Skipped runs assume deterministic tests.** If a test takes a different path on each run, a mutant judged harmless in the unmutated run might still have changed something.

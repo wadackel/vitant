@@ -116,6 +116,8 @@ export interface RunOptions extends GenerateOptions {
   incremental: boolean
   /** Make whole-file runs in copies of a worker that has started up, where the platform can copy a process. */
   clone: boolean
+  /** Run mutants in code that only runs while a module loads. */
+  static: boolean
   log: (message: string) => void
 }
 
@@ -466,6 +468,15 @@ function chunkSize(baselineMs: number): number {
  * far more often than cheaper or narrower tests. Once each mutant has had
  * that try, every test gets to run whatever is still pending.
  */
+/**
+ * Whether mutants in code that only runs while a module loads are run too.
+ * Each takes a run of every test file that loads the module, where one
+ * that is detected stops at the first failure and one that is not goes
+ * through them all: next to nothing where such code is rare, twice the
+ * time in a library that builds tables as it loads and has many test files.
+ */
+let judgeStatic = false
+
 function planRound(
   status: ReturnType<typeof inspect>,
   state: Uint8Array,
@@ -643,7 +654,8 @@ function planRound(
     const rarelyFails = wholeRuns >= 50 && wholeFailures < wholeRuns / 20
     for (let mutant = 0; mutant < state.length; mutant++) {
       // Code no test reaches is reported as such and not run.
-      if ((state[mutant] !== MUTANT_PENDING && state[mutant] !== MUTANT_STALLED) || !status.reached.has(siteOf[mutant])) continue
+      if (state[mutant] !== MUTANT_PENDING && state[mutant] !== MUTANT_STALLED) continue
+      if (!status.reached.has(siteOf[mutant]) && !judgeStatic) continue
       const targets = new Set(covering.get(mutant))
       for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) targets.add(file)
       const open = [...targets].filter(
@@ -938,6 +950,7 @@ function dropSendsToDeadWorkers(): void {
 
 export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
+  judgeStatic = options.static
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
   options.log(
@@ -1470,7 +1483,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending) status = 'Pending'
-    else if (coveredBy[mutant.id] > 0) status = 'Survived'
+    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
     return {
