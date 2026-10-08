@@ -46,6 +46,8 @@ export interface RoundPlan {
    * while the file loads, or leaves behind for later tests, only shows there.
    */
   whole: Record<string, WholeJob[]>
+  /** Test files nothing of which runs in two processes at once, see `WholeJob.exclusive`. */
+  exclusive: string[]
 }
 
 export interface WholeJob {

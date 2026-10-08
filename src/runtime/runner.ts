@@ -703,41 +703,50 @@ function firstError(test: TaskLike): string | undefined {
 let heldLock: string | undefined
 
 /**
- * Waits until no other whole-file run of the file is under way and keeps the
+ * Waits until no other run of the test file is under way and keeps the
  * others out until `release`, see `WholeJob.exclusive`. The wait leaves the
  * process answering: it can take as long as the runs queued before it.
+ *
+ * The lock is a file that comes to be with its owner's process id in it, by
+ * a link to a file written beforehand. One whose owner is gone is moved
+ * aside under a name made of that id, which only one of those waiting can
+ * do; whoever finds it has moved a living owner's file instead puts it back.
  */
 async function alone(file: string): Promise<void> {
-  const dir = path.join(paths.locks, createHash('sha1').update(file).digest('hex'))
-  const owner = path.join(dir, 'pid')
+  if (heldLock) return
+  const lock = path.join(paths.locks, createHash('sha1').update(file).digest('hex'))
+  const mine = `${lock}.${process.pid}`
+  fs.writeFileSync(mine, String(process.pid))
   for (;;) {
     try {
-      fs.mkdirSync(dir)
-      fs.writeFileSync(owner, String(process.pid))
-      heldLock = dir
+      fs.linkSync(mine, lock)
+      fs.rmSync(mine)
+      heldLock = lock
       return
-    } catch {
-      // A process stopped while it held the lock keeps nobody out.
-      let pid = 0
-      try {
-        pid = Number(fs.readFileSync(owner, 'utf8'))
-      } catch {}
-      let gone = false
-      try {
-        if (pid > 0) process.kill(pid, 0)
-      } catch {
-        gone = true
+    } catch {}
+    let owner = 0
+    try {
+      owner = Number(fs.readFileSync(lock, 'utf8'))
+      process.kill(owner, 0)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+        const aside = `${lock}.gone.${owner}`
+        try {
+          fs.renameSync(lock, aside)
+          if (Number(fs.readFileSync(aside, 'utf8')) === owner) fs.rmSync(aside)
+          else fs.linkSync(aside, lock)
+        } catch {}
+        continue
       }
-      if (gone) fs.rmSync(dir, { recursive: true, force: true })
-      else await new Promise((resolve) => realSetTimeout(resolve, 20))
     }
+    await new Promise((resolve) => realSetTimeout(resolve, 20))
   }
 }
 
 /** A copy shares what the process it was copied from holds, and that one lets go of it. */
 function release(): void {
   if (cloned || !heldLock) return
-  fs.rmSync(heldLock, { recursive: true, force: true })
+  fs.rmSync(heldLock, { force: true })
   heldLock = undefined
 }
 process.on('exit', release)
@@ -880,9 +889,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const file = typeof paths[0] === 'string' ? paths[0] : paths[0]?.filepath
       this.wholeFile = file
       const jobs = plan?.whole[file] ?? []
+      // Before anything of the file runs here, loading it included.
+      if (plan?.exclusive.includes(file)) await alone(file)
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
       if (plain) {
-        if (plain.exclusive) await alone(file)
         this.begin(plain, true)
       } else if (cloner && !watching && jobs.length > 0 && (await calm(workerResources, false))) {
           // Nothing of the project has run in this process yet, so a copy of
@@ -913,7 +923,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       } else {
         const job = jobs.find((job) => !job.control && this.open(job) && claim(`whole.${job.id}`))
-        if (job?.exclusive) await alone(file)
         if (job) this.begin(job, true)
       }
       watch()
@@ -932,7 +941,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * was copied, waits for the copy to end. Returns whether this is the copy.
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
-      if (job.exclusive) await alone(this.wholeFile!)
+      await this.standStill()
+      const first = this.copy(job, beforeLoad, false)
+      if (first !== 'again') return first === 'copy'
+      await this.standStill()
+      return this.copy(job, beforeLoad, true) === 'copy'
+    }
+
+    /** Leaves nothing under way between this process and the main one, so that a copy can be made. */
+    private async standStill(): Promise<void> {
       // An answer still on its way to this process would go to the copy.
       await quiet()
       // Calls made before the count began are not in it. Answers mostly come
@@ -945,9 +962,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // the copy.
       do await quiet()
       while (calls > 0 || unanswered.size > 0)
-      const copied = this.copy(job, beforeLoad)
-      if (!copied) release()
-      return copied
     }
 
     /**
@@ -964,56 +978,58 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
     }
 
-    /** The copying itself, which nothing may interrupt: see `clone`. */
-    private copy(job: WholeJob, beforeLoad: boolean): boolean {
+    /**
+     * The copying itself, which nothing may interrupt: see `standStill`. In the
+     * process that was copied this waits for the copy to end and says whether
+     * the copy asked for the run to be made again.
+     */
+    private copy(job: WholeJob, beforeLoad: boolean, second: boolean): 'copy' | 'again' | 'done' {
       const by = beforeLoad ? 'copied before load' : 'copied after load'
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
-      const again = path.join(paths.again, String(job.id))
-      for (const second of [false, true]) {
-        let pid: number
-        try {
-          pid = cloner!.fork(forkLock)
-        } catch {
-          // No copy could be made; a worker started for the job makes the run.
-          emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
-          return false
-        }
-        if (pid === 0) {
-          cloned = true
-          this.wholeBy = by
-          this.wholeAgain = second
-          copiedFrom = self
-          // Node read the process id when it started, which was in the process
-          // this is a copy of; a signal the tests send themselves must not go there.
-          Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
-          this.keepToItself()
-          return true
-        }
-        // This process waits without touching the channel to the main
-        // process, which the copy uses in its place. A copy that keeps to its
-        // heartbeat and never ends, awaiting what a mutant keeps from
-        // happening where no test's time limit applies, is given up on after
-        // several times what the file may take.
-        const limit = hardLimitMs({ baselineMs: job.fileMs })
-        const copiedAt = preciseNow()
-        const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
-        if (job.control) {
-          // A copy that says nothing of the file unmutated says nothing of it with a mutant either.
-          if (ended !== cloner!.Ended.Done) emit({ type: 'control', file: this.wholeFile, verdict: 'failed', by })
-        } else if (ended === cloner!.Ended.Blocked) {
-          const state = readState(job.mutant)
-          if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-          emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', alone: job.exclusive, by, ms: preciseNow() - copiedAt })
-        } else if (ended === cloner!.Ended.Lost) {
-          // The copy ended without a verdict, by this process's hand or its
-          // own. Whatever it was, a worker started for the job alone decides.
-          emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
-        }
-        if (!fs.existsSync(again)) break
-        fs.rmSync(again)
+      let pid: number
+      try {
+        pid = cloner!.fork(forkLock)
+      } catch {
+        // No copy could be made; a worker started for the job makes the run.
+        emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
+        return 'done'
       }
-      return false
+      if (pid === 0) {
+        cloned = true
+        this.wholeBy = by
+        this.wholeAgain = second
+        copiedFrom = self
+        // Node read the process id when it started, which was in the process
+        // this is a copy of; a signal the tests send themselves must not go there.
+        Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
+        this.keepToItself()
+        return 'copy'
+      }
+      // This process waits without touching the channel to the main
+      // process, which the copy uses in its place. A copy that keeps to its
+      // heartbeat and never ends, awaiting what a mutant keeps from
+      // happening where no test's time limit applies, is given up on after
+      // several times what the file may take.
+      const limit = hardLimitMs({ baselineMs: job.fileMs })
+      const copiedAt = preciseNow()
+      const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
+      if (job.control) {
+        // A copy that says nothing of the file unmutated says nothing of it with a mutant either.
+        if (ended !== cloner!.Ended.Done) emit({ type: 'control', file: this.wholeFile, verdict: 'failed', by })
+      } else if (ended === cloner!.Ended.Blocked) {
+        const state = readState(job.mutant)
+        if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
+        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', alone: job.exclusive, by, ms: preciseNow() - copiedAt })
+      } else if (ended === cloner!.Ended.Lost) {
+        // The copy ended without a verdict, by this process's hand or its
+        // own. Whatever it was, a worker started for the job alone decides.
+        emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
+      }
+      const again = path.join(paths.again, String(job.id))
+      if (!fs.existsSync(again)) return 'done'
+      fs.rmSync(again)
+      return 'again'
     }
 
     /** Turns the job's mutant on for the rest of the file's run. */
@@ -1477,6 +1493,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     onAfterRunFiles(files: TaskLike[]): unknown {
+      // The file's tests and hooks are through, which is all another run of it could meet.
+      release()
       if (this.whole) {
         runtime.a = -1
         beat[1] = 0
@@ -1499,7 +1517,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             ms: preciseNow() - this.wholeStartedAt,
           })
         }
-        release()
         this.whole = undefined
         this.wholeFailure = undefined
         this.wholeTest = undefined

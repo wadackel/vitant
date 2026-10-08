@@ -123,6 +123,13 @@ if (result.flakyTests.length > 0) {
   console.log(`${result.flakyTests.length} test(s) failed with a mutant and passed with the same one, and were not counted:`)
   for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
 }
+if (result.exclusiveFiles.length > 0) {
+  console.log(`${result.exclusiveFiles.length} test file(s) were run one at a time: their runs failed each other`)
+}
+if (result.changedFiles.length > 0) {
+  console.log(`${result.changedFiles.length} file(s) under version control differ from before the run; the verdicts may rest on them:`)
+  for (const file of result.changedFiles.slice(0, 10)) console.log(`  ${file}`)
+}
 if (result.nonRepeatableTests.length > 0) {
   console.log(`${result.nonRepeatableTests.length} test(s) do not pass when re-run in the same worker`)
 }

@@ -93,6 +93,14 @@ export interface RunResult {
   failedBaselines: string[]
   /** Tests that failed a whole-file run with a mutant and not the next one with the same mutant; what they fail is not counted. */
   flakyTests: string[]
+  /** Test files whose runs failed each other and were made one at a time from then on. */
+  exclusiveFiles: string[]
+  /**
+   * Files under version control that differ from before the run: tests wrote
+   * them and did not put them back, a run ended early or two at once being
+   * how that comes about. Every run after the first such write saw them.
+   */
+  changedFiles: string[]
   /** Tests that stopped passing unmutated once they were re-run in the same worker. */
   nonRepeatableTests: string[]
   /** Errors raised outside any test, such as a file that fails to import. */
@@ -254,13 +262,14 @@ function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | u
 }
 
 /**
- * How a copy of a worker ran a file with no mutant on. A copy is taken for
- * what a worker started for the run would be, and nothing says it is for
- * every file: on macOS a copy that touches what a native module had set up
- * in another thread is ended by the system, hundreds of times over in a
- * project that bundles as its tests run. So what copies say of a file
- * counts once a copy has passed the file unmutated, and a file a copy
- * fails or does not get through is run in started workers.
+ * How a copy of a worker ran a file with no mutant on. On macOS a copy that
+ * touches what a native module had set up in another thread is ended by the
+ * system, hundreds of times over in a project that bundles as its tests
+ * run, each ended copy a run to make again in a started worker. Where a
+ * copy of a file was lost, one more is made with no mutant, and a file such
+ * copies fail twice or do not get through is run in started workers. This
+ * saves runs; it does not show that a copy that passes is what a started
+ * worker would be with a mutant on.
  */
 interface ControlRecord {
   type: 'control'
@@ -284,7 +293,7 @@ interface EarlyRecord {
   site: number
 }
 
-type SessionRecord = (
+export type SessionRecord = (
   | TestRecord
   | FileRecord
   | WholeRecord
@@ -317,7 +326,7 @@ interface TestState {
 }
 
 /** Works out from what the workers wrote what each test still has to do. */
-function inspect(records: SessionRecord[]) {
+export function inspect(records: SessionRecord[]) {
   const tests = new Map<string, TestState>()
   const replay = new Set<string>()
   const retried = new Set<string>()
@@ -354,6 +363,8 @@ function inspect(records: SessionRecord[]) {
   const wholeTook = new Map<string, { ms: number; runs: number }>()
   const leads: { mutant: number; file: string; test: string; passedAgain: boolean }[] = []
   const wholeRecords: WholeRecord[] = []
+  /** Files a copy of a worker did not get through, which is where copies are checked. */
+  const lost = new Set<string>()
   /**
    * Per kind of copy and file, how the file went in such a copy unmutated.
    * One failure may be a test failing by chance, and running a file in
@@ -371,7 +382,10 @@ function inspect(records: SessionRecord[]) {
       for (const site of record.staticSites) set.add(site)
       staticSites.set(record.file, set)
     }
-    if (record.type === 'plain') plain.add(wholeKey(record.mutant, record.file))
+    if (record.type === 'plain') {
+      plain.add(wholeKey(record.mutant, record.file))
+      lost.add(record.file)
+    }
     if (record.type === 'control') {
       const key = `${record.by}\n${record.file}`
       if (record.verdict === 'passed') controls.set(key, 'passed')
@@ -461,9 +475,7 @@ function inspect(records: SessionRecord[]) {
   }
   const uncopied = new Set<string>()
   for (const [key, verdict] of controls) if (verdict === 'failed') uncopied.add(key.split('\n')[1])
-  const counted = wholeRecords.filter(
-    (record) => !record.by || record.by === 'started' || (!uncopied.has(record.file) && controls.get(`${record.by}\n${record.file}`) === 'passed'),
-  )
+  const counted = wholeRecords.filter((record) => !record.by || record.by === 'started' || !uncopied.has(record.file))
   // A test that failed a file's run with a mutant and did not fail another
   // run of the same file with the same mutant fails for reasons of its own.
   // The first suspect is the tool: it runs one test file in many processes
@@ -478,15 +490,20 @@ function inspect(records: SessionRecord[]) {
   const flaky = new Set<string>()
   const exclusive = new Set<string>()
   const passedOnce = new Set<string>()
+  const passedAlone = new Set<string>()
   for (const record of counted) {
-    if (record.verdict === 'passed') passedOnce.add(wholeKey(record.mutant, record.file))
+    if (record.verdict !== 'passed') continue
+    passedOnce.add(wholeKey(record.mutant, record.file))
+    if (record.alone) passedAlone.add(wholeKey(record.mutant, record.file))
   }
   for (const record of counted) {
-    if (record.verdict === 'passed' || !passedOnce.has(wholeKey(record.mutant, record.file))) continue
-    if (!record.alone) exclusive.add(record.file)
+    const key = wholeKey(record.mutant, record.file)
+    if (record.verdict === 'passed' || !passedOnce.has(key)) continue
+    if (!record.alone || !passedAlone.has(key)) exclusive.add(record.file)
     else if (record.test) flaky.add(record.test)
   }
-  const settled = counted.filter((record) => record.verdict === 'passed' || record.alone || !exclusive.has(record.file))
+  // Getting in each other's way can make a run pass as well as fail, a file one run wrote and another reads for one.
+  const settled = new Set(counted.filter((record) => record.alone || !exclusive.has(record.file)))
   const evidence = new Map<number, Evidence[]>()
   const note = (mutant: number, entry: Evidence) => evidence.set(mutant, [...(evidence.get(mutant) ?? []), entry])
   /** Per mutant, the tests that failed with it and passed again without it. */
@@ -504,8 +521,8 @@ function inspect(records: SessionRecord[]) {
     const entry = whole.get(key) ?? { runs: 0, repeated: 0, died: 0, failed: 0, timedOut: 0, passed: 0 }
     whole.set(key, entry)
     entry.runs++
-    if (uncopied.has(record.file) && !counted.includes(record)) plain.add(key)
-    if (!settled.includes(record)) continue
+    if (uncopied.has(record.file) && record.by && record.by !== 'started') plain.add(key)
+    if (!settled.has(record)) continue
     if (record.verdict === 'passed') entry.passed++
     else if (record.test && flaky.has(record.test)) continue
     else if (record.died) entry.died++
@@ -535,7 +552,7 @@ function inspect(records: SessionRecord[]) {
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -629,6 +646,7 @@ function planRound(
     tests: {},
     probe: {},
     pristine: [],
+    exclusive: [...status.exclusive],
     whole: {},
   }
   const workByFile = new Map<string, { workMs: number; chunks: number; wholeRuns: number; wholeMs: number }>()
@@ -729,7 +747,7 @@ function planRound(
     })
     const job = plan.whole[file].at(-1)!
     const by = early ? 'copied before load' : 'copied after load'
-    if (cloning && !job.plain && !status.controls.has(`${by}\n${file}`) && !controlled.has(`${by}\n${file}`)) {
+    if (cloning && !job.plain && status.lost.has(file) && !status.controls.has(`${by}\n${file}`) && !controlled.has(`${by}\n${file}`)) {
       controlled.add(`${by}\n${file}`)
       // First in the list, so that the worker that takes the file's jobs makes this run before theirs.
       plan.whole[file].unshift({ ...job, id: jobs++, mutant: -1, control: true, confirm: true, witnesses: [], site: -1, stalled: false })
@@ -1064,8 +1082,15 @@ function dropSendsToDeadWorkers(): void {
   syncBuiltinESMExports()
 }
 
+/** What git has to say of the working tree, or nothing where there is no repository. */
+function workingTree(root: string): Set<string> {
+  const result = childProcess.spawnSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root, encoding: 'utf8' })
+  return new Set(result.status === 0 ? result.stdout.split('\n').filter(Boolean) : [])
+}
+
 export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
+  const treeBefore = workingTree(options.root)
   judgeStatic = options.static
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
@@ -1619,6 +1644,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     testFiles: finishedFiles.size,
     tests,
     failedBaselines,
+    exclusiveFiles: [...status.exclusive].map((file) => path.relative(options.root, file)),
+    changedFiles: [...workingTree(options.root)].filter((line) => !treeBefore.has(line)).map((line) => line.slice(3)),
     flakyTests: [...status.flaky].flatMap((id) => {
       const test = status.tests.get(id)
       return test ? [label(test)] : []
