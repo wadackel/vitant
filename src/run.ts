@@ -869,9 +869,13 @@ function planRound(
     open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
   }
-  for (const file of status.pairWanted) {
+  // The two runs of a pair wait for each other, each holding a worker; more
+  // pairs in a round than half the workers and they wait for workers that
+  // other pairs hold.
+  for (const file of [...status.pairWanted].slice(0, Math.floor(workers / 2))) {
     for (let i = 0; i < 2; i++) {
-      ;(plan.whole[file] ??= []).push({
+      // First in the list: the first workers the file gets take what stands first.
+      ;(plan.whole[file] ??= []).unshift({
         id: jobs++,
         mutant: -1,
         ignore: failing.get(file) ?? [],
@@ -909,6 +913,8 @@ function cloneAddon(): string | undefined {
 }
 /** Whether whole-file runs are made in copies of a worker. */
 let cloning = false
+/** How many workers a round may have at once. */
+let workers = 1
 // A copy of a process has none of its other threads, so a worker that is
 // going to be copied must not leave work to any.
 const workerArgv: string[] = []
@@ -1268,6 +1274,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const vitestStartedAt = performance.now()
   const addon = options.clone ? cloneAddon() : undefined
   cloning = addon !== undefined
+  workers = options.maxWorkers
   workerArgv.length = 0
   if (addon) {
     workerArgv.push('--single-threaded', `--require=${paths.preload}`)
@@ -1585,6 +1592,15 @@ export async function run(options: RunOptions): Promise<RunResult> {
         keyed.sort((a, b) => a.key - b.key)
         units.splice(0, units.length, ...keyed.map((entry) => entry.unit))
       }
+      // The two runs of a pair go first and next to each other, so that neither waits for a worker.
+      const paired = specs.filter((spec) => next.plan.whole[spec.moduleId]?.some((job) => job.pair))
+      for (const spec of paired) {
+        for (let i = 0; i < 2; i++) {
+          const at = units.findIndex((unit) => unit.spec === spec)
+          if (at !== -1) units.splice(at, 1)
+        }
+      }
+      units.unshift(...paired.flatMap((spec) => [{ spec, workMs: 0 }, { spec, workMs: 0 }]))
       plan = units.map((unit) => unit.spec)
       const totalWork = units.reduce((sum, unit) => sum + unit.workMs, 0)
       options.log(
