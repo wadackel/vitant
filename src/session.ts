@@ -48,6 +48,10 @@ export interface RoundPlan {
   whole: Record<string, WholeJob[]>
   /** Test files nothing of which runs in two processes at once, see `WholeJob.exclusive`. */
   exclusive: string[]
+  /** The round is of runs made one at a time with nothing else running, see `WholeJob.quiet`. */
+  quiet: boolean
+  /** Test files that one worker has to itself in the round, as every file has in the first. */
+  sole: string[]
 }
 
 export interface WholeJob {
@@ -78,6 +82,13 @@ export interface WholeJob {
    * looks like in a file whose runs never get past each other.
    */
   pair?: boolean
+  /**
+   * Made with nothing else running. A mutant no test failed on while trying
+   * it, whose runs of the file fail all the same, may fail them on a busy
+   * machine alone, and its last run is made on one that is not busy with
+   * this tool's own work.
+   */
+  quiet?: boolean
   /** No mutant: the run is to show that a copy of a worker runs the file as a worker started for it does. */
   control?: boolean
   /**

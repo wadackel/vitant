@@ -912,7 +912,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.wholeFile = file
       const jobs = plan?.whole[file] ?? []
       // Before anything of the file runs here, loading it included.
-      if (plan?.exclusive.includes(file)) await alone(file)
+      if (plan?.quiet) await alone('')
+      else if (plan?.exclusive.includes(file)) await alone(file)
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
       if (plain) {
         if (plain.pair) this.pairMet = await meet(plain, jobs)
@@ -1043,7 +1044,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       } else if (ended === cloner!.Ended.Blocked) {
         const state = readState(job.mutant)
         if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', alone: job.exclusive, by, ms: preciseNow() - copiedAt })
+        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', alone: job.exclusive || job.quiet, quiet: job.quiet, by, ms: preciseNow() - copiedAt })
       } else if (ended === cloner!.Ended.Lost) {
         // The copy ended without a verdict, by this process's hand or its
         // own. Whatever it was, a worker started for the job alone decides.
@@ -1498,7 +1499,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         mutant: this.whole!.mutant,
         verdict: this.wholeFailure ?? 'passed',
         test: this.wholeTest,
-        alone: this.whole!.exclusive,
+        alone: this.whole!.exclusive || this.whole!.quiet,
+        quiet: this.whole!.quiet,
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
       })
@@ -1510,7 +1512,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const repeats =
         (this.wholeTest !== undefined && job.witnesses?.includes(this.wholeTest)) ||
         (this.wholeFailure === 'timeout' && job.stalled)
-      if (this.wholeFailure && !repeats && !this.wholeAgain) fs.writeFileSync(path.join(paths.again, String(job.id)), '')
+      if (this.wholeFailure && !repeats && !this.wholeAgain && !job.quiet) fs.writeFileSync(path.join(paths.again, String(job.id)), '')
       cloner!.done()
       return cloner!.exit(0)
     }
@@ -1538,7 +1540,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             mutant: this.whole.mutant,
             verdict: this.wholeFailure ?? 'passed',
             test: this.wholeTest,
-            alone: this.whole.exclusive,
+            alone: this.whole.exclusive || this.whole.quiet,
+            quiet: this.whole.quiet,
             by: this.wholeBy,
             ms: preciseNow() - this.wholeStartedAt,
           })
@@ -1774,7 +1777,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         name: test.name,
         mode: run.mode,
         baseline: run.mode === 'probe' ? run.baselineState : undefined,
-        sole: !plan,
+        sole: !plan || plan.sole.includes(test.file.filepath) || plan.exclusive.includes(test.file.filepath),
         pristine: run.pristine,
         baselineMs: run.baselineMs,
         baselineLoops: run.baselineLoops,

@@ -55,6 +55,15 @@ describe('what the runs of whole files settle', () => {
     expect(twice.detected.get(0)).toBe(MUTANT_KILLED)
   })
 
+  it('wants one of the failures made with nothing else running where no test ever failed on the mutant', () => {
+    const runs = [whole(0, 'failed', { test: 't2' }), whole(0, 'failed', { test: 't2' })]
+    expect(inspect(runs).detected.has(0)).toBe(false)
+    expect(inspect([...runs, whole(0, 'failed', { test: 't2', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+    const passed = inspect([...runs, whole(0, 'passed', { alone: true, quiet: true })])
+    expect(passed.detected.has(0)).toBe(false)
+    expect(passed.whole.get(`0\n${file}`)?.passed).toBe(1)
+  })
+
   it('has a file run alone once a run failed and another of the same mutant passed, and drops what ran side by side', () => {
     const status = inspect([
       // Another mutant, failed twice while runs of the file were side by side.
@@ -70,6 +79,23 @@ describe('what the runs of whole files settle', () => {
     expect(status.detected.size).toBe(0)
     expect(status.whole.get(`0\n${file}`)?.passed).toBe(1)
     expect(status.whole.get(`2\n${file}`)?.passed).toBe(0)
+  })
+
+  it('lets a file run side by side again once only tests that fail by chance had given it away', () => {
+    const records = [
+      whole(0, 'failed', { test: 't2' }),
+      whole(0, 'passed', { alone: true }),
+      // Another mutant, run side by side before the file was taken to be one to run alone.
+      whole(2, 'passed'),
+    ]
+    expect([...inspect(records).exclusive]).toEqual([file])
+    const status = inspect([...records, whole(1, 'failed', { test: 't2', alone: true }), whole(1, 'passed', { alone: true })])
+    expect([...status.flaky]).toEqual(['t2'])
+    expect(status.exclusive.size).toBe(0)
+    expect(status.whole.get(`2\n${file}`)?.passed).toBe(1)
+    // A failure that was no test's, or another test's, keeps it alone.
+    const kept = inspect([...records, whole(1, 'failed', { test: 't2', alone: true }), whole(1, 'passed', { alone: true }), whole(3, 'failed', { test: 't3' }), whole(3, 'passed')])
+    expect([...kept.exclusive]).toEqual([file])
   })
 
   it('leaves out only a test that fails and passes with no other run of the file under way', () => {
@@ -90,7 +116,7 @@ describe('what the runs of whole files settle', () => {
     expect([...inspect(runs).pairWanted]).toEqual([file])
     expect(inspect([lead(0, 't1'), whole(0, 'failed', { test: 't1' })]).pairWanted.size).toBe(0)
 
-    const fine = inspect([...runs, pair('passed'), pair('passed')])
+    const fine = inspect([...runs, pair('passed'), pair('passed'), whole(0, 'failed', { test: 't2', alone: true, quiet: true })])
     expect(fine.pairWanted.size).toBe(0)
     expect(fine.detected.get(0)).toBe(MUTANT_KILLED)
 
@@ -108,7 +134,7 @@ describe('what the runs of whole files settle', () => {
   it('stops believing copies of a file two of them failed with no mutant on', () => {
     const control = (verdict: 'failed' | 'passed'): SessionRecord =>
       ({ type: 'control', file, verdict, by: 'copied after load', at: at++ }) as SessionRecord
-    const runs = [whole(0, 'failed', { test: 't1' }), whole(0, 'failed', { test: 't1' })]
+    const runs = [lead(0, 't1'), whole(0, 'failed', { test: 't1' })]
     expect(inspect([...runs, control('failed')]).detected.get(0)).toBe(MUTANT_KILLED)
     const status = inspect([...runs, control('failed'), control('failed')])
     expect(status.detected.size).toBe(0)
