@@ -3,6 +3,7 @@
 // project, so this file works with whichever Vitest version that project
 // resolves.
 
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -699,6 +700,48 @@ function firstError(test: TaskLike): string | undefined {
  * Several workers may run the same file at once. Whichever creates the claim
  * file first takes the test, or the chunk of its mutants; the others move on.
  */
+let heldLock: string | undefined
+
+/**
+ * Waits until no other whole-file run of the file is under way and keeps the
+ * others out until `release`, see `WholeJob.exclusive`. The wait leaves the
+ * process answering: it can take as long as the runs queued before it.
+ */
+async function alone(file: string): Promise<void> {
+  const dir = path.join(paths.locks, createHash('sha1').update(file).digest('hex'))
+  const owner = path.join(dir, 'pid')
+  for (;;) {
+    try {
+      fs.mkdirSync(dir)
+      fs.writeFileSync(owner, String(process.pid))
+      heldLock = dir
+      return
+    } catch {
+      // A process stopped while it held the lock keeps nobody out.
+      let pid = 0
+      try {
+        pid = Number(fs.readFileSync(owner, 'utf8'))
+      } catch {}
+      let gone = false
+      try {
+        if (pid > 0) process.kill(pid, 0)
+      } catch {
+        gone = true
+      }
+      if (gone) fs.rmSync(dir, { recursive: true, force: true })
+      else await new Promise((resolve) => realSetTimeout(resolve, 20))
+    }
+  }
+}
+
+/** A copy shares what the process it was copied from holds, and that one lets go of it. */
+function release(): void {
+  if (cloned || !heldLock) return
+  fs.rmSync(heldLock, { recursive: true, force: true })
+  heldLock = undefined
+}
+process.on('exit', release)
+
 function claim(name: string): boolean {
   try {
     fs.closeSync(fs.openSync(path.join(paths.claims, name), 'wx'))
@@ -839,6 +882,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const jobs = plan?.whole[file] ?? []
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
       if (plain) {
+        if (plain.exclusive) await alone(file)
         this.begin(plain, true)
       } else if (cloner && !watching && jobs.length > 0 && (await calm(workerResources, false))) {
           // Nothing of the project has run in this process yet, so a copy of
@@ -868,7 +912,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           return super.onBeforeCollect?.(paths)
         }
       } else {
-        const job = jobs.find((job) => this.open(job) && claim(`whole.${job.id}`))
+        const job = jobs.find((job) => !job.control && this.open(job) && claim(`whole.${job.id}`))
+        if (job?.exclusive) await alone(file)
         if (job) this.begin(job, true)
       }
       watch()
@@ -877,6 +922,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     private open(job: WholeJob): boolean {
+      if (job.control) return true
       const state = readState(job.mutant)
       return job.confirm === true || state === MUTANT_PENDING || state === MUTANT_STALLED
     }
@@ -886,6 +932,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * was copied, waits for the copy to end. Returns whether this is the copy.
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
+      if (job.exclusive) await alone(this.wholeFile!)
       // An answer still on its way to this process would go to the copy.
       await quiet()
       // Calls made before the count began are not in it. Answers mostly come
@@ -898,7 +945,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // the copy.
       do await quiet()
       while (calls > 0 || unanswered.size > 0)
-      return this.copy(job, beforeLoad)
+      const copied = this.copy(job, beforeLoad)
+      if (!copied) release()
+      return copied
     }
 
     /**
@@ -949,10 +998,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const limit = hardLimitMs({ baselineMs: job.fileMs })
         const copiedAt = preciseNow()
         const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
-        if (ended === cloner!.Ended.Blocked) {
+        if (job.control) {
+          // A copy that says nothing of the file unmutated says nothing of it with a mutant either.
+          if (ended !== cloner!.Ended.Done) emit({ type: 'control', file: this.wholeFile, verdict: 'failed', by })
+        } else if (ended === cloner!.Ended.Blocked) {
           const state = readState(job.mutant)
           if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-          emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', by, ms: preciseNow() - copiedAt })
+          emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', alone: job.exclusive, by, ms: preciseNow() - copiedAt })
         } else if (ended === cloner!.Ended.Lost) {
           // The copy ended without a verdict, by this process's hand or its
           // own. Whatever it was, a worker started for the job alone decides.
@@ -968,7 +1020,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private begin(job: WholeJob, beforeLoad: boolean): void {
       this.whole = job
       this.wholeStartedAt = preciseNow()
-      runtime.a = job.mutant
+      runtime.a = job.control ? NO_MUTANT : job.mutant
       // The loops of the whole file share one count, with room for those
       // that run while it loads.
       if (beforeLoad) runtime.n = 0
@@ -1396,12 +1448,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // An error nothing handled may be on its way with an answer; the
       // verdict is read once nothing is.
       await quiet()
+      if (this.whole!.control) {
+        emit({ type: 'control', file: this.wholeFile, verdict: this.wholeFailure ? 'failed' : 'passed', test: this.wholeTest, by: this.wholeBy })
+        cloner!.done()
+        return cloner!.exit(0)
+      }
       emit({
         type: 'whole',
         file: this.wholeFile,
         mutant: this.whole!.mutant,
         verdict: this.wholeFailure ?? 'passed',
         test: this.wholeTest,
+        alone: this.whole!.exclusive,
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
       })
@@ -1436,10 +1494,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             mutant: this.whole.mutant,
             verdict: this.wholeFailure ?? 'passed',
             test: this.wholeTest,
+            alone: this.whole.exclusive,
             by: this.wholeBy,
             ms: preciseNow() - this.wholeStartedAt,
           })
         }
+        release()
         this.whole = undefined
         this.wholeFailure = undefined
         this.wholeTest = undefined

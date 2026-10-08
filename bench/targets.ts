@@ -186,6 +186,20 @@ export const targets: Record<string, Target> = {
       data: { mutate: ['packages/effect/src/Duration.ts', 'packages/effect/src/Chunk.ts', 'packages/effect/src/Option.ts'] },
     },
   },
+  // Vitest 5, no isolation between test files, and tests that run the
+  // bundler itself: the packages have to be built before any test passes.
+  // Not a target the tool can judge, see Limits in the README: tests rewrite
+  // fixtures under version control, and runs of one file side by side leave
+  // them broken. `git checkout -- packages` before and after a run.
+  vite: {
+    repo: 'https://github.com/vitejs/vite',
+    commit: '8a4c19cfc035f2dd203f2fa6d00ab9256a5e77c9',
+    install: ['npx -y pnpm@12.9.1 install --frozen-lockfile', 'npx -y pnpm@12.9.1 build'],
+    installStryker: `npx -y pnpm@12.9.1 add -D -w ${stryker}`,
+    scopes: {
+      utils: { mutate: ['packages/vite/src/node/utils.ts'] },
+    },
+  },
   // Vitest 3.2, node environment: a few large test files.
   immer: {
     repo: 'https://github.com/immerjs/immer',

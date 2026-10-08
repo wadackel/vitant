@@ -62,6 +62,15 @@ export interface WholeJob {
   /** A test of the file failed with the mutant while trying it; the run is to see whether the file does. */
   confirm?: boolean
   /**
+   * The file's runs have been seen to get in each other's way, as tests that
+   * listen on a port or write files next to themselves do when the same
+   * file runs in several processes at once, which a plain run never does.
+   * Such a run is made with no other of the file under way.
+   */
+  exclusive?: boolean
+  /** No mutant: the run is to show that a copy of a worker runs the file as a worker started for it does. */
+  control?: boolean
+  /**
    * The tests that failed with the mutant while trying it and passed again
    * without it. The file failing in one of them settles the mutant in one run.
    */
@@ -236,6 +245,8 @@ export function sessionPaths(dir: string) {
     trying: path.join(dir, 'trying'),
     /** One empty file per whole-file run a copy asks to have made once more, named by the job's id. */
     again: path.join(dir, 'again'),
+    /** One directory per test file a whole-file run of which is under way and must be the only one, see `WholeJob.exclusive`. */
+    locks: path.join(dir, 'locks'),
     runner: path.join(dir, 'runner.mjs'),
     /** Loaded by a worker that is to be copied before anything else, see `channelWatch`. */
     preload: path.join(dir, 'preload.cjs'),
