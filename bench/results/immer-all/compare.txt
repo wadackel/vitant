@@ -16,8 +16,9 @@ status (stryker -> ours):
       66  Ignored -> Static
       31  NoCoverage -> NoCoverage
       25  Survived -> Killed
-      12  Timeout -> Timeout
+      11  Timeout -> Timeout
        2  Killed -> Survived
+       1  Killed -> Timeout
 detected/undetected disagreements among mutants both tools ran: 27
 src/core/immerClass.ts:48:25 BooleanLiteral "false" stryker=Survived ours=Killed (static)
 src/core/immerClass.ts:56:5 BlockStatement "{}" stryker=Survived ours=Killed (static)

@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        137
+        131.6
       ],
       "exitCodes": [
         0
@@ -21,7 +21,16 @@
     "vitant-no-clone": {
       "tool": "vitant-no-clone",
       "seconds": [
-        271.9
+        251
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        253.7
       ],
       "exitCodes": [
         0
@@ -31,25 +40,6 @@
   "reports": {
     "vitant": {
       "counts": {
-        "Killed": 2257,
-        "Survived": 476,
-        "Timeout": 47,
-        "NoCoverage": 9,
-        "Static": 15,
-        "Pending": 0
-      },
-      "wholeRuns": {
-        "started": 70,
-        "copied before load": 332,
-        "copied after load": 4150,
-        "lost": 0
-      },
-      "rounds": 13,
-      "abandonedFiles": 0,
-      "truth": "472 mutants checked against the suite: 472 agree"
-    },
-    "vitant-no-clone": {
-      "counts": {
         "Killed": 2259,
         "Survived": 476,
         "Timeout": 45,
@@ -58,12 +48,31 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 4566,
+        "started": 74,
+        "copied before load": 321,
+        "copied after load": 4169,
+        "lost": 1
+      },
+      "rounds": 14,
+      "abandonedFiles": 0,
+      "truth": "472 mutants checked against the suite: 472 agree"
+    },
+    "vitant-no-clone": {
+      "counts": {
+        "Killed": 2258,
+        "Survived": 476,
+        "Timeout": 46,
+        "NoCoverage": 9,
+        "Static": 15,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 4533,
         "copied before load": 0,
         "copied after load": 0,
         "lost": 0
       },
-      "rounds": 10,
+      "rounds": 11,
       "abandonedFiles": 0,
       "truth": "472 mutants checked against the suite: 472 agree"
     }

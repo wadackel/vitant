@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        88
+        76.7
       ],
       "exitCodes": [
         0
@@ -21,7 +21,16 @@
     "vitant-no-clone": {
       "tool": "vitant-no-clone",
       "seconds": [
-        260.5
+        236
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        298.3
       ],
       "exitCodes": [
         0
@@ -31,18 +40,18 @@
   "reports": {
     "vitant": {
       "counts": {
-        "Killed": 844,
+        "Killed": 846,
         "Survived": 237,
-        "Timeout": 7,
+        "Timeout": 5,
         "NoCoverage": 25,
         "Static": 47,
         "Pending": 0
       },
       "wholeRuns": {
         "started": 10,
-        "copied before load": 355,
-        "copied after load": 3222,
-        "lost": 1
+        "copied before load": 333,
+        "copied after load": 3202,
+        "lost": 0
       },
       "rounds": 9,
       "abandonedFiles": 0,
@@ -50,20 +59,20 @@
     },
     "vitant-no-clone": {
       "counts": {
-        "Killed": 845,
+        "Killed": 846,
         "Survived": 237,
-        "Timeout": 6,
+        "Timeout": 5,
         "NoCoverage": 25,
         "Static": 47,
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 3543,
+        "started": 3540,
         "copied before load": 0,
         "copied after load": 0,
         "lost": 0
       },
-      "rounds": 8,
+      "rounds": 9,
       "abandonedFiles": 0,
       "truth": "1025 mutants checked against the suite: 1025 agree"
     }

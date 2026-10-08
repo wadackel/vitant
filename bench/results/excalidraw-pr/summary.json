@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        222.4
+        206
       ],
       "exitCodes": [
         0
@@ -21,7 +21,16 @@
     "vitant-no-clone": {
       "tool": "vitant-no-clone",
       "seconds": [
-        223.7
+        212
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        279.3
       ],
       "exitCodes": [
         0
@@ -41,7 +50,7 @@
       "wholeRuns": {
         "started": 0,
         "copied before load": 0,
-        "copied after load": 321,
+        "copied after load": 325,
         "lost": 0
       },
       "rounds": 6,

@@ -124,23 +124,21 @@ Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as o
 
 | Target and scope | Mutants | StrykerJS | This tool | Without copies |
 |---|---|---|---|---|
-| jotai `vanilla`: `src/vanilla` | 1,160 | 372.6 s | 88.0 s | 260.5 s |
-| zustand `all`: `src` | 566 | 50.9 s | 13.9 s | 46.3 s |
-| ufo `all`: `src` | 918 | 16.3 s | 7.7 s | 20.6 s |
-| es-toolkit `array`: `src/array` | 706 | 73.3 s | 40.2 s | 49.4 s |
-| query `core`: `packages/query-core/src` | 2,804 | 315.9 s | 137.0 s | 271.9 s |
-| excalidraw `math`: 14 files of `packages/math/src`, exercised by 134 test files | 1,604 | 1,089.1 s | 649.2 s | 772.4 s |
-| excalidraw `pr`: lines the pinned commit changed in 4 application files | 99 | 324.1 s | 222.4 s | 223.7 s |
-| immer `all`: `src` | 1,535 | 112.6 s | 74.4 s | 132.7 s |
-| pinia `pinia`: `packages/pinia/src` | 1,367 | failed to start | 17.7 s | 54.1 s |
-| hono `utils`: `src/utils` | 2,530 | see below | 156.2 s | 155.5 s |
-| hono `router`: `src/router` | 1,121 | see below | 45.3 s | 108.2 s |
+| jotai `vanilla`: `src/vanilla` | 1,160 | 298.3 s | 76.7 s | 236.0 s |
+| zustand `all`: `src` | 566 | 38.2 s | 15.2 s | 47.4 s |
+| ufo `all`: `src` | 918 | 13.2 s | 7.1 s | 14.2 s |
+| es-toolkit `array`: `src/array` | 706 | 59.9 s | 34.3 s | 36.4 s |
+| query `core`: `packages/query-core/src` | 2,804 | 253.7 s | 131.6 s | 251.0 s |
+| excalidraw `math`: 14 files of `packages/math/src`, exercised by 134 test files | 1,604 | 854.6 s | 606.5 s | 671.3 s |
+| excalidraw `pr`: lines the pinned commit changed in 4 application files | 99 | 279.3 s | 206.0 s | 212.0 s |
+| immer `all`: `src` | 1,535 | 86.6 s | 72.8 s | 119.7 s |
+| pinia `pinia`: `packages/pinia/src` | 1,367 | failed to start | 15.4 s | 48.3 s |
+| hono `utils`: `src/utils` | 2,530 | see below | 106.7 s | 108.9 s |
+| hono `router`: `src/router` | 1,121 | see below | 44 s or 80–90 s | 58.3 s |
 
-Each of these is one run, all three columns made on the same day with the tool as it is; an earlier table, made before the rules for settling a verdict were tightened, had this tool a fifth to a third faster, and the machine was faster that day too (StrykerJS took a fifth less). The last column is the same tool starting a worker for every whole-file run (`--no-clone`). Both columns of this tool agree with the suite on every mutant checked. Against StrykerJS that is 4.2 times as fast on jotai, 3.7 on zustand, 2.3 on query, 2.1 on ufo, 1.8 on es-toolkit, 1.7 on excalidraw `math` and 1.5 on excalidraw `pr` and immer.
+Each of these is one run, all three columns made in one evening on a quiet machine with the tool as it is. The last column is the same tool starting a worker for every whole-file run (`--no-clone`). Both columns of this tool agree with the suite on every mutant checked. Against StrykerJS that is 3.9 times as fast on jotai, 2.5 on zustand, 1.9 on ufo and query, 1.7 on es-toolkit, 1.4 on both scopes of excalidraw and 1.2 on immer. Before the rules for settling a verdict were tightened the same comparison read 4.8, 3.2, 2.6, 2.3, 2.6, 1.7 and 1.5: each rule was put in for a verdict that was wrong, and each costs runs.
 
-hono `utils` takes twice what it took: one test there sleeps for a second and checks the time it logged, fails now and then on a busy machine, and a file in which a run failed and another of the same mutant passed is run one process at a time from then on. Its runs, a second each, then stand in line. That was the rule doing what it is for with a test that only waits on the clock, where it buys nothing.
-
-The table is of the tool one step before it is now. Since then a file is no longer kept to one process at a time once nothing but tests that fail and pass on their own had given it away, which is the case of hono `utils`; a lead counts wherever one worker had the file to itself, which gives back part of what the rule for leads cost (query 119 s to 143 s when it came in); and a mutant no test ever failed on gets its last run in a round with nothing else running. None of the three has been timed: the machine was under several times its load from other work for the rest of the day, and runs in turn against the commit before differed more among themselves than from each other. The verdicts were checked under that load, on twelve scopes, and agree.
+hono `router` took 80 s, 44 s and 90 s in three runs. One test of hono sleeps for a second and checks the time it logged, and fails now and then with twelve workers busy. In a run where it does, its file is taken for one whose runs get in each other's way and is run one process at a time, a second a run, until the test has failed and passed with nothing else of the file under way and the file is let go again. Telling such a test from real interference sooner is open.
 
 Copies remove the start of a worker and, for most mutants, the imports. What is left is the tests. Where they are light that is most of the time gone (jotai, zustand, pinia); where they are heavy it is not: in excalidraw the 1,053 whole-file runs of the mutants nothing detects take a median of 3.6 s of tests each, and in immer, whose whole suite takes under a second, 2,900 copies still each run a test file. macOS also limits it: copying a process is serialised in the kernel, about 3 ms a copy.
 
@@ -150,13 +148,16 @@ Started for each run, a worker costs the tests themselves where they are heavy (
 
 ### The three targets added last
 
-Chosen for shapes the first nine do not have, and each run for the first time found something. Two to four runs each on the same machine; the check against the suite is of a sample, spread evenly over the mutants.
+Chosen for shapes the first nine do not have, and each run for the first time found something. The last three rows came later, one run each. Two to four runs each on the same machine; the check against the suite is of a sample, spread evenly over the mutants.
 
 | Target and scope | Mutants | This tool | Against the suite | StrykerJS |
 |---|---|---|---|---|
 | vue `reactivity`: `packages/reactivity/src` | 1,675 | 90–101 s | 400 checked: 386 agree, none wrong, 14 not judged | does not start: a test fails in its first run |
 | solid `reactive`: `src/reactive` | 1,560 | 305–345 s | 300 checked: 296 agree, none wrong, 4 not judged | 212.3 s, not comparable: see below |
 | svelte `sources`: one file of the runtime | 244 | 941–1,774 s | 69 checked, every survivor among them: all agree | does not start |
+| Effect `data`: three modules that nearly every test file imports | 1,507 | 2,400 s | 40 checked: all agree | not run |
+| shiki `transformers`: `packages/transformers/src` | 1,037 | 55 s | 100 checked: 97 agree, none wrong, 3 not judged | not run |
+| unocss `core`: `packages-engine/core/src/utils` | 650 | 1 s | 40 checked: all agree | not run |
 
 What they showed, each fixed:
 
@@ -167,6 +168,8 @@ What they showed, each fixed:
 - **A send to a worker that had just died** ended the main process on Vitest 4; **a worker that does not end when asked** kept Vitest waiting at the very end until Node ended the process without a report; **a project's own worker arguments** (`--expose-gc`) were replaced by the tool's.
 
 On solid StrykerJS ran 93 of the 484 tests and reported 420 mutants as covered by none; this tool detects 195 of those and has 102 survive. Its 212 s are for a quarter of the work, and the 103 mutants on which the two disagree between detected and not were not checked against the suite one by one. No time of StrykerJS on these three targets is one to compare with.
+
+Effect is slow for another reason than the rest. Its 146 surviving mutants are in modules that some 300 test files load, and a mutant survives only once it has passed every one of them: 44,466 whole-file runs, 1,406 s in one round. Another 659 s go to 123 mutants that fail a file's run without any test having failed on them while trying them, each of which gets its last run with nothing else running; Effect runs every test concurrently, and tests trying mutants there give fewer leads than elsewhere. unocss is fast because there is next to nothing to run: the tests of the package load it as built, and all but eleven of the mutants are covered by no test.
 
 solid and svelte are slow for the reason excalidraw is: one or two test files that take seconds, run whole for every mutant not caught early (solid: 222 runs of a file that takes 3 s instrumented).
 

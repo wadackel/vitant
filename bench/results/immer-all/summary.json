@@ -12,7 +12,7 @@
     "stryker": {
       "tool": "stryker",
       "seconds": [
-        89
+        86.6
       ],
       "exitCodes": [
         0
@@ -21,7 +21,7 @@
     "vitant-no-clone": {
       "tool": "vitant-no-clone",
       "seconds": [
-        132.7
+        119.7
       ],
       "exitCodes": [
         0
@@ -30,7 +30,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        74.4
+        72.8
       ],
       "exitCodes": [
         0
@@ -48,12 +48,12 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 23,
-        "copied before load": 927,
-        "copied after load": 2243,
-        "lost": 0
+        "started": 24,
+        "copied before load": 898,
+        "copied after load": 2408,
+        "lost": 1
       },
-      "rounds": 17,
+      "rounds": 18,
       "abandonedFiles": 0,
       "truth": "1287 mutants checked against the suite: 1287 agree"
     },
@@ -67,12 +67,12 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 3103,
+        "started": 3131,
         "copied before load": 0,
         "copied after load": 0,
         "lost": 0
       },
-      "rounds": 19,
+      "rounds": 20,
       "abandonedFiles": 0,
       "truth": "1287 mutants checked against the suite: 1287 agree"
     }

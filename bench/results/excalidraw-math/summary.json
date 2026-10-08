@@ -12,7 +12,7 @@
     "vitant-no-clone": {
       "tool": "vitant-no-clone",
       "seconds": [
-        772.4
+        671.3
       ],
       "exitCodes": [
         0
@@ -21,7 +21,16 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        649.2
+        606.5
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "stryker": {
+      "tool": "stryker",
+      "seconds": [
+        854.6
       ],
       "exitCodes": [
         0
@@ -39,7 +48,7 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 2457,
+        "started": 2435,
         "copied before load": 0,
         "copied after load": 0,
         "lost": 0
@@ -59,7 +68,7 @@
       "wholeRuns": {
         "started": 26,
         "copied before load": 6,
-        "copied after load": 2452,
+        "copied after load": 2434,
         "lost": 0
       },
       "rounds": 10,

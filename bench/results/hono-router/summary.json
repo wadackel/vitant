@@ -12,7 +12,7 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        45.3
+        90.4
       ],
       "exitCodes": [
         0
@@ -21,7 +21,7 @@
     "vitant-no-clone": {
       "tool": "vitant-no-clone",
       "seconds": [
-        108.2
+        58.3
       ],
       "exitCodes": [
         0
@@ -39,12 +39,12 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 16,
-        "copied before load": 478,
-        "copied after load": 1769,
+        "started": 11,
+        "copied before load": 510,
+        "copied after load": 1722,
         "lost": 0
       },
-      "rounds": 7,
+      "rounds": 10,
       "abandonedFiles": 0,
       "truth": "735 mutants checked against the suite: 735 agree"
     },
@@ -58,7 +58,7 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 2265,
+        "started": 2274,
         "copied before load": 0,
         "copied after load": 0,
         "lost": 0
