@@ -155,6 +155,13 @@ interface TestRecord {
   baselineMs: number
   baselineLoops: number
   baselineRetry: boolean
+  /**
+   * No other process ran the file at the time, as in the first round. What a
+   * test fails next to other runs of its file may be their doing: tests that
+   * listen on a port fail each other into leads, and the run of the file
+   * that is to check the lead fails the same way.
+   */
+  sole?: boolean
   /** For an unmutated run: no mutant had been on in the worker before it. */
   pristine?: boolean
   nonRepeatable: boolean
@@ -235,6 +242,8 @@ interface WholeState {
   runs: number
   /** Failures that repeat what a test had shown while trying the mutant. */
   repeated: number
+  /** Failures of this run of the tool that were made while other runs of the file could be under way. */
+  beside: number
   /** Runs whose worker was gone without a word. */
   died: number
   failed: number
@@ -280,6 +289,16 @@ interface ControlRecord {
   test?: string
 }
 
+/** How one of two unmutated runs of a file went that were made at the same moment, see `WholeJob.pair`. */
+interface PairRecord {
+  type: 'pair'
+  file: string
+  verdict: 'failed' | 'passed'
+  /** The other run was there to start with; without it the run says nothing. */
+  met: boolean
+  test?: string
+}
+
 /** A copy of a worker ended without a verdict for the run. */
 interface PlainRecord {
   type: 'plain'
@@ -302,6 +321,8 @@ export type SessionRecord = (
   | EarlyRecord
   | PlainRecord
   | ControlRecord
+  | PairRecord
+  | { type: 'pairing'; file: string }
   | { type: 'worker' }
 ) & {
   at: number
@@ -364,6 +385,13 @@ export function inspect(records: SessionRecord[]) {
   const wholeTook = new Map<string, { ms: number; runs: number }>()
   const leads: { mutant: number; file: string; test: string; passedAgain: boolean }[] = []
   const wholeRecords: WholeRecord[] = []
+  /** Per file, the pairs of unmutated runs asked for, the runs that met their other half, and those of them that failed. */
+  const pairs = new Map<string, { asked: number; met: number; failed: number }>()
+  const pairOf = (file: string) => {
+    const entry = pairs.get(file) ?? { asked: 0, met: 0, failed: 0 }
+    pairs.set(file, entry)
+    return entry
+  }
   /** Files a copy of a worker did not get through, which is where copies are checked. */
   const lost = new Set<string>()
   /**
@@ -386,6 +414,11 @@ export function inspect(records: SessionRecord[]) {
     if (record.type === 'plain') {
       plain.add(wholeKey(record.mutant, record.file))
       lost.add(record.file)
+    }
+    if (record.type === 'pairing') pairOf(record.file).asked++
+    if (record.type === 'pair' && record.met) {
+      pairOf(record.file).met++
+      if (record.verdict === 'failed') pairOf(record.file).failed++
     }
     if (record.type === 'control') {
       const key = `${record.by}\n${record.file}`
@@ -437,7 +470,7 @@ export function inspect(records: SessionRecord[]) {
     for (const mutant of record.survived) test.judged.add(mutant)
     for (const mutant of [...record.killed, ...record.timedOut]) {
       test.judged.add(mutant)
-      leads.push({ mutant, file: record.file, test: record.id, passedAgain: true })
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: record.sole === true })
     }
     for (const mutant of record.suspected ?? []) {
       leads.push({ mutant, file: record.file, test: record.id, passedAgain: false })
@@ -503,11 +536,12 @@ export function inspect(records: SessionRecord[]) {
     if (!record.alone || !passedAlone.has(key)) exclusive.add(record.file)
     else if (record.test) flaky.add(record.test)
   }
+  for (const [file, pair] of pairs) if (pair.failed > 0) exclusive.add(file)
   // Getting in each other's way can make a run pass as well as fail, a file one run wrote and another reads for one.
   const settled = new Set(counted.filter((record) => record.alone || !exclusive.has(record.file)))
   const evidence = new Map<number, Evidence[]>()
   const note = (mutant: number, entry: Evidence) => evidence.set(mutant, [...(evidence.get(mutant) ?? []), entry])
-  /** Per mutant, the tests that failed with it and passed again without it. */
+  /** Per mutant, the tests that failed with it and passed again without it, with no other run of their file about. */
   const witnesses = new Map<number, Set<string>>()
   for (const { mutant, file, test, passedAgain } of leads) {
     if (flaky.has(test)) continue
@@ -519,7 +553,7 @@ export function inspect(records: SessionRecord[]) {
   }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
-    const entry = whole.get(key) ?? { runs: 0, repeated: 0, died: 0, failed: 0, timedOut: 0, passed: 0 }
+    const entry = whole.get(key) ?? { runs: 0, repeated: 0, beside: 0, died: 0, failed: 0, timedOut: 0, passed: 0 }
     whole.set(key, entry)
     entry.runs++
     if (uncopied.has(record.file) && record.by && record.by !== 'started') plain.add(key)
@@ -532,6 +566,7 @@ export function inspect(records: SessionRecord[]) {
     if (record.verdict === 'passed') continue
     note(record.mutant, { kind: record.died ? 'died' : record.verdict, file: record.file, test: record.test, by: record.by })
     if (record.died) continue
+    if (record.by && !record.alone) entry.beside++
     // A worker the mutant had blocked under a test and a run of the file a limit ended say the same thing.
     if (
       (record.test !== undefined && witnesses.get(record.mutant)?.has(record.test)) ||
@@ -553,7 +588,15 @@ export function inspect(records: SessionRecord[]) {
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost }
+  const pairWanted = new Set<string>()
+  for (const [key, entry] of whole) {
+    const file = key.split('\n')[1]
+    if (entry.repeated > 0 || entry.passed > 0 || entry.beside < 2 || exclusive.has(file)) continue
+    const pair = pairs.get(file)
+    // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
+    if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
+  }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -818,6 +861,26 @@ function planRound(
     if (open.length === 0) continue
     open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
+  }
+  for (const file of status.pairWanted) {
+    for (let i = 0; i < 2; i++) {
+      ;(plan.whole[file] ??= []).push({
+        id: jobs++,
+        mutant: -1,
+        ignore: failing.get(file) ?? [],
+        fileMs: fileMs.get(file) ?? 0,
+        fileLoops: fileLoops.get(file) ?? 0,
+        stalled: false,
+        control: true,
+        pair: true,
+        site: -1,
+        early: true,
+        // Each in a worker of its own, so that the two can be under way together.
+        plain: true,
+      })
+    }
+    addWork(file, 0, 0, 2)
+    workByFile.get(file)!.wholeMs ||= fileMs.get(file) ?? 0
   }
   return { plan, workByFile }
 }
@@ -1120,6 +1183,7 @@ function changedSince(before: Map<string, string>, root: string): string[] {
 export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
+  let treeWarned = false
   judgeStatic = options.static
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
@@ -1332,6 +1396,14 @@ export async function run(options: RunOptions): Promise<RunResult> {
         const seconds = ((performance.now() - roundStartedAt) / 1000).toFixed(1)
         const detected = fs.readFileSync(paths.state).filter((value) => value !== MUTANT_PENDING).length
         options.log(`round ${rounds} took ${seconds}s, ${detected} mutants detected so far`)
+        // Said at once, while it is one round's worth of runs that saw the file and not all of them.
+        if (!treeWarned) {
+          const changed = changedSince(treeBefore, options.root)
+          if (changed.length > 0) {
+            treeWarned = true
+            options.log(`tests left ${changed.length} file(s) under version control changed, ${changed[0]} for one: runs from here on see them`)
+          }
+        }
       }
 
       const state = fs.readFileSync(paths.state)
@@ -1410,6 +1482,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
         if (ids.length > 0) killers.set(mutant, new Set(ids))
       })
       const next = planRound(status, state, files, killers, siteOf)
+      const pairing = Object.entries(next.plan.whole).filter(([, jobs]) => jobs.some((job) => job.pair))
+      if (pairing.length > 0) {
+        const lines = pairing.map(([file]) => JSON.stringify({ type: 'pairing', file, at: Date.now() }))
+        fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
+      }
       planned = Object.entries(next.plan.whole).flatMap(([file, jobs]) =>
         jobs.filter((job) => !job.control).map(({ id, mutant, plain, exclusive }) => ({
           id,

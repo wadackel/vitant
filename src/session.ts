@@ -70,6 +70,14 @@ export interface WholeJob {
    * Such a run is made with no other of the file under way.
    */
   exclusive?: boolean
+  /**
+   * No mutant, and made at the same moment as another such run of the file:
+   * the two show whether runs of the file fail each other. Asked of a file
+   * in which a mutant failed twice in a test that had given no lead, which
+   * is what a mutant that is detected looks like, and what every mutant
+   * looks like in a file whose runs never get past each other.
+   */
+  pair?: boolean
   /** No mutant: the run is to show that a copy of a worker runs the file as a worker started for it does. */
   control?: boolean
   /**

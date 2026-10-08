@@ -751,6 +751,25 @@ function release(): void {
 }
 process.on('exit', release)
 
+/**
+ * Holds a run of `WholeJob.pair` until the other one has a worker too and
+ * starts both at one moment, read off the files the two workers left when
+ * they took their runs. Says whether the other one came.
+ */
+async function meet(job: WholeJob, jobs: WholeJob[]): Promise<boolean> {
+  const other = jobs.find((candidate) => candidate.pair && candidate.id !== job.id)
+  if (!other) return false
+  const taken = (id: number) => path.join(paths.claims, `whole.${id}`)
+  const gaveUpAt = Date.now() + 10_000
+  while (!fs.existsSync(taken(other.id))) {
+    if (Date.now() > gaveUpAt) return false
+    await new Promise((resolve) => realSetTimeout(resolve, 10))
+  }
+  const start = Math.max(fs.statSync(taken(job.id)).mtimeMs, fs.statSync(taken(other.id)).mtimeMs) + 200
+  await new Promise((resolve) => realSetTimeout(resolve, Math.max(0, start - Date.now())))
+  return true
+}
+
 function claim(name: string): boolean {
   try {
     fs.closeSync(fs.openSync(path.join(paths.claims, name), 'wx'))
@@ -872,6 +891,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeStartedAt = 0
     /** The test whose failure the run's verdict is, if it was a test's. */
     private wholeTest: string | undefined
+    /** For a run of `WholeJob.pair`: the other run was there to start with. */
+    private pairMet = false
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     private wholeAgain = false
     /** How the process making the whole-file run came to be. */
@@ -893,6 +914,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (plan?.exclusive.includes(file)) await alone(file)
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
       if (plain) {
+        if (plain.pair) this.pairMet = await meet(plain, jobs)
         this.begin(plain, true)
       } else if (cloner && !watching && jobs.length > 0 && (await calm(workerResources, false))) {
           // Nothing of the project has run in this process yet, so a copy of
@@ -1505,7 +1527,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           if (task.result?.state === 'fail') this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
         })
         if (cloned) return this.leave()
-        for (const file of files) {
+        for (const file of this.whole.pair ? files : []) {
+          emit({ type: 'pair', file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', met: this.pairMet, test: this.wholeTest })
+        }
+        for (const file of this.whole.pair ? [] : files) {
           emit({
             type: 'whole',
             file: file.file.filepath,
@@ -1748,6 +1773,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         name: test.name,
         mode: run.mode,
         baseline: run.mode === 'probe' ? run.baselineState : undefined,
+        sole: !plan,
         pristine: run.pristine,
         baselineMs: run.baselineMs,
         baselineLoops: run.baselineLoops,
