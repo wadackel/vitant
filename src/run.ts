@@ -1,4 +1,5 @@
 import childProcess from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
@@ -1082,10 +1083,38 @@ function dropSendsToDeadWorkers(): void {
   syncBuiltinESMExports()
 }
 
-/** What git has to say of the working tree, or nothing where there is no repository. */
-function workingTree(root: string): Set<string> {
-  const result = childProcess.spawnSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root, encoding: 'utf8' })
-  return new Set(result.status === 0 ? result.stdout.split('\n').filter(Boolean) : [])
+/**
+ * The files under version control that differ from the last commit, each
+ * with what it holds; nothing where there is no repository. By what they
+ * hold and not by git's word alone: a file someone was already working on
+ * reads as changed before the run and after it, whatever a test did to it
+ * in between.
+ */
+function workingTree(root: string): Map<string, string> {
+  const git = (args: string[]) => childProcess.spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+  const top = git(['rev-parse', '--show-toplevel'])
+  const status = git(['status', '--porcelain', '-z', '--untracked-files=no'])
+  const tree = new Map<string, string>()
+  if (top.status !== 0 || status.status !== 0) return tree
+  const entries = status.stdout.split('\0')
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
+    if (entry.length < 4) continue
+    // A rename is followed by the name the file had.
+    if (entry[0] === 'R' || entry[0] === 'C') i++
+    const file = path.join(top.stdout.trim(), entry.slice(3))
+    let held = 'gone'
+    try {
+      held = createHash('sha1').update(fs.readFileSync(file)).digest('hex')
+    } catch {}
+    tree.set(file, `${entry.slice(0, 2)} ${held}`)
+  }
+  return tree
+}
+
+/** The files of `workingTree` that are not as they were, relative to the project. */
+function changedSince(before: Map<string, string>, root: string): string[] {
+  return [...workingTree(root)].filter(([file, held]) => before.get(file) !== held).map(([file]) => path.relative(root, file))
 }
 
 export async function run(options: RunOptions): Promise<RunResult> {
@@ -1645,7 +1674,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     tests,
     failedBaselines,
     exclusiveFiles: [...status.exclusive].map((file) => path.relative(options.root, file)),
-    changedFiles: [...workingTree(options.root)].filter((line) => !treeBefore.has(line)).map((line) => line.slice(3)),
+    changedFiles: changedSince(treeBefore, options.root),
     flakyTests: [...status.flaky].flatMap((id) => {
       const test = status.tests.get(id)
       return test ? [label(test)] : []

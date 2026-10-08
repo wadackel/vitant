@@ -1,12 +1,18 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { addonTarget } from '../src/platform.ts'
 import type { MutantResult, RunResult } from '../src/run.ts'
 
 const root = path.join(import.meta.dirname, '..')
+
+/** Where a run's report stays after the tests, so that a verdict they did not expect can be looked up with what it rests on. */
+function reportPath(name: string): string {
+  const dir = path.join(root, 'build/test-reports')
+  fs.mkdirSync(dir, { recursive: true })
+  return path.join(dir, `${name}.json`)
+}
 let result: RunResult
 
 function statusOf(file: string, line: number, replacement: string): string {
@@ -20,7 +26,7 @@ function statusOf(file: string, line: number, replacement: string): string {
 
 describe('running the fixture project', () => {
   beforeAll(() => {
-    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')
+    const report = reportPath('basic')
     const cli = spawnSync(
       process.execPath,
       [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--report', report],
@@ -31,7 +37,7 @@ describe('running the fixture project', () => {
   }, 60_000)
 
   it('gives every mutant the same verdict with a worker started per whole-file run', () => {
-    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')
+    const report = reportPath('no-clone')
     const cli = spawnSync(
       process.execPath,
       [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--no-clone', '--report', report],
@@ -241,7 +247,7 @@ describe('reusing an earlier run', () => {
 
 describe('with mutants in code that only runs while a module loads run too', () => {
   it('judges them, and every other mutant as before', () => {
-    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')
+    const report = reportPath('static')
     const cli = spawnSync(
       process.execPath,
       [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--static', '--report', report],
@@ -261,7 +267,7 @@ describe('with mutants in code that only runs while a module loads run too', () 
 
 describe('a mutant that keeps a test file from ever finishing to load', () => {
   it('is a timeout, and the run ends', () => {
-    const report = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-')), 'report.json')
+    const report = reportPath('stuck')
     const cli = spawnSync(
       process.execPath,
       [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/stuck'), '--report', report],
