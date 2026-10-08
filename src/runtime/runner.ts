@@ -760,7 +760,8 @@ async function meet(job: WholeJob, jobs: WholeJob[]): Promise<boolean> {
   const other = jobs.find((candidate) => candidate.pair && candidate.id !== job.id)
   if (!other) return false
   const taken = (id: number) => path.join(paths.claims, `whole.${id}`)
-  const gaveUpAt = Date.now() + 10_000
+  // The other half may have to wait for a worker that a run of this length holds.
+  const gaveUpAt = Date.now() + 10_000 + 3 * job.fileMs
   while (!fs.existsSync(taken(other.id))) {
     if (Date.now() > gaveUpAt) return false
     await new Promise((resolve) => realSetTimeout(resolve, 10))

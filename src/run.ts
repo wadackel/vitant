@@ -603,7 +603,7 @@ export function inspect(records: SessionRecord[]) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -869,10 +869,8 @@ function planRound(
     open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
   }
-  // The two runs of a pair wait for each other, each holding a worker; more
-  // pairs in a round than half the workers and they wait for workers that
-  // other pairs hold.
-  for (const file of [...status.pairWanted].slice(0, Math.floor(workers / 2))) {
+  // The two runs of a pair wait for each other, each holding a worker, which takes two.
+  for (const file of workers < 2 ? [] : status.pairWanted) {
     for (let i = 0; i < 2; i++) {
       // First in the list: the first workers the file gets take what stands first.
       ;(plan.whole[file] ??= []).unshift({
@@ -1525,6 +1523,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const test of status.tests.values()) judged += test.judged.size + Number(test.done)
       for (const value of state) if (value !== MUTANT_PENDING) judged++
       for (const entry of status.whole.values()) judged += total(entry)
+      for (const pair of status.pairs.values()) judged += pair.asked + pair.met
       if (next.workByFile.size === 0) break
       stalled = judged === progress ? stalled + 1 : 0
       progress = judged
@@ -1592,7 +1591,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
         keyed.sort((a, b) => a.key - b.key)
         units.splice(0, units.length, ...keyed.map((entry) => entry.unit))
       }
-      // The two runs of a pair go first and next to each other, so that neither waits for a worker.
+      // The two runs of a pair go first and next to each other: with the
+      // first halves of several pairs holding every worker, each would wait
+      // for a second half that has none to start in.
       const paired = specs.filter((spec) => next.plan.whole[spec.moduleId]?.some((job) => job.pair))
       for (const spec of paired) {
         for (let i = 0; i < 2; i++) {

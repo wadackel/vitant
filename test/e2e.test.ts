@@ -36,6 +36,22 @@ describe('running the fixture project', () => {
     result = JSON.parse(fs.readFileSync(report, 'utf8'))
   }, 60_000)
 
+  // Hosted CI machines have three or four cores; what holds a worker while it waits for another shows there.
+  it('gives every mutant the same verdict with two workers, and gives up on no file', () => {
+    const report = reportPath('two-workers')
+    const cli = spawnSync(
+      process.execPath,
+      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--max-workers', '2', '--report', report],
+      { encoding: 'utf8' },
+    )
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const few: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(few.abandonedFiles).toEqual([])
+    const verdicts = (run: RunResult) =>
+      run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
+    expect(verdicts(few)).toEqual(verdicts(result))
+  }, 120_000)
+
   it('gives every mutant the same verdict with a worker started per whole-file run', () => {
     const report = reportPath('no-clone')
     const cli = spawnSync(
