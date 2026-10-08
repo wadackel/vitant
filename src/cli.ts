@@ -123,6 +123,12 @@ if (result.flakyTests.length > 0) {
   console.log(`${result.flakyTests.length} test(s) failed with a mutant and passed with the same one, and were not counted:`)
   for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
 }
+const leftOut = Object.entries(result.leftOut.projects)
+if (leftOut.length > 0 || result.leftOut.typeTests > 0) {
+  console.log('not the whole suite: a mutant reported as survived was not run with')
+  for (const [project, files] of leftOut) console.log(`  ${files} test file(s) of project ${project}, which the mutants could not be put into`)
+  if (result.leftOut.typeTests > 0) console.log(`  ${result.leftOut.typeTests} file(s) of type tests, which run in the type checker`)
+}
 if (result.exclusiveFiles.length > 0) {
   console.log(`${result.exclusiveFiles.length} test file(s) were run one at a time: their runs failed each other`)
 }

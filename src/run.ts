@@ -94,6 +94,13 @@ export interface RunResult {
   failedBaselines: string[]
   /** Tests that failed a whole-file run with a mutant and not the next one with the same mutant; what they fail is not counted. */
   flakyTests: string[]
+  /**
+   * Test files of the suite that were not run, by what kept them out: a
+   * Vitest project the runner could not be put into, or the type checker,
+   * which is where type tests run. A mutant reported as survived survived
+   * the rest of the suite, and these might have detected it.
+   */
+  leftOut: { projects: Record<string, number>; typeTests: number }
   /** Test files whose runs failed each other and were made one at a time from then on. */
   exclusiveFiles: string[]
   /**
@@ -1184,6 +1191,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
   let treeWarned = false
+  const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0 }
   judgeStatic = options.static
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
@@ -1346,20 +1354,29 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const project of vitest.projects ?? []) project.config.related = undefined
       found = await vitest.getRelevantTestSpecifications(options.filters)
     }
-    // A project that came from a config file of its own runs neither the
-    // runner nor the mutated sources, and a file two projects share would
-    // need its results kept per project.
+    // A project that came from a config file of its own is given the runner
+    // with everything else on the command line, and not the plugin that puts
+    // the mutants into the sources: its tests would run, reach nothing that
+    // can change, and every mutant would be reported as one no test covers.
+    // A file two projects share would need its results kept per project.
+    const instrumented = (project: unknown): boolean => {
+      const { vite, server } = project as Record<'vite' | 'server', { config: { plugins: readonly { name: string }[] } } | undefined>
+      return (vite ?? server)?.config.plugins.some((plugin) => plugin.name === instrumentPlugin.name) === true
+    }
     const taken = new Set<string>()
-    const left = new Set<string>()
     const specs = found.filter((spec) => {
       // Type tests run in the type checker, not in a worker.
-      if (spec.pool === 'typescript') return false
-      const usable = spec.project.config.runner === paths.runner && !taken.has(spec.moduleId)
+      if (spec.pool === 'typescript') {
+        leftOut.typeTests++
+        return false
+      }
+      const usable = spec.project.config.runner === paths.runner && instrumented(spec.project) && !taken.has(spec.moduleId)
       if (usable) taken.add(spec.moduleId)
-      else left.add(spec.project.name)
+      else leftOut.projects[spec.project.name] = (leftOut.projects[spec.project.name] ?? 0) + 1
       return usable
     })
-    if (left.size > 0) options.log(`not run for project(s): ${[...left].join(', ')}`)
+    const left = Object.keys(leftOut.projects)
+    if (left.length > 0) options.log(`not run for project(s): ${left.join(', ')}`)
     const files = specs.map((spec) => spec.moduleId)
     const reused = cache ? restore(cache, files, generated, keys, options.root, paths) : new Set<string>()
     if (options.incremental) options.log(`${reused.size} of ${files.length} test file(s) reused from the last run`)
@@ -1750,6 +1767,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     testFiles: finishedFiles.size,
     tests,
     failedBaselines,
+    leftOut,
     exclusiveFiles: [...status.exclusive].map((file) => path.relative(options.root, file)),
     changedFiles: changedSince(treeBefore, options.root),
     flakyTests: [...status.flaky].flatMap((id) => {

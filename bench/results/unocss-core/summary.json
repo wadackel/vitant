@@ -1,0 +1,42 @@
+{
+  "target": "unocss",
+  "scope": "core",
+  "commit": "8ac20a464f0f36e56243ffa9df0eddb731c254da",
+  "machine": {
+    "platform": "darwin-arm64",
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vitant": {
+      "tool": "vitant",
+      "seconds": [
+        1.1
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 10,
+        "Survived": 0,
+        "Timeout": 0,
+        "NoCoverage": 639,
+        "Static": 1,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 0,
+        "copied before load": 0,
+        "copied after load": 10,
+        "lost": 0
+      },
+      "rounds": 3,
+      "abandonedFiles": 0
+    }
+  }
+}

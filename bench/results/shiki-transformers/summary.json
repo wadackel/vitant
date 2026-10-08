@@ -1,0 +1,42 @@
+{
+  "target": "shiki",
+  "scope": "transformers",
+  "commit": "f7d0167873fd676fe4e190bc9b53832fba9ee01d",
+  "machine": {
+    "platform": "darwin-arm64",
+    "cpu": "Apple M6",
+    "cores": 12,
+    "node": "v24.21.0"
+  },
+  "timings": {
+    "vitant": {
+      "tool": "vitant",
+      "seconds": [
+        55.2
+      ],
+      "exitCodes": [
+        0
+      ]
+    }
+  },
+  "reports": {
+    "vitant": {
+      "counts": {
+        "Killed": 680,
+        "Survived": 182,
+        "Timeout": 9,
+        "NoCoverage": 140,
+        "Static": 26,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 11,
+        "copied before load": 66,
+        "copied after load": 1268,
+        "lost": 0
+      },
+      "rounds": 8,
+      "abandonedFiles": 0
+    }
+  }
+}

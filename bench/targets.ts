@@ -200,6 +200,30 @@ export const targets: Record<string, Target> = {
       utils: { mutate: ['packages/vite/src/node/utils.ts'] },
     },
   },
+  // Vitest projects given as paths of config files, the root config among
+  // them: two of the three are left out and reported. The tests of a
+  // package load it as built, so most mutants of its sources are covered
+  // by no test, which the suite with the mutant written in confirms.
+  unocss: {
+    repo: 'https://github.com/unocss/unocss',
+    commit: '8ac20a464f0f36e56243ffa9df0eddb731c254da',
+    install: ['npx -y pnpm@12.4.2 install --frozen-lockfile', 'npx -y pnpm@12.4.2 build'],
+    installStryker: `npx -y pnpm@12.4.2 add -D -w ${stryker}`,
+    scopes: {
+      core: { mutate: ['packages-engine/core/src/utils/*.ts'] },
+    },
+  },
+  // Vite plugins in the root config (WebAssembly inlined, Svelte), sources
+  // of other packages reached through aliases, and snapshot files by the hundred.
+  shiki: {
+    repo: 'https://github.com/shikijs/shiki',
+    commit: 'f7d0167873fd676fe4e190bc9b53832fba9ee01d',
+    install: ['npx -y pnpm@12.8.1 install --frozen-lockfile', 'npx -y pnpm@12.8.1 build'],
+    installStryker: `npx -y pnpm@12.8.1 add -D -w ${stryker}`,
+    scopes: {
+      transformers: { mutate: ['packages/transformers/src/**/*.ts'] },
+    },
+  },
   // Vitest 3.2, node environment: a few large test files.
   immer: {
     repo: 'https://github.com/immerjs/immer',
