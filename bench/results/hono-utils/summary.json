@@ -3,28 +3,69 @@
   "scope": "utils",
   "commit": "08a023cbfde55b434fb0fb30fae35d42e4bf20aa",
   "machine": {
+    "platform": "darwin-arm64",
     "cpu": "Apple M6",
     "cores": 12,
     "node": "v24.21.0"
   },
   "timings": {
-    "stryker": {
-      "tool": "stryker",
+    "vitant-no-clone": {
+      "tool": "vitant-no-clone",
       "seconds": [
-        136.6
+        155.5
       ],
       "exitCodes": [
         0
       ]
     },
-    "vitant-no-clone": {
-      "tool": "vitant-no-clone",
+    "vitant": {
+      "tool": "vitant",
       "seconds": [
-        92.4
+        156.2
       ],
       "exitCodes": [
         0
       ]
+    }
+  },
+  "reports": {
+    "vitant-no-clone": {
+      "counts": {
+        "Killed": 1962,
+        "Survived": 353,
+        "Timeout": 65,
+        "NoCoverage": 72,
+        "Static": 78,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 3456,
+        "copied before load": 0,
+        "copied after load": 0,
+        "lost": 0
+      },
+      "rounds": 10,
+      "abandonedFiles": 0,
+      "truth": "350 mutants checked against the suite: 349 agree, 1 explained"
+    },
+    "vitant": {
+      "counts": {
+        "Killed": 1962,
+        "Survived": 353,
+        "Timeout": 65,
+        "NoCoverage": 72,
+        "Static": 78,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 77,
+        "copied before load": 421,
+        "copied after load": 3084,
+        "lost": 1
+      },
+      "rounds": 10,
+      "abandonedFiles": 0,
+      "truth": "350 mutants checked against the suite: 349 agree, 1 explained"
     }
   }
 }

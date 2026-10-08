@@ -21,9 +21,9 @@ only in ours: 88
        2  UpdateOperator
        1  ArrayDeclaration
 status (stryker -> ours):
-    2179  Killed -> Killed
+    2176  Killed -> Killed
      458  Survived -> Survived
-      42  Killed -> Timeout
+      45  Killed -> Timeout
       15  Ignored -> Static
        9  NoCoverage -> NoCoverage
        7  RuntimeError -> Killed

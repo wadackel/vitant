@@ -12,7 +12,16 @@
     "vitant": {
       "tool": "vitant",
       "seconds": [
-        39.7
+        40.2
+      ],
+      "exitCodes": [
+        0
+      ]
+    },
+    "vitant-no-clone": {
+      "tool": "vitant-no-clone",
+      "seconds": [
+        49.4
       ],
       "exitCodes": [
         0
@@ -30,12 +39,31 @@
         "Pending": 0
       },
       "wholeRuns": {
-        "started": 57,
+        "started": 59,
         "copied before load": 0,
-        "copied after load": 851,
+        "copied after load": 871,
         "lost": 0
       },
-      "rounds": 10,
+      "rounds": 8,
+      "abandonedFiles": 0,
+      "truth": "686 mutants checked against the suite: 686 agree"
+    },
+    "vitant-no-clone": {
+      "counts": {
+        "Killed": 612,
+        "Survived": 40,
+        "Timeout": 54,
+        "NoCoverage": 0,
+        "Static": 0,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 925,
+        "copied before load": 0,
+        "copied after load": 0,
+        "lost": 0
+      },
+      "rounds": 9,
       "abandonedFiles": 0,
       "truth": "686 mutants checked against the suite: 686 agree"
     }

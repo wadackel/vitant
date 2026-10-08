@@ -124,19 +124,21 @@ Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as o
 
 | Target and scope | Mutants | StrykerJS | This tool | Without copies |
 |---|---|---|---|---|
-| jotai `vanilla`: `src/vanilla` | 1,160 | 299.9 s | 62.3 s | 204.9 s |
-| zustand `all`: `src` | 566 | 38.6 s | 11.9 s | 37.7 s |
-| ufo `all`: `src` | 918 | 13.5 s | 5.2 s | 12.3 s |
-| es-toolkit `array`: `src/array` | 706 | 61.0 s | 23.7 s | 28.6 s |
-| query `core`: `packages/query-core/src` | 2,804 | 254.2 s | 109.0 s | 212.8 s |
-| excalidraw `math`: 14 files of `packages/math/src`, exercised by 134 test files | 1,604 | 860.5 s | 496.2 s | 599.4 s |
-| excalidraw `pr`: lines the pinned commit changed in 4 application files | 99 | 279.9 s | 161.8 s | 158.6 s |
-| immer `all`: `src` | 1,535 | 89.0 s | 58.5 s | 103.2 s |
-| pinia `pinia`: `packages/pinia/src` | 1,367 | failed to start | 14.6 s | 47.4 s |
-| hono `utils`: `src/utils` | 2,530 | see below | 69.8 s | 92.4 s |
-| hono `router`: `src/router` | 1,121 | see below | 38.8 s | 48.2 s |
+| jotai `vanilla`: `src/vanilla` | 1,160 | 372.6 s | 88.0 s | 260.5 s |
+| zustand `all`: `src` | 566 | 50.9 s | 13.9 s | 46.3 s |
+| ufo `all`: `src` | 918 | 16.3 s | 7.7 s | 20.6 s |
+| es-toolkit `array`: `src/array` | 706 | 73.3 s | 40.2 s | 49.4 s |
+| query `core`: `packages/query-core/src` | 2,804 | 315.9 s | 137.0 s | 271.9 s |
+| excalidraw `math`: 14 files of `packages/math/src`, exercised by 134 test files | 1,604 | 1,089.1 s | 649.2 s | 772.4 s |
+| excalidraw `pr`: lines the pinned commit changed in 4 application files | 99 | 324.1 s | 222.4 s | 223.7 s |
+| immer `all`: `src` | 1,535 | 112.6 s | 74.4 s | 132.7 s |
+| pinia `pinia`: `packages/pinia/src` | 1,367 | failed to start | 17.7 s | 54.1 s |
+| hono `utils`: `src/utils` | 2,530 | see below | 156.2 s | 155.5 s |
+| hono `router`: `src/router` | 1,121 | see below | 45.3 s | 108.2 s |
 
-Each of these is one run. The last column is the same tool starting a worker for every whole-file run (`--no-clone`), measured before copies existed; every mutant has the same verdict in both, apart from the difference of name described under How the verdicts hold up.
+Each of these is one run, all three columns made on the same day with the tool as it is; an earlier table, made before the rules for settling a verdict were tightened, had this tool a fifth to a third faster, and the machine was faster that day too (StrykerJS took a fifth less). The last column is the same tool starting a worker for every whole-file run (`--no-clone`). Both columns of this tool agree with the suite on every mutant checked. Against StrykerJS that is 4.2 times as fast on jotai, 3.7 on zustand, 2.3 on query, 2.1 on ufo, 1.8 on es-toolkit, 1.7 on excalidraw `math` and 1.5 on excalidraw `pr` and immer.
+
+hono `utils` takes twice what it took: one test there sleeps for a second and checks the time it logged, fails now and then on a busy machine, and a file in which a run failed and another of the same mutant passed is run one process at a time from then on. Its runs, a second each, then stand in line. That is the rule doing what it is for with a test that only waits on the clock, where it buys nothing; telling the two apart is open.
 
 Copies remove the start of a worker and, for most mutants, the imports. What is left is the tests. Where they are light that is most of the time gone (jotai, zustand, pinia); where they are heavy it is not: in excalidraw the 1,053 whole-file runs of the mutants nothing detects take a median of 3.6 s of tests each, and in immer, whose whole suite takes under a second, 2,900 copies still each run a test file. macOS also limits it: copying a process is serialised in the kernel, about 3 ms a copy.
 

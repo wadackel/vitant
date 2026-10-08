@@ -11,10 +11,10 @@ only in ours: 72
        1  UnaryOperator
        1  BooleanLiteral
 status (stryker -> ours):
-    1929  Survived -> Killed
+    1928  Survived -> Killed
      353  Survived -> Survived
       72  NoCoverage -> NoCoverage
-      64  Survived -> Timeout
+      65  Survived -> Timeout
       21  Ignored -> Static
       19  Killed -> Killed
 detected/undetected disagreements among mutants both tools ran: 1993
@@ -482,15 +482,15 @@ src/utils/concurrent.ts:21:7 EqualityOperator "concurrency !== Infinity" stryker
 src/utils/concurrent.ts:21:7 ConditionalExpression "true" stryker=Survived ours=Killed
 src/utils/concurrent.ts:23:12 ObjectLiteral "{}" stryker=Survived ours=Killed
 src/utils/concurrent.ts:24:12 ArrowFunction "() => undefined" stryker=Survived ours=Killed
-src/utils/concurrent.ts:33:20 BlockStatement "{}" stryker=Survived ours=Killed (static)
-src/utils/concurrent.ts:34:9 EqualityOperator "pool.size > (concurrency as number)" stryker=Survived ours=Killed (static)
-src/utils/concurrent.ts:34:9 EqualityOperator "pool.size < (concurrency as number)" stryker=Survived ours=Killed (static)
-src/utils/concurrent.ts:34:9 ConditionalExpression "true" stryker=Survived ours=Killed (static)
-src/utils/concurrent.ts:34:9 ConditionalExpression "false" stryker=Survived ours=Killed (static)
-src/utils/concurrent.ts:34:47 BlockStatement "{}" stryker=Survived ours=Killed (static)
-src/utils/concurrent.ts:35:7 AssignmentOperator "promise &&= new Promise<T>((r) => (resolve = r))" stryker=Survived ours=Killed (static)
+src/utils/concurrent.ts:33:20 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/concurrent.ts:34:9 EqualityOperator "pool.size > (concurrency as number)" stryker=Survived ours=Killed
+src/utils/concurrent.ts:34:9 EqualityOperator "pool.size < (concurrency as number)" stryker=Survived ours=Timeout
+src/utils/concurrent.ts:34:9 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/concurrent.ts:34:9 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/concurrent.ts:34:47 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/concurrent.ts:35:7 AssignmentOperator "promise &&= new Promise<T>((r) => (resolve = r))" stryker=Survived ours=Killed
 src/utils/concurrent.ts:35:34 ArrowFunction "() => undefined" stryker=Survived ours=Timeout
-src/utils/concurrent.ts:36:18 ArrowFunction "() => undefined" stryker=Survived ours=Timeout (static)
+src/utils/concurrent.ts:36:18 ArrowFunction "() => undefined" stryker=Survived ours=Timeout
 src/utils/concurrent.ts:42:9 ConditionalExpression "false" stryker=Survived ours=Killed
 src/utils/concurrent.ts:42:19 BlockStatement "{}" stryker=Survived ours=Timeout
 src/utils/concurrent.ts:43:18 ArrowFunction "() => undefined" stryker=Survived ours=Timeout
@@ -838,12 +838,12 @@ src/utils/html.ts:131:7 ConditionalExpression "true" stryker=Survived ours=Kille
 src/utils/html.ts:134:28 ArrayDeclaration "[]" stryker=Survived ours=Killed
 src/utils/html.ts:137:21 ArrowFunction "() => undefined" stryker=Survived ours=Killed
 src/utils/html.ts:137:30 ObjectLiteral "{}" stryker=Survived ours=Killed
-src/utils/html.ts:148:23 BlockStatement "{}" stryker=Survived ours=Killed (static)
-src/utils/html.ts:149:7 LogicalOperator "typeof str === 'object' || !(str instanceof String" stryker=Survived ours=Killed (static)
-src/utils/html.ts:149:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
-src/utils/html.ts:149:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
-src/utils/html.ts:149:7 EqualityOperator "typeof str !== 'object'" stryker=Survived ours=Killed (static)
-src/utils/html.ts:149:22 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
+src/utils/html.ts:148:23 BlockStatement "{}" stryker=Survived ours=Killed
+src/utils/html.ts:149:7 LogicalOperator "typeof str === 'object' || !(str instanceof String" stryker=Survived ours=Killed
+src/utils/html.ts:149:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:149:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:149:7 EqualityOperator "typeof str !== 'object'" stryker=Survived ours=Killed
+src/utils/html.ts:149:22 StringLiteral "\"\"" stryker=Survived ours=Killed
 src/utils/html.ts:149:34 BooleanLiteral "str instanceof String" stryker=Survived ours=Killed
 src/utils/html.ts:149:60 BlockStatement "{}" stryker=Survived ours=Killed
 src/utils/html.ts:150:9 BooleanLiteral "(str as unknown) instanceof Promise" stryker=Survived ours=Killed
@@ -852,11 +852,11 @@ src/utils/html.ts:150:9 ConditionalExpression "false" stryker=Survived ours=Kill
 src/utils/html.ts:150:49 BlockStatement "{}" stryker=Survived ours=Killed
 src/utils/html.ts:153:9 ConditionalExpression "false" stryker=Survived ours=Killed
 src/utils/html.ts:153:63 BlockStatement "{}" stryker=Survived ours=Killed
-src/utils/html.ts:159:7 BooleanLiteral "callbacks?.length" stryker=Survived ours=Killed (static)
-src/utils/html.ts:159:7 ConditionalExpression "true" stryker=Survived ours=Killed (static)
-src/utils/html.ts:159:7 ConditionalExpression "false" stryker=Survived ours=Killed (static)
-src/utils/html.ts:159:8 OptionalChaining "callbacks.length" stryker=Survived ours=Killed (static)
-src/utils/html.ts:159:27 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/html.ts:159:7 BooleanLiteral "callbacks?.length" stryker=Survived ours=Killed
+src/utils/html.ts:159:7 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/html.ts:159:7 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/html.ts:159:8 OptionalChaining "callbacks.length" stryker=Survived ours=Killed
+src/utils/html.ts:159:27 BlockStatement "{}" stryker=Survived ours=Killed
 src/utils/html.ts:162:7 ConditionalExpression "true" stryker=Survived ours=Killed
 src/utils/html.ts:162:7 ConditionalExpression "false" stryker=Survived ours=Killed
 src/utils/html.ts:163:5 AssignmentOperator "buffer[0] -= str" stryker=Survived ours=Killed
@@ -1660,18 +1660,18 @@ src/utils/stream.ts:40:21 BlockStatement "{}" stryker=Survived ours=Killed
 src/utils/stream.ts:41:13 BooleanLiteral "this.closed" stryker=Survived ours=Killed
 src/utils/stream.ts:41:13 ConditionalExpression "false" stryker=Survived ours=Killed
 src/utils/stream.ts:41:27 BlockStatement "{}" stryker=Survived ours=Killed
-src/utils/stream.ts:48:66 BlockStatement "{}" stryker=Survived ours=Timeout (static)
-src/utils/stream.ts:49:9 BlockStatement "{}" stryker=Survived ours=Timeout (static)
-src/utils/stream.ts:50:11 EqualityOperator "typeof input !== 'string'" stryker=Survived ours=Killed (static)
-src/utils/stream.ts:50:11 ConditionalExpression "true" stryker=Survived ours=Killed (static)
-src/utils/stream.ts:50:11 ConditionalExpression "false" stryker=Survived ours=Killed (static)
-src/utils/stream.ts:50:28 StringLiteral "\"\"" stryker=Survived ours=Killed (static)
-src/utils/stream.ts:50:38 BlockStatement "{}" stryker=Survived ours=Killed (static)
+src/utils/stream.ts:48:66 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:49:9 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:50:11 EqualityOperator "typeof input !== 'string'" stryker=Survived ours=Killed
+src/utils/stream.ts:50:11 ConditionalExpression "true" stryker=Survived ours=Killed
+src/utils/stream.ts:50:11 ConditionalExpression "false" stryker=Survived ours=Killed
+src/utils/stream.ts:50:28 StringLiteral "\"\"" stryker=Survived ours=Killed
+src/utils/stream.ts:50:38 BlockStatement "{}" stryker=Survived ours=Killed
 src/utils/stream.ts:60:55 BlockStatement "{}" stryker=Survived ours=Timeout
 src/utils/stream.ts:61:30 StringLiteral "\"\"" stryker=Survived ours=Killed
-src/utils/stream.ts:66:24 ArrowFunction "() => undefined" stryker=Survived ours=Timeout (static)
-src/utils/stream.ts:69:17 BlockStatement "{}" stryker=Survived ours=Timeout (static)
-src/utils/stream.ts:71:9 BlockStatement "{}" stryker=Survived ours=Timeout (static)
+src/utils/stream.ts:66:24 ArrowFunction "() => undefined" stryker=Survived ours=Timeout
+src/utils/stream.ts:69:17 BlockStatement "{}" stryker=Survived ours=Timeout
+src/utils/stream.ts:71:9 BlockStatement "{}" stryker=Survived ours=Timeout
 src/utils/stream.ts:78:36 BlockStatement "{}" stryker=Survived ours=Timeout
 src/utils/stream.ts:80:9 BlockStatement "{}" stryker=Survived ours=Timeout
 src/utils/stream.ts:81:40 ObjectLiteral "{}" stryker=Survived ours=Killed

@@ -3,28 +3,67 @@
   "scope": "math",
   "commit": "ed10ac7dca7e40f3f4a31269b4bfba980d0db41e",
   "machine": {
+    "platform": "darwin-arm64",
     "cpu": "Apple M6",
     "cores": 12,
     "node": "v24.21.0"
   },
   "timings": {
-    "stryker": {
-      "tool": "stryker",
+    "vitant-no-clone": {
+      "tool": "vitant-no-clone",
       "seconds": [
-        860.5
+        772.4
       ],
       "exitCodes": [
         0
       ]
     },
-    "vitant-no-clone": {
-      "tool": "vitant-no-clone",
+    "vitant": {
+      "tool": "vitant",
       "seconds": [
-        599.4
+        649.2
       ],
       "exitCodes": [
         0
       ]
+    }
+  },
+  "reports": {
+    "vitant-no-clone": {
+      "counts": {
+        "Killed": 1146,
+        "Survived": 215,
+        "Timeout": 16,
+        "NoCoverage": 201,
+        "Static": 26,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 2457,
+        "copied before load": 0,
+        "copied after load": 0,
+        "lost": 0
+      },
+      "rounds": 9,
+      "abandonedFiles": 0
+    },
+    "vitant": {
+      "counts": {
+        "Killed": 1146,
+        "Survived": 215,
+        "Timeout": 16,
+        "NoCoverage": 201,
+        "Static": 26,
+        "Pending": 0
+      },
+      "wholeRuns": {
+        "started": 26,
+        "copied before load": 6,
+        "copied after load": 2452,
+        "lost": 0
+      },
+      "rounds": 10,
+      "abandonedFiles": 0
     }
   }
 }

@@ -19,8 +19,8 @@ status (stryker -> ours):
       47  Ignored -> Static
       37  Timeout -> Survived
       25  NoCoverage -> NoCoverage
-      12  Timeout -> Killed
-       3  Timeout -> Timeout
+      10  Timeout -> Killed
+       5  Timeout -> Timeout
        2  Killed -> Timeout
        2  Killed -> Survived
        1  RuntimeError -> Killed
