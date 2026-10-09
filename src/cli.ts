@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { changedLines } from './changed.ts'
+import { elementsPage, toElements } from './elements.ts'
 import { defaultExclude, defaultInclude } from './mutate/generate.ts'
 import { type MutantStatus, run } from './run.ts'
 import { relative } from './session.ts'
@@ -19,6 +20,7 @@ for each one whether the suite detects it.
   --changed <ref>         only mutants on lines changed since the git ref
   --project <name>        the Vitest project to run, repeatable
   --report <file>         write the result as JSON
+  --elements <file>       write it for mutation-testing-elements: a page for a name ending in .html, JSON otherwise
   --incremental           reuse the last run's results for test files nothing they load has changed in
   --static                also run mutants in code that only runs while a module loads
   --no-related            run every test file, not only those that import a mutated file
@@ -56,6 +58,7 @@ const { values, positionals } = (() => {
         'no-clone': { type: 'boolean', default: false },
         static: { type: 'boolean', default: false },
         report: { type: 'string' },
+        elements: { type: 'string' },
       },
     })
   } catch (error) {
@@ -67,8 +70,9 @@ if (values.help) {
   console.log(usage)
   process.exit(0)
 }
+const { version } = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')) as { version: string }
 if (values.version) {
-  console.log(JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')).version)
+  console.log(version)
   process.exit(0)
 }
 
@@ -194,6 +198,11 @@ if (result.abandonedFiles.length > 0) {
 if (values.report) {
   fs.mkdirSync(path.dirname(path.resolve(values.report)), { recursive: true })
   fs.writeFileSync(path.resolve(values.report), JSON.stringify(result, null, 2))
+}
+if (values.elements) {
+  const report = toElements(result, root, version)
+  fs.mkdirSync(path.dirname(path.resolve(values.elements)), { recursive: true })
+  fs.writeFileSync(path.resolve(values.elements), values.elements.endsWith('.html') ? elementsPage(report) : JSON.stringify(report))
 }
 
 // Vitest sets a failing exit code whenever a test fails, which killed mutants
