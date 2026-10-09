@@ -155,7 +155,7 @@ Chosen for shapes the first nine do not have, and each run for the first time fo
 | vue `reactivity`: `packages/reactivity/src` | 1,675 | 115 s | 400 checked: 386 agree, none wrong, 14 not judged | does not start: a test fails in its first run |
 | solid `reactive`: `src/reactive` | 1,560 | 803 s | 300 checked: 296 agree, none wrong, 4 not judged | 212.3 s, not comparable: see below |
 | svelte `sources`: one file of the runtime | 244 | 941–1,774 s | 69 checked, every survivor among them: all agree | does not start |
-| Effect `data`: three modules that nearly every test file imports | 1,507 | 2,400 s | 40 checked: all agree | not run |
+| Effect `data`: three modules that nearly every test file imports | 1,507 | 1,810 s | 40 checked: all agree | not run |
 | shiki `transformers`: `packages/transformers/src` | 1,037 | 56 s | 100 checked: 97 agree, none wrong, 3 not judged | not run |
 | unocss `core`: `packages-engine/core/src/utils` | 650 | 1 s | 40 checked: all agree | not run |
 
@@ -169,7 +169,7 @@ What they showed, each fixed:
 
 On solid StrykerJS ran 93 of the 484 tests and reported 420 mutants as covered by none; this tool detects 195 of those and has 102 survive. Its 212 s are for a quarter of the work, and the 103 mutants on which the two disagree between detected and not were not checked against the suite one by one. No time of StrykerJS on these three targets is one to compare with.
 
-Effect is slow for another reason than the rest. Its 146 surviving mutants are in modules that some 300 test files load, and a mutant survives only once it has passed every one of them: 44,466 whole-file runs, 1,406 s in one round. Another 659 s go to 123 mutants that fail a file's run without any test having failed on them while trying them, each of which gets its last run with nothing else running; Effect runs every test concurrently, and tests trying mutants there give fewer leads than elsewhere. unocss is fast because there is next to nothing to run: the tests of the package load it as built, and all but eleven of the mutants are covered by no test.
+Effect is slow for another reason than the rest. Its 146 surviving mutants are in modules that some 300 test files load, and a mutant survives only once it has passed every one of them: 43,700 whole-file runs, 1,412 s in one round. Another 101 s go to 161 runs made with nothing else running, for mutants that fail a file's run without the test that failed having failed on them while trying them; Effect runs every test concurrently, and tests trying mutants there give fewer leads than elsewhere. unocss is fast because there is next to nothing to run: the tests of the package load it as built, and all but eleven of the mutants are covered by no test.
 
 solid takes more than twice what it took before the last of those rules (350 s): its tests cannot be run again in a worker, so tests trying mutants say little there, 203 mutants rest on runs of whole files alone, and each gets its run with nothing else running, 1.6 s apiece and one at a time. A project like that pays the full price of the rule.
 
@@ -268,6 +268,7 @@ Things that turned out to matter, each measured:
 
 Ideas that were implemented, measured on the benchmark, and removed because they did not pay off:
 
+- **Copies made after the file has loaded for mutants whose code runs while it loads but could change nothing there,** going by the probes of an unmutated run of the same file, with the copied process checking that its own load evaluated the same sites. Effect was what it was for: 42,000 of its whole-file runs are copies made before the file loads, 275 ms each against 40 ms, because the mutated modules run as every test file loads. It changed nothing: 42,148 such copies after, and no fewer on immer, jotai or vue. The mutants that survive there are of kinds the probes do not follow, a string or a function put in place of another, and a function defined as a module loads is a different function with the mutant on, whatever a probe could say. The verdicts were unchanged on five scopes; the fixture written for it (`limit`) is kept.
 - **Making the second run of a failure with no other run of the file under way,** so that a file whose runs always fail each other would show a failure and then a pass. The second runs of a file then stand in one line: 67 s to 85 s on immer, 354 s to 462 s on solid, run in turn with the version before. And it did not reach the one place such failures were seen, in workers started for a run, whose second run comes a round later.
 - **A copy with no mutant for every file before its copies are believed.** One run per file and kind of copy, and a file whose copy failed once by chance lost a round of runs: 7–17% on vue under load. It showed no wrong verdict anywhere. Such a copy is made only where one was lost.
 - **Running a file in started workers after one failed unmutated copy.** On a busy machine one test failing by chance in that copy took a file of vue out of copying for the rest of the run, 10–30% of the whole time. It takes two such failures.
