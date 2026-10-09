@@ -338,8 +338,8 @@ function check(truth: Truth): boolean {
     else if (entry.note) tally.explained++
     else {
       wrong.push(`${entry.file}:${entry.start.join(':')} ${entry.mutator} -> ${entry.replacement.slice(0, 60)}: suite ${entry.suite}, reported ${mutant.status}`)
-      for (const { kind, file, test, by } of mutant.evidence ?? []) {
-        wrong.push(`  ${kind}${by ? ` (${by})` : ''}: ${file}${test ? ` > ${test}` : ''}`)
+      for (const { kind, file, test, by, quiet } of mutant.evidence ?? []) {
+        wrong.push(`  ${kind}${by ? ` (${quiet ? 'nothing else running, ' : ''}${by})` : ''}: ${file}${test ? ` > ${test}` : ''}`)
       }
     }
   }

@@ -68,6 +68,8 @@ export interface MutantResult {
 export interface Evidence {
   /** `lead` is a test that failed while trying the mutant, which alone decides nothing. */
   kind: 'failed' | 'timeout' | 'died' | 'lead'
+  /** The run was made with nothing else running. */
+  quiet?: boolean
   file: string
   test?: string
   by?: keyof WholeRuns
@@ -649,7 +651,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.verdict === 'passed') continue
     if (record.quiet) entry.quiet++
     if (record.knew) entry.knowing++
-    note(record.mutant, { kind: record.died ? 'died' : record.verdict, file: record.file, test: record.test, by: record.by })
+    note(record.mutant, { kind: record.died ? 'died' : record.verdict, quiet: record.quiet || undefined, file: record.file, test: record.test, by: record.by })
     if (record.died) continue
     if (record.by && !record.alone) entry.beside++
     // A worker the mutant had blocked under a test and a run of the file a limit ended say the same thing.
@@ -1550,6 +1552,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // Biggest files first, so the longest ones do not start last.
     const size = (spec: { moduleId: string }) => fs.statSync(spec.moduleId).size
     let plan = specs.filter((spec) => !reused.has(spec.moduleId)).sort((a, b) => size(b) - size(a))
+    let oneAtATime = false
     const siteOf = generated.mutants.map((mutant) => mutant.site)
     let progress = -1
     /** Whether the round in flight has whole-file runs. */
@@ -1578,7 +1581,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // A worker stopped while it held a lock would keep the others waiting for good.
         const sweeping = setInterval(() => sweep(paths.locks), 100)
         try {
-          await vitest.runTestSpecifications(plan, true)
+          // A round of runs made with nothing else running starts its
+          // workers one after another too: started together they are each
+          // other's load for as long as starting takes, which on four
+          // cores was long enough for a test that checks the clock to fail
+          // in the first of them.
+          if (oneAtATime) for (const spec of plan) await vitest.runTestSpecifications([spec], true)
+          else await vitest.runTestSpecifications(plan, true)
         } finally {
           clearInterval(sweeping)
         }
@@ -1794,6 +1803,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
       units.unshift(...paired.flatMap((spec) => [{ spec, workMs: 0 }, { spec, workMs: 0 }]))
       plan = units.map((unit) => unit.spec)
+      oneAtATime = next.plan.quiet
       const unitsOf = new Map<string, number>()
       for (const spec of plan) unitsOf.set(spec.moduleId, (unitsOf.get(spec.moduleId) ?? 0) + 1)
       next.plan.sole = [...unitsOf].flatMap(([file, count]) => (count === 1 ? [file] : []))
