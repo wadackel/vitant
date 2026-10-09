@@ -32,6 +32,7 @@ import {
   channelWatch,
   sessionPaths,
 } from './session.ts'
+import { sweep } from './runtime/turns.ts'
 
 export type MutantStatus =
   | 'Killed'
@@ -1458,7 +1459,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
             config.execArgv = copying ? [...own, ...workerArgv] : own
           }
         }
-        await vitest.runTestSpecifications(plan, true)
+        // A worker stopped while it held a lock would keep the others waiting for good.
+        const sweeping = setInterval(() => sweep(paths.locks), 100)
+        try {
+          await vitest.runTestSpecifications(plan, true)
+        } finally {
+          clearInterval(sweeping)
+        }
         rounds++
         const seconds = ((performance.now() - roundStartedAt) / 1000).toFixed(1)
         const detected = fs.readFileSync(paths.state).filter((value) => value !== MUTANT_PENDING).length

@@ -3,7 +3,6 @@
 // project, so this file works with whichever Vitest version that project
 // resolves.
 
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -23,6 +22,7 @@ import {
   type SessionConfig,
   sessionPaths,
 } from '../session.ts'
+import { giveUp, meet, take } from './turns.ts'
 
 interface TaskLike {
   id: string
@@ -704,71 +704,28 @@ let heldLock: string | undefined
 
 /**
  * Waits until no other run of the test file is under way and keeps the
- * others out until `release`, see `WholeJob.exclusive`. The wait leaves the
- * process answering: it can take as long as the runs queued before it.
- *
- * The lock is a file that comes to be with its owner's process id in it, by
- * a link to a file written beforehand. One whose owner is gone is moved
- * aside under a name made of that id, which only one of those waiting can
- * do; whoever finds it has moved a living owner's file instead puts it back.
+ * others out until `release`, see `WholeJob.exclusive`; with no file named,
+ * until nothing else runs at all, see `WholeJob.quiet`.
  */
 async function alone(file: string): Promise<void> {
-  if (heldLock) return
-  const lock = path.join(paths.locks, createHash('sha1').update(file).digest('hex'))
-  const mine = `${lock}.${process.pid}`
-  fs.writeFileSync(mine, String(process.pid))
-  for (;;) {
-    try {
-      fs.linkSync(mine, lock)
-      fs.rmSync(mine)
-      heldLock = lock
-      return
-    } catch {}
-    let owner = 0
-    try {
-      owner = Number(fs.readFileSync(lock, 'utf8'))
-      process.kill(owner, 0)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
-        const aside = `${lock}.gone.${owner}`
-        try {
-          fs.renameSync(lock, aside)
-          if (Number(fs.readFileSync(aside, 'utf8')) === owner) fs.rmSync(aside)
-          else fs.linkSync(aside, lock)
-        } catch {}
-        continue
-      }
-    }
-    await new Promise((resolve) => realSetTimeout(resolve, 20))
-  }
+  heldLock ??= await take(paths.locks, file)
 }
 
 /** A copy shares what the process it was copied from holds, and that one lets go of it. */
 function release(): void {
   if (cloned || !heldLock) return
-  fs.rmSync(heldLock, { force: true })
+  giveUp(heldLock)
   heldLock = undefined
 }
 process.on('exit', release)
 
-/**
- * Holds a run of `WholeJob.pair` until the other one has a worker too and
- * starts both at one moment, read off the files the two workers left when
- * they took their runs. Says whether the other one came.
- */
-async function meet(job: WholeJob, jobs: WholeJob[]): Promise<boolean> {
+/** Starts a run of `WholeJob.pair` at the same moment as the other one. Says whether the other one came. */
+function meetOther(job: WholeJob, jobs: WholeJob[]): Promise<boolean> {
   const other = jobs.find((candidate) => candidate.pair && candidate.id !== job.id)
-  if (!other) return false
+  if (!other) return Promise.resolve(false)
   const taken = (id: number) => path.join(paths.claims, `whole.${id}`)
   // The other half may have to wait for a worker that a run of this length holds.
-  const gaveUpAt = Date.now() + 10_000 + 3 * job.fileMs
-  while (!fs.existsSync(taken(other.id))) {
-    if (Date.now() > gaveUpAt) return false
-    await new Promise((resolve) => realSetTimeout(resolve, 10))
-  }
-  const start = Math.max(fs.statSync(taken(job.id)).mtimeMs, fs.statSync(taken(other.id)).mtimeMs) + 200
-  await new Promise((resolve) => realSetTimeout(resolve, Math.max(0, start - Date.now())))
-  return true
+  return meet(taken(job.id), taken(other.id), 10_000 + 3 * job.fileMs)
 }
 
 function claim(name: string): boolean {
@@ -916,7 +873,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       else if (plan?.exclusive.includes(file)) await alone(file)
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
       if (plain) {
-        if (plain.pair) this.pairMet = await meet(plain, jobs)
+        if (plain.pair) this.pairMet = await meetOther(plain, jobs)
         this.begin(plain, true)
       } else if (cloner && !watching && jobs.length > 0 && (await calm(workerResources, false))) {
           // Nothing of the project has run in this process yet, so a copy of

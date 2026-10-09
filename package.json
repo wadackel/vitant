@@ -11,7 +11,7 @@
   "scripts": {
     "build:native": "node native/build.ts",
     "test": "vitest run",
-    "test:truth": "node bench/truth.ts make --root fixtures/basic --jobs 4 && node bench/truth.ts make --root fixtures/basic --jobs 4 --tool=--static && node bench/truth.ts make --root fixtures/stuck",
+    "test:truth": "node bench/truth.ts make --root fixtures/basic --jobs 4 && node bench/truth.ts make --root fixtures/basic --jobs 4 --tool=--static && node bench/truth.ts make --root fixtures/stuck && node bench/truth.ts make --root fixtures/clash",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

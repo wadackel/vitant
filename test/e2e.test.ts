@@ -294,3 +294,35 @@ describe('a mutant that keeps a test file from ever finishing to load', () => {
     expect(stuck.mutants.map((mutant) => mutant.status)).toEqual(['Timeout'])
   }, 120_000)
 })
+
+describe('test files whose runs do not stand each other, or that fail now and then', () => {
+  const clash = path.join(root, 'fixtures/clash')
+  const verdicts = (run: RunResult) =>
+    run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
+  const runClash = (name: string, env: Record<string, string> = {}): RunResult => {
+    const report = reportPath(name)
+    const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', clash, '--report', report], {
+      encoding: 'utf8',
+      env: { ...process.env, ...env },
+    })
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    return JSON.parse(fs.readFileSync(report, 'utf8'))
+  }
+  let plain: RunResult
+
+  it('runs a file one process at a time once its runs have failed each other, and blames no mutant for it', () => {
+    plain = runClash('clash')
+    expect(plain.exclusiveFiles).toEqual(['test/slot.test.ts'])
+    // The test that takes the slot reaches none of the code; whatever it fails says nothing of a mutant.
+    const blamed = plain.mutants.filter((mutant) => mutant.evidence?.some((entry) => entry.kind !== 'lead' && entry.test === 'has the slot to itself'))
+    expect(blamed.map((mutant) => mutant.replacement)).toEqual([])
+    const survivors = plain.mutants.filter((mutant) => mutant.file === 'src/slot.ts' && mutant.status === 'Survived')
+    expect(survivors.length).toBeGreaterThan(5)
+  }, 120_000)
+
+  it('gives the same verdicts when a test fails every few executions for reasons of its own', () => {
+    const unlucky = runClash('clash-unlucky', { CLASH_RUN: `${process.pid}-${Date.now()}` })
+    expect(verdicts(unlucky)).toEqual(verdicts(plain))
+  }, 120_000)
+})
+
