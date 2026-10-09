@@ -745,17 +745,34 @@ function planPhase(
   // try it. Given to every test that reaches it, one test a round, it would
   // take as many rounds as there are tests.
   const only = new Map<number, Set<string>>()
-  for (const [key, entry] of status.whole) {
-    if (entry.passed > 0 || entry.repeated > 0 || entry.quiet > 0 || entry.failed + entry.timedOut + entry.died < 2) continue
-    const mutant = Number(key.split('\n')[0])
-    const failed = only.get(mutant) ?? new Set<string>()
-    for (const entry of status.evidence.get(mutant) ?? []) if (entry.kind !== 'lead' && entry.test) failed.add(entry.test)
+  // One file settles a mutant, so the tests of one file try it: the file
+  // whose tests take least. The others' turn comes if that one's run, made
+  // with nothing else running, passes.
+  const testsMs = new Map<string, number>()
+  for (const test of status.tests.values()) {
+    testsMs.set(test.file, (testsMs.get(test.file) ?? 0) + (test.coverage?.baselineMs ?? 0))
+  }
+  const unsettled = [...status.whole]
+    .filter(([, entry]) => entry.passed === 0 && entry.repeated === 0 && entry.quiet === 0 && entry.failed + entry.timedOut + entry.died >= 2)
+    .map(([key]) => ({ mutant: Number(key.split('\n')[0]), file: key.split('\n')[1] }))
+    .sort((a, b) => (testsMs.get(a.file) ?? 0) - (testsMs.get(b.file) ?? 0))
+  const settledIn = new Map<number, string>()
+  for (const { mutant, file } of unsettled) {
+    if (only.has(mutant)) continue
+    settledIn.set(mutant, file)
+    const failed = new Set<string>()
+    for (const entry of status.evidence.get(mutant) ?? []) {
+      if (entry.kind !== 'lead' && entry.test && entry.file === file) failed.add(entry.test)
+    }
     only.set(mutant, failed)
   }
   // And a test that failed with the mutant next to other runs of its file
   // tries it once more with the file to itself: what it finds then counts.
   const again = (id: string, mutant: number) =>
-    settling && only.has(mutant) && status.beside.get(mutant)?.has(id) === true && !status.triedSole.get(mutant)?.has(id)
+    settling &&
+    status.tests.get(id)?.file === settledIn.get(mutant) &&
+    status.beside.get(mutant)?.has(id) === true &&
+    !status.triedSole.get(mutant)?.has(id)
   const tries = (id: string, mutant: number) =>
     only.has(mutant) ? settling && (only.get(mutant)!.has(id) || again(id, mutant)) : !settling
   const remaining = new Map<string, number[]>()
