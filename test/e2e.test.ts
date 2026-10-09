@@ -337,3 +337,15 @@ describe('test files whose runs do not stand each other, or that fail now and th
   }, 120_000)
 })
 
+
+describe('a run in which no test runs', () => {
+  it('says so and fails, where every mutant would read as not covered', () => {
+    const cli = spawnSync(
+      process.execPath,
+      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--mutate', 'src/math.ts', 'no-such-test-file'],
+      { encoding: 'utf8' },
+    )
+    expect(cli.stdout).toContain('no test ran')
+    expect(cli.status).toBe(1)
+  }, 180_000)
+})

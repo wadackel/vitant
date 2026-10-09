@@ -30,7 +30,8 @@ for each one whether the suite detects it.
   --timeout-ms <n>        and this much on top, in milliseconds (default: 3000)
   --help, --version
 
-The exit code is 1 when a test file had to be given up on, and its mutants are left pending.`
+The exit code is 1 when a test file had to be given up on, and its mutants are left pending,
+and when no test ran at all.`
 
 const { values, positionals } = (() => {
   try {
@@ -208,7 +209,13 @@ if (values.elements) {
   fs.writeFileSync(path.resolve(values.elements), values.elements.endsWith('.html') ? elementsPage(report) : JSON.stringify(report))
 }
 
+// A run in which no test ran says "not covered" of every mutant and looks
+// like a result: a filter that matches no test file gives one, and so did
+// Windows before the runner's path was compared as a path. Vitest fails a
+// run without tests too.
+if (result.tests === 0 && result.mutants.length > 0) console.log('no test ran: check the test file filters, --project and the Vitest config')
+
 // Vitest sets a failing exit code whenever a test fails, which killed mutants
 // make routine. Exiting outright, because workers the pool keeps in reserve
 // can outlive its shutdown and would hold the process open.
-process.exit(result.abandonedFiles.length > 0 ? 1 : 0)
+process.exit(result.abandonedFiles.length > 0 || (result.tests === 0 && result.mutants.length > 0) ? 1 : 0)
