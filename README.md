@@ -154,7 +154,7 @@ Chosen for shapes the first nine do not have, and each run for the first time fo
 
 | Target and scope | Mutants | This tool | Against the suite | StrykerJS |
 |---|---|---|---|---|
-| vue `reactivity`: `packages/reactivity/src` | 1,675 | 115 s | 400 checked: 386 agree, none wrong, 14 not judged | does not start: a test fails in its first run |
+| vue `reactivity`: `packages/reactivity/src` | 1,675 | 130 s | 542 checked: 528 agree, none wrong, 14 not judged | does not start: a test fails in its first run |
 | solid `reactive`: `src/reactive` | 1,560 | 803 s | 300 checked: 296 agree, none wrong, 4 not judged | 212.3 s, not comparable: see below |
 | svelte `sources`: one file of the runtime | 244 | 3,265 s | 69 checked, every survivor among them: all agree | does not start |
 | Effect `data`: three modules that nearly every test file imports | 1,507 | 599 s | 40 checked: all agree | not run |
@@ -226,7 +226,7 @@ Against ground truth, counting a mutant as agreeing when both sides detect it or
 | ufo `all` | all 850 judged | 850 | |
 | pinia `pinia` | all 611 judged | 604 | 5 regroupings, confirmed by hand to pass as reported; 2 that fail only the type tests Vitest runs for this project, which this tool does not run |
 | query `core` | the 523 survived or timed out | 518 | 5 regroupings, confirmed by hand |
-| vue `reactivity` | the 182 survivors | 181 | 1 real miss, since closed: the mutant was never run with the file that fails on it (item 8 above). The 400 entries kept for CI did not have it |
+| vue `reactivity` | the 182 survivors | 181 | 1 real miss, since closed: the mutant was never run with the file that fails on it (item 8 above). The 400 entries kept for CI did not have it; the survivors are among them now |
 
 What the same check found before each of the steps under Deciding existed:
 
