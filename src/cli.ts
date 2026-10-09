@@ -52,7 +52,7 @@ const { values, positionals } = (() => {
         'loop-slack': { type: 'string', default: '1000000' },
         'budget-ms': { type: 'string', default: '30000' },
         'cheap-ms': { type: 'string', default: '20' },
-        'max-rounds': { type: 'string', default: '50' },
+        'max-rounds': { type: 'string', default: '200' },
         'max-workers': { type: 'string' },
         incremental: { type: 'boolean', default: false },
         'no-clone': { type: 'boolean', default: false },
@@ -178,6 +178,9 @@ if (quietRuns > 0) {
 }
 if (result.exclusiveFiles.length > 0) {
   console.log(`${result.exclusiveFiles.length} test file(s) were run one at a time: their runs failed each other`)
+}
+if (result.unsureFiles.length > 0) {
+  console.log(`${result.unsureFiles.length} test file(s) were run with every mutant: what their tests reach could not be measured apart from mutants`)
 }
 if (result.changedFiles.length > 0) {
   console.log(`${result.changedFiles.length} file(s) under version control differ from before the run; the verdicts may rest on them:`)

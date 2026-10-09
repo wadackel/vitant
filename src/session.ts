@@ -41,6 +41,12 @@ export interface RoundPlan {
   /** Test files to go through once more without trying any mutant, so that no mutant has touched what the tests see. */
   pristine: string[]
   /**
+   * Tests that fail with no mutant on. A pass that measures their file
+   * leaves them out, as the runs of the whole file do: what the tests after
+   * them reach is then seen as those runs will have it.
+   */
+  ignore: string[]
+  /**
    * Per test file, mutants to run the whole file with: in a fresh worker,
    * active from before the file is imported until it ends. What a mutant does
    * while the file loads, or leaves behind for later tests, only shows there.

@@ -840,6 +840,14 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private tainted = false
     /** Whether a mutant has been on in this worker. */
     private attempted = false
+    /**
+     * Whether a test failed its unmutated run in this worker, or ran out of
+     * time under the probes and was run again in place. The tests after it
+     * start from what that left, as those after a mutant do.
+     */
+    private upset = false
+    /** How many tests a pass that measures the file left out for failing with no mutant on. */
+    private ignored = 0
     /** Time this worker has spent on mutants its tests tried in passing. */
     private trialMs = 0
     /** The mutant this worker runs the whole file with, if it took such a job. */
@@ -1161,6 +1169,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       if (test.mode !== 'run' && test.mode !== 'queued') return
       this.seen.push(test.id)
+      if (plan?.ignore.includes(test.id) && plan.pristine.includes(test.file.filepath) && plan.probe[test.file.filepath]?.length === 0) {
+        test.mode = 'skip'
+        this.ignored++
+        return
+      }
       const run = this.admit(test)
       if (!run) {
         if (!replays(test.file.filepath)) test.mode = 'skip'
@@ -1574,7 +1587,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           staticMutants: mutants,
           hookSites: marked(hookHits),
           hookMutants: marked(hookMutants),
-          pristine: plan?.pristine.includes(file.file.filepath) && !this.template,
+          // Only a pass that gave every test its run: one that fills in what
+          // a worker that was lost left out passes the others by, and one for
+          // the tests that failed is for them alone.
+          pristine: plan?.pristine.includes(file.file.filepath) && plan.probe[file.file.filepath]?.length === 0 && !this.template,
+          ignored: this.ignored,
           complete,
           // What the file loaded decides whether its results can be reused later.
           modules: complete ? loadedModules(this.workerState) : undefined,
@@ -1641,11 +1658,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // one it could be changed by.
       if (run.attempt === 'baseline' && failed && !run.unprobed && /^Test timed out in \d+ms/.test(error ?? '')) {
         run.unprobed = true
+        this.upset = true
       } else if (run.attempt === 'baseline') {
         run.baselineMs = preciseNow() - run.startedAt
         run.baselineLoops = runtime.n
         run.baselineState = failed ? 'fail' : 'pass'
         if (failed) {
+          this.upset = true
           run.baselineError = error
           // Earlier mutant runs in this worker, or skipped tests, may be what
           // broke the test. A fresh worker replays the tests before it instead.
@@ -1662,7 +1681,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           run.cleanup = later.mutants.filter((mutant) => !covered.has(mutant))
           // In the first round heavy tests only report what they reach; the
           // main process then decides which test tries each mutant first.
-          run.pristine = !this.attempted
+          run.pristine = !this.attempted && !this.upset
           const measuring = plan?.pristine.includes(test.file.filepath)
           // A file has one worker in the first round, so what its tests try
           // there runs one after another while other workers may be idle;

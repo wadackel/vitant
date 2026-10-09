@@ -184,10 +184,16 @@ describe('running the fixture project', () => {
     expect(statusOf('src/notify.ts', 3, 'strict || listeners.length === 0')).toBe('Killed')
   })
 
+  it('does not go by what a test reached in a worker a mutant had left its mark on', () => {
+    // With the module a level off, the test that fails on this mutant returns before the line.
+    expect(statusOf('src/depth.ts', 20, 'true')).toBe('Killed')
+  })
+
   it('settles what only a test that cannot be re-run sees by running the whole file', () => {
     // A mutant of the pool leaves its count below zero, where the hook does not bring it
-    // back; which of the two tests there meets that first differs from run to run.
-    const elsewhere = result.nonRepeatableTests.filter((name) => !name.startsWith('test/pool.test.ts'))
+    // back; which of the two tests there meets that first differs from run to run. So
+    // it is with the test a mutant leaves a level off.
+    const elsewhere = result.nonRepeatableTests.filter((name) => !/^test\/(pool|depth)\.test\.ts/.test(name))
     expect(elsewhere.sort()).toEqual([
       'test/sequence.test.ts > starts at one',
       'test/words.test.ts > reads the first word from the start of the file',
@@ -227,7 +233,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(21)
+    expect(second.reused).toBe(22)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 60_000)
@@ -247,7 +253,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(20)
+    expect(after.reused).toBe(21)
     expect(after.result.counts).toEqual(before.counts)
   }, 60_000)
 
@@ -259,7 +265,7 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(20)
+    expect(after.reused).toBe(21)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 60_000)

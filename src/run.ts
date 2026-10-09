@@ -114,6 +114,12 @@ export interface RunResult {
   /** Test files whose runs failed each other and were made one at a time from then on. */
   exclusiveFiles: string[]
   /**
+   * Test files that every mutant was run with: what some test of theirs
+   * reaches could only be seen in a worker that mutants had been tried in,
+   * or after a test that failed there.
+   */
+  unsureFiles: string[]
+  /**
    * Files under version control that differ from before the run: tests wrote
    * them and did not put them back, a run ended early or two at once being
    * how that comes about. Every run after the first such write saw them.
@@ -221,8 +227,10 @@ interface FileRecord {
   hookSites?: number[]
   /** Mutants that would have changed a value there. */
   hookMutants?: number[]
-  /** The pass was made to measure the tests with no mutant tried. */
+  /** The pass was made to measure the tests with no mutant tried, and gave every test its run. */
   pristine?: boolean
+  /** How many tests that pass left out for failing with no mutant on. */
+  ignored?: number
   /** Every test of the file ran in this worker, so each reported its coverage. */
   complete: boolean
   /** Project files the worker loaded, reported with a complete pass. */
@@ -403,8 +411,10 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const reached = new Set<number>()
   /** Per test file, the sites its tests reach while they run. */
   const exercised = new Map<string, Set<number>>()
-  /** Files that had their pass with no mutant tried. */
-  const measured = new Set<string>()
+  /** Per file, the passes that went through all of it with no mutant tried. */
+  const measured = new Map<string, number>()
+  /** Per file, the most tests such a pass left out for failing with no mutant on. */
+  const leftOut = new Map<string, number>()
   /** What whole-file runs have shown to be detected. */
   const detected = new Map<number, number>()
   /**
@@ -448,7 +458,13 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.type === 'file' && record.complete) {
       finished.set(record.file, [...(finished.get(record.file) ?? []), record.tests])
     }
-    if (record.type === 'file' && record.pristine) measured.add(record.file)
+    // A round that only gives failed tests their second run tries no mutant
+    // in their file either, and goes through those tests alone: what the
+    // other tests reach it does not say.
+    if (record.type === 'file' && record.pristine && record.complete) {
+      measured.set(record.file, (measured.get(record.file) ?? 0) + 1)
+      leftOut.set(record.file, Math.max(leftOut.get(record.file) ?? 0, record.ignored ?? 0))
+    }
     if (record.type === 'file' && record.staticSites) {
       const set = staticSites.get(record.file) ?? new Set()
       for (const site of record.staticSites) set.add(site)
@@ -544,13 +560,18 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         own.add(site)
       }
       test.retry = false
-      test.pristine = record.pristine ?? false
-      test.coverage = {
-        sites: record.sites.length,
-        covered: record.covered,
-        cleanup: record.cleanup,
-        baselineMs: record.baselineMs,
-        baselineLoops: record.baselineLoops,
+      // What a test reached in a worker no mutant had been tried in is what
+      // it reaches; a later run in one that had tried some may have met
+      // what they left behind, and says nothing against it.
+      if (!test.pristine || record.pristine) {
+        test.pristine = record.pristine ?? false
+        test.coverage = {
+          sites: record.sites.length,
+          covered: record.covered,
+          cleanup: record.cleanup,
+          baselineMs: record.baselineMs,
+          baselineLoops: record.baselineLoops,
+        }
       }
     } else if (record.baseline === 'fail') {
       test.retry = record.baselineRetry
@@ -697,6 +718,16 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
   }
+  // What a test reaches was seen in a worker that had tried mutants, or
+  // after a test that failed there, and no pass without either gave the
+  // test another run: what it would reach in a plain run is not known, so
+  // its file is one any mutant may change. In vue a mutant left an effect
+  // active, the test that fails on `else if (true)` for `else if (__DEV__
+  // && !failSilently)` took the branch before it, and the mutant survived a
+  // file it was never run with. A test that fails with no mutant on is left
+  // out of the runs of its file, and nothing hangs on what it reaches.
+  const unsure = new Set<string>()
+  for (const test of tests.values()) if (test.coverage && !test.pristine && !test.failed) unsure.add(test.file)
   const pairWanted = new Set<string>()
   for (const [key, entry] of whole) {
     const file = key.split('\n')[1]
@@ -705,7 +736,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -850,7 +881,10 @@ function planPhase(
     const first = ids[0]
     if (!status.tests.get(first)!.judged.has(mutant)) picks.set(first, [...(picks.get(first) ?? []), mutant])
   }
-  const lists = picks.size > 0 ? picks : remaining
+  // Where a failure is to be settled the tests that failed are few and any
+  // of them may be the witness: one a round would take as many rounds as
+  // there are, which is what a run on three cores ran out of.
+  const lists = picks.size > 0 && !settling ? picks : remaining
 
   let jobs = 0
   const plan: RoundPlan = {
@@ -859,6 +893,7 @@ function planPhase(
     tests: {},
     probe: {},
     pristine: [],
+    ignore: [],
     exclusive: [...status.exclusive],
     sole: [],
     settling: false,
@@ -917,8 +952,17 @@ function planPhase(
   // have seen what one of them left behind, so such a file is measured again
   // first, with no mutant tried.
   if (workByFile.size === 0) {
+    const toLeaveOut = new Map<string, number>()
+    for (const [id, test] of status.tests) {
+      if (test.failed || status.flaky.has(id)) toLeaveOut.set(test.file, (toLeaveOut.get(test.file) ?? 0) + 1)
+    }
     for (const test of status.tests.values()) {
-      if (!test.coverage || test.pristine || status.measured.has(test.file) || test.file in plan.probe) continue
+      // Twice, and once more for every test found since to fail with no
+      // mutant on: a pass such a test fails in says nothing of the tests
+      // after it, and the next one leaves it out. A test that this still
+      // gives no run to count leaves its file one that any mutant may change.
+      const spent = (status.measured.get(test.file) ?? 0) >= 2 && (toLeaveOut.get(test.file) ?? 0) <= (status.leftOut.get(test.file) ?? 0)
+      if (!test.coverage || test.pristine || test.failed || spent || test.file in plan.probe) continue
       plan.probe[test.file] = []
       plan.pristine.push(test.file)
       addWork(test.file, 5000, 1)
@@ -932,6 +976,7 @@ function planPhase(
     fileLoops.set(test.file, (fileLoops.get(test.file) ?? 0) + (test.coverage?.baselineLoops ?? 0))
     if (test.failed || status.flaky.has(id)) failing.set(test.file, [...(failing.get(test.file) ?? []), id])
   }
+  plan.ignore = [...failing.values()].flat()
   const controlled = new Set<string>()
   /** Runs that are to be made with nothing else running, which is a round of their own. */
   const quietJobs: [number, string][] = []
@@ -1030,11 +1075,12 @@ function planPhase(
       }
       return counts.get(source) ?? 0
     }
+    const { unsure } = status
     for (let mutant = 0; mutant < state.length; mutant++) {
       // Code no test reaches is reported as such and not run.
       if (state[mutant] !== MUTANT_PENDING && state[mutant] !== MUTANT_STALLED) continue
-      if (!status.reached.has(siteOf[mutant]) && !judgeStatic) continue
-      const targets = new Set(covering.get(mutant))
+      if (!status.reached.has(siteOf[mutant]) && !judgeStatic && unsure.size === 0) continue
+      const targets = new Set([...(covering.get(mutant) ?? []), ...unsure])
       for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) targets.add(file)
       const open = [...targets].filter(
         (file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))),
@@ -1777,6 +1823,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const value of state) if (value !== MUTANT_PENDING) judged++
       for (const entry of status.whole.values()) judged += total(entry)
       for (const pair of status.pairs.values()) judged += pair.asked + pair.met
+      for (const passes of status.measured.values()) judged += passes
       if (next.workByFile.size === 0) break
       stalled = judged === progress ? stalled + 1 : 0
       progress = judged
@@ -1897,6 +1944,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const hookSites = new Set<number>()
   const finishedFiles = new Set<string>()
   const coveringSites = new Map<string, number[]>()
+  const cleanSites = new Set<string>()
   /** Per test, the mutants it detected, split by verdict. */
   const detections = new Map<string, { killed: Set<number>; timedOut: Set<number> }>()
   const detectionsOf = (id: string) => {
@@ -1914,7 +1962,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const site of record.hookSites ?? []) hookSites.add(site)
       if (record.complete && record.modules) passes.set(record.file, record)
     } else if (record.type === 'test') {
-      if (record.mode === 'probe' && record.baseline === 'pass') coveringSites.set(record.id, record.sites)
+      // From the run `inspect` goes by: one in a worker no mutant had been tried in, once there is one.
+      if (record.mode === 'probe' && record.baseline === 'pass' && (!cleanSites.has(record.id) || record.pristine)) {
+        coveringSites.set(record.id, record.sites)
+        if (record.pristine) cleanSites.add(record.id)
+      }
       for (const mutant of record.killed) {
         killedBy[mutant]++
         detectionsOf(record.id).killed.add(mutant)
@@ -1945,6 +1997,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       ;(next.mutants[relative(options.root, mutant.file)] ??= []).push(keys[id])
     })
     for (const [file, pass] of passes) {
+      // Read back, what its tests reach would pass for what a plain run shows.
+      if (status.unsure.has(file)) continue
       const snapshot = path.join(path.dirname(file), '__snapshots__', `${path.basename(file)}.snap`)
       const entry: CachedFile = {
         deps: {},
@@ -2056,6 +2110,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       passed: records.filter((record) => record.type === 'whole' && record.quiet && record.by && record.verdict === 'passed').length,
     },
     exclusiveFiles: [...status.exclusive].map((file) => relative(options.root, file)),
+    unsureFiles: [...status.unsure].map((file) => relative(options.root, file)),
     changedFiles: changedSince(treeBefore, options.root),
     flakyTests: [...status.flaky].flatMap((id) => {
       const test = status.tests.get(id)
