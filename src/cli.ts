@@ -7,30 +7,69 @@ import { changedLines } from './changed.ts'
 import { defaultExclude, defaultInclude } from './mutate/generate.ts'
 import { type MutantStatus, run } from './run.ts'
 
-const { values, positionals } = parseArgs({
-  allowPositionals: true,
-  options: {
-    root: { type: 'string', default: process.cwd() },
-    mutate: { type: 'string', multiple: true },
-    exclude: { type: 'string', multiple: true },
-    changed: { type: 'string' },
-    project: { type: 'string', multiple: true },
-    'no-related': { type: 'boolean', default: false },
-    'timeout-factor': { type: 'string', default: '4' },
-    'timeout-ms': { type: 'string', default: '3000' },
-    'recycle-heap-mb': { type: 'string' },
-    'loop-factor': { type: 'string', default: '50' },
-    'loop-slack': { type: 'string', default: '1000000' },
-    'budget-ms': { type: 'string', default: '30000' },
-    'cheap-ms': { type: 'string', default: '20' },
-    'max-rounds': { type: 'string', default: '50' },
-    'max-workers': { type: 'string' },
-    incremental: { type: 'boolean', default: false },
-    'no-clone': { type: 'boolean', default: false },
-    static: { type: 'boolean', default: false },
-    report: { type: 'string' },
-  },
-})
+const usage = `Usage: vitant [options] [test file filters]
+
+Runs the project's Vitest suite against every mutant of its sources and says
+for each one whether the suite detects it.
+
+  --root <dir>            the project, where its Vitest config is (default: the current directory)
+  --mutate <glob>         files to mutate, repeatable (default: the sources under src)
+  --exclude <glob>        files not to mutate, repeatable
+  --changed <ref>         only mutants on lines changed since the git ref
+  --project <name>        the Vitest project to run, repeatable
+  --report <file>         write the result as JSON
+  --incremental           reuse the last run's results for test files nothing they load has changed in
+  --static                also run mutants in code that only runs while a module loads
+  --no-related            run every test file, not only those that import a mutated file
+  --no-clone              start a worker for every whole-file run instead of copying one
+  --max-workers <n>       workers at once (default: the number of processors)
+  --timeout-factor <n>    a test may take this many times what it took unmutated (default: 4)
+  --timeout-ms <n>        and this much on top, in milliseconds (default: 3000)
+  --help, --version
+
+The exit code is 1 when a test file had to be given up on, and its mutants are left pending.`
+
+const { values, positionals } = (() => {
+  try {
+    return parseArgs({
+      allowPositionals: true,
+      options: {
+        help: { type: 'boolean', default: false },
+        version: { type: 'boolean', default: false },
+        root: { type: 'string', default: process.cwd() },
+        mutate: { type: 'string', multiple: true },
+        exclude: { type: 'string', multiple: true },
+        changed: { type: 'string' },
+        project: { type: 'string', multiple: true },
+        'no-related': { type: 'boolean', default: false },
+        'timeout-factor': { type: 'string', default: '4' },
+        'timeout-ms': { type: 'string', default: '3000' },
+        'recycle-heap-mb': { type: 'string' },
+        'loop-factor': { type: 'string', default: '50' },
+        'loop-slack': { type: 'string', default: '1000000' },
+        'budget-ms': { type: 'string', default: '30000' },
+        'cheap-ms': { type: 'string', default: '20' },
+        'max-rounds': { type: 'string', default: '50' },
+        'max-workers': { type: 'string' },
+        incremental: { type: 'boolean', default: false },
+        'no-clone': { type: 'boolean', default: false },
+        static: { type: 'boolean', default: false },
+        report: { type: 'string' },
+      },
+    })
+  } catch (error) {
+    console.error(`${(error as Error).message}\n\n${usage}`)
+    process.exit(2)
+  }
+})()
+if (values.help) {
+  console.log(usage)
+  process.exit(0)
+}
+if (values.version) {
+  console.log(JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')).version)
+  process.exit(0)
+}
 
 /**
  * Keeps all workers together within about half of the machine's memory, but
@@ -62,7 +101,6 @@ const result = await run({
   incremental: values.incremental,
   clone: !values['no-clone'],
   static: values.static,
-  // Tests spend a third of their time waiting on timers, so a few more workers than cores keep the CPU busy.
   // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
   maxWorkers: Number(values['max-workers'] ?? os.availableParallelism()),
   log: (message) => console.error(message),

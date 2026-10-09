@@ -628,13 +628,27 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const note = (mutant: number, entry: Evidence) => evidence.set(mutant, [...(evidence.get(mutant) ?? []), entry])
   /** Per mutant, the tests that failed with it and passed again without it, with no other run of their file about. */
   const witnesses = new Map<number, Set<string>>()
+  // A test that fails by chance when the machine is busy fails with
+  // whatever mutant it happens to be trying, passes again without it, and
+  // makes a lead. Nearly all such leads come to nothing, the file passing
+  // with the mutant, but with a test that every mutant reaches some do not:
+  // it fails once more in the run of the file, and that was a kill on a
+  // 4-core CI runner about once a run. A test with one lead that came to
+  // nothing vouches for no failure; what rests on it is seen again with
+  // nothing else running. A lead can also come to nothing because the
+  // mutant was switched on in the middle of a worker's life, and then a
+  // test loses this for no fault of its own, at the price of those runs.
+  const passedWith = new Set<string>()
+  for (const record of settled) if (record.verdict === 'passed') passedWith.add(wholeKey(record.mutant, record.file))
+  const refuted = new Set<string>()
+  for (const { mutant, file, test } of leads) if (passedWith.has(wholeKey(mutant, file))) refuted.add(test)
   for (const { mutant, file, test, passedAgain } of leads) {
     if (flaky.has(test)) continue
     note(mutant, { kind: 'lead', file, test })
     const files = suspects.get(mutant) ?? new Set()
     files.add(file)
     suspects.set(mutant, files)
-    if (passedAgain) witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
+    if (passedAgain && !refuted.has(test)) witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
   }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
@@ -683,7 +697,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -781,11 +795,18 @@ function planPhase(
     status.tests.get(id)?.file === settledIn.get(mutant) &&
     status.beside.get(mutant)?.has(id) === true &&
     !status.triedSole.get(mutant)?.has(id)
+  // Once, with the file to itself: a test that has done that has said what it can.
   const tries = (id: string, mutant: number) =>
-    only.has(mutant) ? settling && (only.get(mutant)!.has(id) || again(id, mutant)) : !settling
+    only.has(mutant)
+      ? settling && ((only.get(mutant)!.has(id) && !status.triedSole.get(mutant)?.has(id)) || again(id, mutant))
+      : !settling
+  // In a file that runs one process at a time tests do not try mutants
+  // one by one: one worker would go through a file that takes seconds once
+  // a round for as many rounds as it takes, where a run of the whole file
+  // says at once what the mutant does. Only what settles a failure is tried.
   const remaining = new Map<string, number[]>()
   for (const [id, test] of status.tests) {
-    if (test.done || !test.coverage) continue
+    if (test.done || !test.coverage || (!settling && status.exclusive.has(test.file))) continue
     const left = test.coverage.covered.filter(
       (mutant) => state[mutant] === MUTANT_PENDING && (!test.judged.has(mutant) || again(id, mutant)) && tries(id, mutant),
     )
@@ -797,7 +818,7 @@ function planPhase(
   // reaches the most code.
   const candidates = new Map<number, string[]>()
   for (const [id, test] of status.tests) {
-    if (test.done || !test.coverage) continue
+    if (test.done || !test.coverage || (!settling && status.exclusive.has(test.file))) continue
     for (const mutant of test.coverage.covered) {
       if (state[mutant] !== MUTANT_PENDING || !tries(id, mutant)) continue
       const list = candidates.get(mutant)

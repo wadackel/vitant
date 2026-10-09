@@ -55,6 +55,16 @@ describe('what the runs of whole files settle', () => {
     expect(inspect([lead(0, 't3'), whole(0, 'failed', { test: 't2', tests: ['t2'] })]).detected.has(0)).toBe(false)
   })
 
+  it('takes nothing on the word of a test one of whose leads came to nothing', () => {
+    const killed = [lead(0, 't1'), whole(0, 'failed', { test: 't1' })]
+    expect(inspect(killed).detected.get(0)).toBe(MUTANT_KILLED)
+    // The same test failed with another mutant too, and the file passed with that one.
+    const status = inspect([...killed, lead(1, 't1'), whole(1, 'passed')])
+    expect([...status.refuted]).toEqual(['t1'])
+    expect(status.detected.has(0)).toBe(false)
+    expect(inspect([...killed, lead(1, 't1'), whole(1, 'passed'), whole(0, 'failed', { test: 't1', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+  })
+
   it('does not let a lead from one test vouch for the failure of another', () => {
     const runs = [lead(0, 't1'), whole(0, 'failed', { test: 't2' }), whole(0, 'failed', { test: 't2' })]
     expect(inspect(runs).detected.has(0)).toBe(false)
