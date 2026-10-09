@@ -851,6 +851,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeTest: string | undefined
     /** For a run of `WholeJob.pair`: the other run was there to start with. */
     private pairMet = false
+    /** Every test that failed in the run; more than the first where the run went on for a witness. */
+    private wholeTests: string[] = []
+    /** The witnesses of the job that have not run yet, see `wholeSettled`. */
+    private wholeWaits = new Set<string>()
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     private wholeAgain = false
     /** How the process making the whole-file run came to be. */
@@ -914,7 +918,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private open(job: WholeJob): boolean {
       if (job.control) return true
       const state = readState(job.mutant)
-      return job.confirm === true || state === MUTANT_PENDING || state === MUTANT_STALLED
+      // A run asked for by name is made whatever a test has since written of the mutant.
+      return job.confirm === true || job.quiet === true || state === MUTANT_PENDING || state === MUTANT_STALLED
     }
 
     /**
@@ -1001,7 +1006,17 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       } else if (ended === cloner!.Ended.Blocked) {
         const state = readState(job.mutant)
         if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
-        emit({ type: 'whole', file: this.wholeFile, mutant: job.mutant, verdict: 'timeout', alone: job.exclusive || job.quiet, quiet: job.quiet, by, ms: preciseNow() - copiedAt })
+        emit({
+          type: 'whole',
+          file: this.wholeFile,
+          mutant: job.mutant,
+          verdict: 'timeout',
+          knew: (job.witnesses?.length ?? 0) > 0,
+          alone: job.exclusive || job.quiet,
+          quiet: job.quiet,
+          by,
+          ms: preciseNow() - copiedAt,
+        })
       } else if (ended === cloner!.Ended.Lost) {
         // The copy ended without a verdict, by this process's hand or its
         // own. Whatever it was, a worker started for the job alone decides.
@@ -1016,6 +1031,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     /** Turns the job's mutant on for the rest of the file's run. */
     private begin(job: WholeJob, beforeLoad: boolean): void {
       this.whole = job
+      this.wholeTests = []
+      this.wholeWaits = new Set(job.witnesses)
       this.wholeStartedAt = preciseNow()
       runtime.a = job.control ? NO_MUTANT : job.mutant
       // The loops of the whole file share one count, with room for those
@@ -1139,7 +1156,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       await super.onBeforeRunTask?.(test)
       if (this.whole) {
         // The first failure settles it.
-        if (this.wholeFailure || this.whole.ignore.includes(test.id)) test.mode = 'skip'
+        if (this.wholeSettled() || this.whole.ignore.includes(test.id)) test.mode = 'skip'
         return
       }
       if (test.mode !== 'run' && test.mode !== 'queued') return
@@ -1429,12 +1446,33 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           runtime.b.fill(0)
         }
       }
-      if (this.whole && test.result?.state === 'fail') {
+      if (!this.whole) return
+      this.wholeWaits.delete(test.id)
+      if (test.result?.state === 'fail') {
         if (!this.wholeFailure) this.wholeTest = test.id
-        this.wholeFailure ??= runtime.t || /^Test timed out in \d+ms/.test(firstError(test) ?? '') ? 'timeout' : 'failed'
-        // The first failure settles it, and nobody waits for the rest of a copy's run.
-        if (cloned) await this.leave()
+        this.wholeTests.push(test.id)
+        const limit = runtime.t || /^Test timed out in \d+ms/.test(firstError(test) ?? '')
+        this.wholeFailure ??= limit ? 'timeout' : 'failed'
+        // After a failure the tests that follow may wait for what will not come, each to its limit.
+        if (limit) this.wholeWaits.clear()
       }
+      // Nobody waits for the rest of a copy's run.
+      if (cloned && this.wholeSettled()) await this.leave()
+    }
+
+    /**
+     * Whether the run has said what it can. A failure in a test that had
+     * failed with the mutant while trying it settles the mutant, and so the
+     * run ends there. A failure in any other test settles nothing by itself,
+     * so the run does not end at it while such a test is still to come: it
+     * goes on as a plain run would, which does not stop at a failure either,
+     * and that test failing too is worth more than the same failure once
+     * more. A limit that ended a test ends the run.
+     */
+    private wholeSettled(): boolean {
+      if (!this.wholeFailure) return false
+      if (this.wholeFailure === 'timeout' || this.wholeWaits.size === 0) return true
+      return this.wholeTests.some((id) => this.whole!.witnesses?.includes(id))
     }
 
     /**
@@ -1456,6 +1494,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         mutant: this.whole!.mutant,
         verdict: this.wholeFailure ?? 'passed',
         test: this.wholeTest,
+        tests: this.wholeTests,
+        knew: (this.whole!.witnesses?.length ?? 0) > 0,
         alone: this.whole!.exclusive || this.whole!.quiet,
         quiet: this.whole!.quiet,
         by: this.wholeBy,
@@ -1467,7 +1507,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // which a round of its own for it would take seconds to get to.
       const job = this.whole!
       const repeats =
-        (this.wholeTest !== undefined && job.witnesses?.includes(this.wholeTest)) ||
+        this.wholeTests.some((id) => job.witnesses?.includes(id)) ||
         (this.wholeFailure === 'timeout' && job.stalled)
       if (this.wholeFailure && !repeats && !this.wholeAgain && !job.quiet) fs.writeFileSync(path.join(paths.again, String(job.id)), '')
       cloner!.done()
@@ -1497,6 +1537,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             mutant: this.whole.mutant,
             verdict: this.wholeFailure ?? 'passed',
             test: this.wholeTest,
+            tests: this.wholeTests,
+            knew: (this.whole.witnesses?.length ?? 0) > 0,
             alone: this.whole.exclusive || this.whole.quiet,
             quiet: this.whole.quiet,
             by: this.wholeBy,

@@ -48,6 +48,8 @@ export interface RoundPlan {
   whole: Record<string, WholeJob[]>
   /** Test files nothing of which runs in two processes at once, see `WholeJob.exclusive`. */
   exclusive: string[]
+  /** The round is of tests trying mutants whose runs of a file failed in them, one worker to a file. */
+  settling: boolean
   /** The round is of runs made one at a time with nothing else running, see `WholeJob.quiet`. */
   quiet: boolean
   /** Test files that one worker has to itself in the round, as every file has in the first. */
