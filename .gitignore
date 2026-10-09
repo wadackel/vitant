@@ -3,6 +3,7 @@ bench/.work
 bench/results/**/*.log
 bench/results/**/stryker.json
 bench/results/**/vitant*.json
+bench/results/**/*-records
 bench/setup.log
 fixtures/.tmp-*
 build

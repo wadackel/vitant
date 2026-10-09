@@ -34,7 +34,8 @@ describe('running the fixture project', () => {
     )
     expect(cli.status, cli.stderr).toBe(0)
     result = JSON.parse(fs.readFileSync(report, 'utf8'))
-  }, 60_000)
+    // A hosted runner with an Intel processor has taken more than a minute over this run.
+  }, 180_000)
 
   // Hosted CI machines have three or four cores; what holds a worker while it waits for another shows there.
   it('gives every mutant the same verdict with two workers, and gives up on no file', () => {

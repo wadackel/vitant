@@ -401,6 +401,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const whole = new Map<string, WholeState>()
   /** Sites some test reaches. */
   const reached = new Set<number>()
+  /** Per test file, the sites its tests reach while they run. */
+  const exercised = new Map<string, Set<number>>()
   /** Files that had their pass with no mutant tried. */
   const measured = new Set<string>()
   /** What whole-file runs have shown to be detected. */
@@ -535,7 +537,12 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.stop === 'tainted') taints.set(record.file, (taints.get(record.file) ?? 0) + 1)
     if (record.mode !== 'probe') continue
     if (record.baseline === 'pass') {
-      for (const site of record.sites) reached.add(site)
+      const own = exercised.get(record.file) ?? new Set()
+      exercised.set(record.file, own)
+      for (const site of record.sites) {
+        reached.add(site)
+        own.add(site)
+      }
       test.retry = false
       test.pristine = record.pristine ?? false
       test.coverage = {
@@ -698,7 +705,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -747,7 +754,7 @@ type Planned = {
  * what makes what they find count; then, for what is still open, a run of
  * the file with nothing else running.
  */
-function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>]): Planned {
+function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
   const usual = planPhase(...given, false)
   return usual.workByFile.size > 0 ? usual : planPhase(...given, true)
 }
@@ -760,6 +767,8 @@ function planPhase(
   killers: Map<number, Set<string>>,
   /** Per mutant, its site. */
   siteOf: ArrayLike<number>,
+  /** Per mutant, a number for the source file it is in. */
+  sourceOf: ArrayLike<number>,
   /** Nothing else is left to do: the round is for what settles failures that settled nothing. */
   settling: boolean,
 ): Planned {
@@ -1003,6 +1012,24 @@ function planPhase(
       wholeFailures += entry.died + entry.failed + entry.timedOut
     }
     const rarelyFails = wholeRuns >= 50 && wholeFailures < wholeRuns / 20
+    // How much of a source file the tests of a test file go through: the
+    // sites of it they reach while they run. Code that runs as a module
+    // loads runs in every file that loads it and says nothing of the kind.
+    const sourceOfSite = new Map<number, number>()
+    for (let mutant = 0; mutant < state.length; mutant++) sourceOfSite.set(siteOf[mutant], sourceOf[mutant])
+    const familiar = new Map<string, Map<number, number>>()
+    const familiarity = (file: string, source: number): number => {
+      let counts = familiar.get(file)
+      if (!counts) {
+        counts = new Map()
+        for (const site of status.exercised.get(file) ?? []) {
+          const of = sourceOfSite.get(site)!
+          counts.set(of, (counts.get(of) ?? 0) + 1)
+        }
+        familiar.set(file, counts)
+      }
+      return counts.get(source) ?? 0
+    }
     for (let mutant = 0; mutant < state.length; mutant++) {
       // Code no test reaches is reported as such and not run.
       if (state[mutant] !== MUTANT_PENDING && state[mutant] !== MUTANT_STALLED) continue
@@ -1013,18 +1040,26 @@ function planPhase(
         (file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))),
       )
       // A failure seen once is run again before anything else: repeated, it
-      // ends the search. Otherwise the cheapest files go first, a few at a
-      // time and twice as many each round, so that a mutant some file
-      // detects costs little and one that survives few rounds. Where these
-      // runs have rarely failed so far there is little to stop early for,
-      // and every round ends on its slowest run, so the rest goes at once.
+      // ends the search. Otherwise a few files go first and twice as many
+      // each round, so that a mutant some file detects costs little and one
+      // that survives few rounds: the files whose tests go through most of
+      // the mutant's source file, then the cheapest. The cheapest alone say
+      // nothing of which file detects: of the 322 test files that load
+      // Effect's `Chunk`, one to three fail on most of its mutants, the
+      // cheapest of them the 181st cheapest at the median, and the file
+      // whose tests reach most of `Chunk` is one of them for 109 mutants in
+      // 113. Where these runs have rarely failed so far there is little to
+      // stop early for, and every round ends on its slowest run, so the
+      // rest goes at once, but not before a file that knows the source.
       const suspect = open.filter((file) => status.whole.has(wholeKey(mutant, file)))
-      open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
+      const source = sourceOf[mutant]
+      open.sort((a, b) => familiarity(b, source) - familiarity(a, source) || (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
       // Where a run is a copy of a worker, a round costs more than the runs
       // it saves: a few files first, then all that is left.
       const done = targets.size - open.length
       const wave = cloning ? (done > 0 ? open.length : 4) : Math.max(1, done)
-      const batch = suspect.length > 0 ? suspect : rarelyFails ? open : open.slice(0, wave)
+      const likely = done === 0 && open.length > 0 && familiarity(open[0], source) > 0
+      const batch = suspect.length > 0 ? suspect : rarelyFails && !likely ? open : open.slice(0, wave)
       for (const file of batch) wholeJob(mutant, file, false)
     }
   }
@@ -1578,6 +1613,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     let plan = specs.filter((spec) => !reused.has(spec.moduleId)).sort((a, b) => size(b) - size(a))
     let oneAtATime = false
     const siteOf = generated.mutants.map((mutant) => mutant.site)
+    const sources = [...generated.files.keys()]
+    const sourceOf = generated.mutants.map((mutant) => sources.indexOf(mutant.file))
     let progress = -1
     /** Whether the round in flight has whole-file runs. */
     let copying = false
@@ -1717,7 +1754,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
           if (entry.kind !== 'lead' && entry.test) killers.set(mutant, (killers.get(mutant) ?? new Set()).add(entry.test))
         }
       }
-      const next = planRound(status, state, files, killers, siteOf)
+      const next = planRound(status, state, files, killers, siteOf, sourceOf)
       const pairing = Object.entries(next.plan.whole).filter(([, jobs]) => jobs.some((job) => job.pair))
       if (pairing.length > 0) {
         const lines = pairing.map(([file]) => JSON.stringify({ type: 'pairing', file, at: Date.now() }))

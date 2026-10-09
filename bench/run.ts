@@ -137,8 +137,18 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
   // From the project, as its own scripts run: configs resolve paths against the working directory.
   const timing = time(tool, process.execPath, args, dir)
   timings.push(timing)
+  // What the workers wrote down goes with a run that went wrong: the report
+  // says what came of it, and only this says how. The next run of the
+  // project writes over it, and on a CI runner it is gone with the job.
+  const records = path.join(outDir, `${tool}-records`)
+  fs.rmSync(records, { recursive: true, force: true })
+  const keep = () => {
+    wrong = true
+    const made = path.join(dir, 'node_modules/.vitant/session/results')
+    if (fs.existsSync(made) && !fs.existsSync(records)) fs.cpSync(made, records, { recursive: true })
+  }
   // The tool exits with 1 when it gave up on a test file.
-  if (timing.exitCodes.some((code) => code !== 0)) wrong = true
+  if (timing.exitCodes.some((code) => code !== 0)) keep()
   if (!fs.existsSync(report)) continue
   const { counts, wholeRuns, rounds, abandonedFiles } = JSON.parse(fs.readFileSync(report, 'utf8'))
   reports[tool] = { counts, wholeRuns, rounds, abandonedFiles: abandonedFiles.length }
@@ -150,7 +160,7 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
   )
   console.log(`${tool}: ${check.stdout.trim()}`)
   ;(reports[tool] as { truth?: string }).truth = check.stdout.split('\n')[0]
-  if (check.status !== 0) wrong = true
+  if (check.status !== 0) keep()
 }
 
 const summaryPath = path.join(outDir, 'summary.json')
