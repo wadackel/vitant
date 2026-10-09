@@ -275,3 +275,12 @@ export function sessionPaths(dir: string) {
     preload: path.join(dir, 'preload.cjs'),
   }
 }
+
+/**
+ * A file as reports, the cache and messages name it: relative to the project
+ * and with the same separators on every platform, so that what one machine
+ * wrote reads the same on another.
+ */
+export function relative(root: string, file: string): string {
+  return path.relative(root, file).split(path.sep).join('/')
+}

@@ -29,7 +29,8 @@ it('shouts', () => {
   expect(shout('a')).toBe('A')
 })
 
-it('tells its own process from the one that started it', () => {
+// Windows has no signal a process can send itself and hear.
+it.skipIf(process.platform === 'win32')('tells its own process from the one that started it', () => {
   let heard = false
   const listener = () => {
     heard = true

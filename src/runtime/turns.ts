@@ -47,9 +47,9 @@ export function giveUp(lock: string): void {
 
 /**
  * Removes the locks whose owners are gone. To be called from one process
- * only: a lock exists from the moment its owner took it until it is removed,
- * nobody can take it meanwhile, and its owner, being gone, does not remove
- * it either, so what was read here still holds when the file is removed.
+ * only: a lock that names an owner found gone stays as it is until it is
+ * removed here, since nobody can take it meanwhile and its owner does not
+ * give it up.
  */
 export function sweep(dir: string): void {
   let names: string[]
@@ -71,7 +71,12 @@ export function sweep(dir: string): void {
     try {
       process.kill(owner, 0)
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ESRCH') fs.rmSync(lock, { force: true })
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') continue
+      // Between the reading and the asking the owner may have given the lock
+      // up and ended, and another taken it: read once more.
+      try {
+        if (Number(fs.readFileSync(lock, 'utf8')) === owner) fs.rmSync(lock, { force: true })
+      } catch {}
     }
   }
 }

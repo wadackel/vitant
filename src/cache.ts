@@ -8,6 +8,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Generated } from './mutate/generate.ts'
+import { relative } from './session.ts'
 
 /** Bumped whenever cached data would be read differently. */
 const FORMAT = 3
@@ -82,13 +83,13 @@ export function fingerprint(root: string, vitestVersion: string, limits: unknown
     )
     .sort()
     .map((name) => `${name}:${hashFile(path.join(root, name))}`)
-  return JSON.stringify([FORMAT, process.versions.node.split('.')[0], vitestVersion, limits, shared])
+  return JSON.stringify([FORMAT, process.versions.node.split('.')[0], process.platform, process.arch, vitestVersion, limits, shared])
 }
 
 export function mutantKeys(generated: Generated, root: string): string[] {
   return generated.mutants.map(
     (mutant) =>
-      `${path.relative(root, mutant.file)}|${mutant.start}|${mutant.end}|${mutant.mutator}|${mutant.replacement}`,
+      `${relative(root, mutant.file)}|${mutant.start}|${mutant.end}|${mutant.mutator}|${mutant.replacement}`,
   )
 }
 
@@ -102,12 +103,12 @@ export function hintKeys(generated: Generated, root: string): string[] {
     let source = lines.get(mutant.file)
     if (!source) lines.set(mutant.file, (source = fs.readFileSync(mutant.file, 'utf8').split('\n')))
     const line = source[mutant.loc.start.line - 1]?.trim() ?? ''
-    return `${path.relative(root, mutant.file)}|${mutant.mutator}|${mutant.replacement}|${line}`
+    return `${relative(root, mutant.file)}|${mutant.mutator}|${mutant.replacement}|${line}`
   })
 }
 
 export function testKey(root: string, file: string, name: string): string {
-  return `${path.relative(root, file)}\n${name}`
+  return `${relative(root, file)}\n${name}`
 }
 
 /** The killers a previous run recorded, whatever else has changed since. */

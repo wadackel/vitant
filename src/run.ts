@@ -30,6 +30,7 @@ import {
   type RoundPlan,
   type SessionConfig,
   channelWatch,
+  relative,
   sessionPaths,
 } from './session.ts'
 import { sweep } from './runtime/turns.ts'
@@ -1127,7 +1128,7 @@ function restore(
   const idByKey = new Map(keys.map((key, id) => [key, id]))
   const bySource = new Map<string, string[]>()
   generated.mutants.forEach((mutant, id) => {
-    const source = path.relative(root, mutant.file)
+    const source = relative(root, mutant.file)
     bySource.set(source, [...(bySource.get(source) ?? []), keys[id]])
   })
   const ids = (list: string[]) => list.flatMap((key) => idByKey.get(key) ?? [])
@@ -1136,7 +1137,7 @@ function restore(
   const lines: string[] = []
   const verdicts = new Map<number, number>()
   for (const file of files) {
-    const cached = cache.files[path.relative(root, file)]
+    const cached = cache.files[relative(root, file)]
     if (!cached || !isFresh(cached, root, cache, bySource)) continue
     reused.add(file)
     lines.push(
@@ -1293,7 +1294,7 @@ interface SuiteTask {
 function collectSuiteErrors(task: SuiteTask, root: string, into: string[]): void {
   if (task.type === 'test') return
   for (const error of task.result?.errors ?? []) {
-    const where = task.filepath ? path.relative(root, task.filepath) : task.name
+    const where = task.filepath ? relative(root, task.filepath) : task.name
     into.push(`${where}: ${error.message.split('\n')[0]}`)
   }
   for (const child of task.tasks ?? []) collectSuiteErrors(child, root, into)
@@ -1373,7 +1374,7 @@ function workingTree(root: string): Map<string, string> {
 
 /** The files of `workingTree` that are not as they were, relative to the project. */
 function changedSince(before: Map<string, string>, root: string): string[] {
-  return [...workingTree(root)].filter(([file, held]) => before.get(file) !== held).map(([file]) => path.relative(root, file))
+  return [...workingTree(root)].filter(([file, held]) => before.get(file) !== held).map(([file]) => relative(root, file))
 }
 
 export async function run(options: RunOptions): Promise<RunResult> {
@@ -1560,7 +1561,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
         leftOut.typeTests++
         return false
       }
-      const usable = spec.project.config.runner === paths.runner && instrumented(spec.project) && !taken.has(spec.moduleId)
+      // Vitest hands the runner's path back with separators of its own choosing.
+      const runner = spec.project.config.runner
+      const usable = runner !== undefined && path.relative(runner, paths.runner) === '' && instrumented(spec.project) && !taken.has(spec.moduleId)
       if (usable) taken.add(spec.moduleId)
       else leftOut.projects[spec.project.name] = (leftOut.projects[spec.project.name] ?? 0) + 1
       return usable
@@ -1892,7 +1895,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
     }
   }
-  const label = (test: TestState) => `${path.relative(options.root, test.file)} > ${test.name}`
+  const label = (test: TestState) => `${relative(options.root, test.file)} > ${test.name}`
   const tests = status.tests.size
   const failedBaselines = [...status.tests.values()].filter((t) => t.failed).map(label)
   const nonRepeatableTests = [...status.tests.values()].filter((t) => t.done && t.coverage && !t.failed).map(label)
@@ -1902,7 +1905,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const toKeys = (mutants: Iterable<number>) => [...mutants].map((mutant) => keys[mutant])
     const next: Cache = { fingerprint: print, mutants: {}, files: {} }
     generated.mutants.forEach((mutant, id) => {
-      ;(next.mutants[path.relative(options.root, mutant.file)] ??= []).push(keys[id])
+      ;(next.mutants[relative(options.root, mutant.file)] ??= []).push(keys[id])
     })
     for (const [file, pass] of passes) {
       const snapshot = path.join(path.dirname(file), '__snapshots__', `${path.basename(file)}.snap`)
@@ -1920,12 +1923,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
         if (wholeFile === file && verdict) entry.whole[keys[Number(mutant)]] = verdict
       }
       for (const dep of [file, snapshot, ...pass.modules!]) {
-        entry.deps[path.relative(options.root, dep)] = hashFile(dep)
+        entry.deps[relative(options.root, dep)] = hashFile(dep)
       }
-      next.files[path.relative(options.root, file)] = entry
+      next.files[relative(options.root, file)] = entry
     }
     for (const [id, test] of status.tests) {
-      const entry = next.files[path.relative(options.root, test.file)]
+      const entry = next.files[relative(options.root, test.file)]
       if (!entry) continue
       const { killed, timedOut } = detectionsOf(id)
       entry.tests[id] = {
@@ -1975,7 +1978,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const proof = (mutant: number): Evidence[] =>
     (status.evidence.get(mutant) ?? []).map((entry) => ({
       ...entry,
-      file: path.relative(options.root, entry.file),
+      file: relative(options.root, entry.file),
       test: entry.test === undefined ? undefined : (status.tests.get(entry.test)?.name ?? entry.test),
     }))
   const mutants = generated.mutants.map((mutant): MutantResult => {
@@ -1990,7 +1993,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     counts[status]++
     return {
       id: mutant.id,
-      file: path.relative(options.root, mutant.file),
+      file: relative(options.root, mutant.file),
       mutator: mutant.mutator,
       replacement: mutant.replacement,
       location: mutant.loc,
@@ -2015,7 +2018,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       failed: records.filter((record) => record.type === 'whole' && record.quiet && record.by && record.verdict !== 'passed').length,
       passed: records.filter((record) => record.type === 'whole' && record.quiet && record.by && record.verdict === 'passed').length,
     },
-    exclusiveFiles: [...status.exclusive].map((file) => path.relative(options.root, file)),
+    exclusiveFiles: [...status.exclusive].map((file) => relative(options.root, file)),
     changedFiles: changedSince(treeBefore, options.root),
     flakyTests: [...status.flaky].flatMap((id) => {
       const test = status.tests.get(id)

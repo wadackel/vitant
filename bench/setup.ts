@@ -23,6 +23,8 @@ if (!fs.existsSync(path.join(dir, '.git'))) {
   sh(`git remote add origin ${target.repo}`)
 }
 // Depth 2 so scopes can diff the pinned commit against its parent.
+// Ground truth names a mutant by its text: the sources are to be the bytes the commit holds, on Windows too.
+sh('git config core.autocrlf false')
 sh(`git fetch -q --depth 2 origin ${target.commit}`)
 sh('git checkout -q --force FETCH_HEAD')
 for (const command of target.install) sh(command)

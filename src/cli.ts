@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util'
 import { changedLines } from './changed.ts'
 import { defaultExclude, defaultInclude } from './mutate/generate.ts'
 import { type MutantStatus, run } from './run.ts'
+import { relative } from './session.ts'
 
 const usage = `Usage: vitant [options] [test file filters]
 
@@ -187,7 +188,7 @@ if (result.suiteErrors.length > 0) {
 }
 if (result.abandonedFiles.length > 0) {
   console.log(`gave up on ${result.abandonedFiles.length} test file(s):`)
-  for (const file of result.abandonedFiles) console.log(`  ${path.relative(root, file)}`)
+  for (const file of result.abandonedFiles) console.log(`  ${relative(root, file)}`)
 }
 
 if (values.report) {

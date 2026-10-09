@@ -2,10 +2,12 @@ import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { sweep } from '../src/runtime/turns.ts'
 
-const turns = path.join(import.meta.dirname, '../src/runtime/turns.ts')
+// A module is imported by URL: a path with a drive letter is taken for one with a scheme of its own.
+const turns = pathToFileURL(path.join(import.meta.dirname, '../src/runtime/turns.ts')).href
 let dir: string
 
 beforeEach(() => {

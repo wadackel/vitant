@@ -1,6 +1,8 @@
 # Builds the addon that copies a worker process for every platform it has a
 # package for, runs the tests with it there, checks every verdict on the
 # fixture project against the project's own suite, and keeps the binaries.
+# On Windows, where a process cannot be copied, the same tests and checks run
+# without the addon.
 name: native
 
 on:
@@ -85,3 +87,27 @@ jobs:
           name: fork.${{ matrix.target }}
           path: build/fork.${{ matrix.target }}.node
           if-no-files-found: error
+
+  windows:
+    name: win32-x64, without the addon
+    runs-on: windows-2025
+    # Starting a process takes long there: the checks against the suite alone are most of an hour.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:truth
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: test-reports.win32-x64
+          path: build/test-reports
+          if-no-files-found: ignore

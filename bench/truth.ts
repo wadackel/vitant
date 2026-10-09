@@ -166,9 +166,13 @@ function runSuite(
     let timedOut = false
     const timer = setTimeout(() => {
       timedOut = true
-      try {
-        process.kill(-child.pid!, 'SIGKILL')
-      } catch {}
+      // Windows has no process groups to signal; its own tool ends a process with all it started.
+      if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+      else {
+        try {
+          process.kill(-child.pid!, 'SIGKILL')
+        } catch {}
+      }
     }, limitMs)
     child.on('exit', (code) => {
       clearTimeout(timer)
@@ -179,7 +183,7 @@ function runSuite(
         known = true
         for (const file of report.testResults) {
           const tests = file.assertionResults.filter((test: { status: string }) => test.status === 'failed')
-          for (const test of tests) failed.push(`${path.relative(root, file.name)} > ${test.fullName}`)
+          for (const test of tests) failed.push(`${path.relative(root, file.name).split(path.sep).join('/')} > ${test.fullName}`)
           // A file that fails without a failing test: an error while it loads, in a hook, or one nothing handled.
           if (file.status === 'failed' && tests.length === 0) known = false
         }
@@ -208,7 +212,8 @@ function copies(root: string, count: number): string[] {
         return name !== 'node_modules' && name !== '.git'
       },
     })
-    for (const link of links) fs.symlinkSync(path.join(root, link), path.join(copy, link))
+    // A junction where Windows would want a privilege for a link; the word means nothing elsewhere.
+    for (const link of links) fs.symlinkSync(path.join(root, link), path.join(copy, link), 'junction')
     return copy
   })
 }
@@ -247,7 +252,8 @@ async function make(): Promise<Truth> {
   const originals = new Map<string, string>()
   const restore = () => {
     for (const [file, source] of originals) fs.writeFileSync(file, source)
-    if (roots.length > 1) for (const copy of roots) fs.rmSync(copy, { recursive: true, force: true })
+    // Windows keeps a directory from going while a process that was just ended still has it open.
+    if (roots.length > 1) for (const copy of roots) fs.rmSync(copy, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 })
   }
   process.on('exit', restore)
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
