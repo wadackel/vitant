@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
 import {
   type Cache,
   type CachedFile,
@@ -1266,7 +1266,7 @@ function writeSession(
   fs.writeFileSync(paths.tracked, generated.tracked)
   fs.writeFileSync(paths.state, new Uint8Array(generated.mutants.length))
   const runtime = pathToFileURL(
-    path.join(path.dirname(fileURLToPath(import.meta.url)), 'runtime/runner.ts'),
+    path.join(import.meta.dirname, `runtime/runner${path.extname(import.meta.filename)}`),
   ).href
   // Vitest 5 does not have `@vitest/spy` among its own dependencies everywhere, and nothing here needs it there.
   const spy = () => pathToFileURL(createRequire(vitestPackage).resolve('@vitest/spy')).href

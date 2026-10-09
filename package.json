@@ -6,11 +6,14 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "vitant": "./src/cli.ts"
+    "vitant": "./dist/cli.js"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "build:native": "node native/build.ts",
+    "prepack": "tsc -p tsconfig.build.json",
     "test": "vitest run",
+    "test:packed": "node bench/packed.ts",
     "test:truth": "node bench/truth.ts make --root fixtures/basic --jobs 4 && node bench/truth.ts make --root fixtures/basic --jobs 4 --tool=--static && node bench/truth.ts make --root fixtures/stuck && node bench/truth.ts make --root fixtures/clash",
     "typecheck": "tsc --noEmit"
   },
@@ -24,5 +27,8 @@
     "@types/node": "^26.6.3",
     "typescript": "^7.0.2",
     "vitest": "5.0.3"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

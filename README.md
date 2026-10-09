@@ -82,7 +82,7 @@ On Linux V8 marks the memory it allocates, the JavaScript heap included, as not 
 
 `pnpm build:native` compiles it with `cargo`, for the platform of the Node that runs it, into `build/fork.<platform>-<arch>[-gnu|-musl].node`. The tool looks for that file first and for a package named after the platform second.
 
-Nothing is published yet. The intended shape is one package per platform (`npm/`, in the layout `napi create-npm-dirs` makes), each an optional dependency of the tool so that a package manager installs the one that fits and nobody needs a compiler. Two things are missing for that: the root package does not list them, and it runs its TypeScript sources directly, which Node refuses for files under `node_modules`, so a published tool has to ship JavaScript.
+Nothing is published yet. The intended shape is one package per platform (`npm/`, in the layout `napi create-npm-dirs` makes), each an optional dependency of the tool so that a package manager installs the one that fits and nobody needs a compiler. Node refuses to run TypeScript sources under `node_modules`, so the package holds JavaScript: `pnpm build` compiles `src/` to `dist/`, and packing does that first. `pnpm test:packed` packs the tool and the addon's package for the platform, installs both next to Vitest into a copy of the fixture project outside the repository, and runs the installed command: every mutant has to come out as from the sources, with runs made in copies, which only happens when the addon is found through its package. The workflow below does that on every platform. By hand the packed tool was also run on immer (Vitest 3) and ufo (Vitest 4), and agreed with the ground truth on every mutant: installed, the code that runs inside the workers is loaded by Node itself and not through Vite, as it is from the sources. One thing is missing: the root package does not list the six as optional dependencies, which it cannot before they are on the registry; that is for the step that publishes to write in.
 
 `.github/workflows/native.yml` builds and tests all six on every push: macOS on arm64 and x64, Linux with glibc and with musl on both. On each, the tests of this repository pass with copies on, and every verdict on the fixture project is checked against the project's own suite (see Checking the verdicts).
 
@@ -348,6 +348,7 @@ With `CONFORMANCE_MUTANTS=3` the check also turns on up to three mutants per tes
 ```sh
 pnpm test        # unit tests and an end-to-end run against fixtures/basic
 pnpm test:truth  # every verdict on fixtures/basic against the suite run with the mutant written in
+pnpm test:packed # the tool packed, installed into a copy of the fixture and run from there, against a run from the sources
 pnpm typecheck
 ```
 

@@ -6,5 +6,6 @@ bench/results/**/vitant*.json
 bench/setup.log
 fixtures/.tmp-*
 build
+dist
 native/target
 npm/*/*.node

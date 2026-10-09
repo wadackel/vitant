@@ -1,6 +1,7 @@
 # Builds the addon that copies a worker process for every platform it has a
 # package for, runs the tests with it there, checks every verdict on the
-# fixture project against the project's own suite, and keeps the binaries.
+# fixture project against the project's own suite, runs the tool packed and
+# installed as a published one would be, and keeps the binaries.
 # On Windows, where a process cannot be copied, the same tests and checks run
 # without the addon.
 name: native
@@ -51,6 +52,7 @@ jobs:
           pnpm build:native
           pnpm test
           pnpm test:truth
+          pnpm test:packed
 
       # musl: in an Alpine container started by hand. Actions written in
       # JavaScript do not run inside one on arm64, so only the build and the
@@ -67,6 +69,7 @@ jobs:
             pnpm build:native
             pnpm test
             pnpm test:truth
+            pnpm test:packed
           '
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -105,6 +108,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:truth
+      - run: pnpm test:packed
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ failure() }}
         with:

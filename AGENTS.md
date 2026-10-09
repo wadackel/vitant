@@ -20,13 +20,14 @@ Everything in the repository is in English: code, comments, identifiers, error m
 
 ## Commands
 
-Node 24 runs the TypeScript sources directly; there is no build step for them.
+Node 24 runs the TypeScript sources directly; only the package that would be published is built, to JavaScript in `dist/`.
 
 ```sh
 pnpm install
 pnpm build:native    # the addon that copies a worker process; needs Rust 1.85+
 pnpm test            # unit tests and an end-to-end run against fixtures/basic
 pnpm test:truth      # every verdict on fixtures/basic against the suite with the mutant written in
+pnpm test:packed     # the tool packed (pnpm build first, by itself), installed and run, against a run from the sources
 pnpm typecheck
 
 node src/cli.ts --root <project> --mutate 'src/**/*.ts' --report report.json
