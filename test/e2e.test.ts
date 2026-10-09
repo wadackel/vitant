@@ -24,6 +24,8 @@ function statusOf(file: string, line: number, replacement: string): string {
   return matches[0].status
 }
 
+// The runs here get three minutes each: a hosted runner with an Intel
+// processor has taken more than one over a run that takes ten seconds elsewhere.
 describe('running the fixture project', () => {
   beforeAll(() => {
     const report = reportPath('basic')
@@ -34,7 +36,6 @@ describe('running the fixture project', () => {
     )
     expect(cli.status, cli.stderr).toBe(0)
     result = JSON.parse(fs.readFileSync(report, 'utf8'))
-    // A hosted runner with an Intel processor has taken more than a minute over this run.
   }, 180_000)
 
   // Hosted CI machines have three or four cores; what holds a worker while it waits for another shows there.
@@ -67,7 +68,7 @@ describe('running the fixture project', () => {
     expect(verdicts(plain)).toEqual(verdicts(result))
     expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied after load']).toBe(0)
     expect(plain.wholeRuns.started).toBeGreaterThan(0)
-  }, 60_000)
+  }, 180_000)
 
   // Without this a build that quietly fell back to starting workers would pass every other test.
   it.skipIf(!addonTarget())('makes the whole-file runs in copies of a worker', () => {
@@ -236,7 +237,7 @@ describe('reusing an earlier run', () => {
     expect(second.reused).toBe(22)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
-  }, 60_000)
+  }, 180_000)
 
   it('remembers which test killed a mutant, under a key that survives edits elsewhere in the file', () => {
     const cache = JSON.parse(fs.readFileSync(path.join(copy, 'node_modules/.vitant/cache.json'), 'utf8'))
@@ -255,7 +256,7 @@ describe('reusing an earlier run', () => {
     // Only counter.test.ts imports counter.ts.
     expect(after.reused).toBe(21)
     expect(after.result.counts).toEqual(before.counts)
-  }, 60_000)
+  }, 180_000)
 
   it('picks up a new test that kills a mutant the cached run left alive', () => {
     const before = runCopy().result
@@ -268,7 +269,7 @@ describe('reusing an earlier run', () => {
     expect(after.reused).toBe(21)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
-  }, 60_000)
+  }, 180_000)
 })
 
 describe('with mutants in code that only runs while a module loads run too', () => {
@@ -288,7 +289,7 @@ describe('with mutants in code that only runs while a module loads run too', () 
     const others = (run: RunResult) =>
       run.mutants.filter((m) => result.mutants[m.id].status !== 'Static').map((m) => `${m.id} ${m.status}`)
     expect(others(judged)).toEqual(others(result))
-  }, 60_000)
+  }, 180_000)
 })
 
 describe('a mutant that keeps a test file from ever finishing to load', () => {
