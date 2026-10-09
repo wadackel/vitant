@@ -126,6 +126,18 @@ if (tools.has('stryker')) {
   timings.push(time('stryker', 'npx', ['stryker', 'run', config], dir))
 }
 
+interface Reported {
+  file: string
+  mutator: string
+  replacement: string
+  status: string
+  location: { start: { line: number; column: number }; end: { line: number; column: number } }
+}
+const keyOf = (mutant: Reported) =>
+  [mutant.file, mutant.location.start.line, mutant.location.start.column, mutant.location.end.line, mutant.location.end.column, mutant.mutator, mutant.replacement].join('|')
+// A mutant that both fails a test and loops is Killed in one run and Timeout in another.
+const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
+
 for (const tool of ['vitant-no-clone', 'vitant']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
@@ -133,6 +145,11 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if ('changed' in scope) args.push('--changed', scope.changed)
   else for (const glob of scope.mutate) args.push('--mutate', glob)
+  // What the last run of the scope said, to hold this one against. Two runs
+  // of one mutant that differ are one of them wrong, whatever changed in
+  // between and also where nothing did: the wrong Survived in vue that the
+  // stored ground truth had no entry for showed as such a difference first.
+  const before = fs.existsSync(report) ? (JSON.parse(fs.readFileSync(report, 'utf8')) as { mutants: Reported[] }).mutants : undefined
   fs.rmSync(report, { force: true })
   // From the project, as its own scripts run: configs resolve paths against the working directory.
   const timing = time(tool, process.execPath, args, dir)
@@ -150,8 +167,24 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
   // The tool exits with 1 when it gave up on a test file.
   if (timing.exitCodes.some((code) => code !== 0)) keep()
   if (!fs.existsSync(report)) continue
-  const { counts, wholeRuns, rounds, abandonedFiles } = JSON.parse(fs.readFileSync(report, 'utf8'))
+  const { counts, wholeRuns, rounds, abandonedFiles, mutants } = JSON.parse(fs.readFileSync(report, 'utf8')) as {
+    counts: unknown
+    wholeRuns: unknown
+    rounds: number
+    abandonedFiles: string[]
+    mutants: Reported[]
+  }
   reports[tool] = { counts, wholeRuns, rounds, abandonedFiles: abandonedFiles.length }
+  if (before) {
+    const was = new Map(before.map((mutant) => [keyOf(mutant), mutant.status]))
+    const changed = mutants.filter((mutant) => was.has(keyOf(mutant)) && kind(was.get(keyOf(mutant))!) !== kind(mutant.status))
+    if (changed.length > 0) {
+      console.log(`${tool}: ${changed.length} mutant(s) are not as the last run of this scope had them`)
+      for (const mutant of changed.slice(0, 20)) {
+        console.log(`  ${mutant.file}:${mutant.location.start.line}:${mutant.location.start.column} ${mutant.mutator} -> ${mutant.replacement.slice(0, 40).replace(/\n/g, ' ')}: ${was.get(keyOf(mutant))} then, ${mutant.status} now`)
+      }
+    }
+  }
   if (!fs.existsSync(truth)) continue
   const check = spawnSync(
     process.execPath,

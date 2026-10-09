@@ -61,7 +61,7 @@ node bench/conformance.ts bench/.work/test262   # instrumented code against test
 ## Verifying a change
 
 - Run `pnpm typecheck` and `pnpm test`.
-- For anything that touches instrumentation, planning, the runner or the addon, also run at least two benchmark targets and compare every mutant's verdict with a report made before the change. A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference.
+- For anything that touches instrumentation, planning, the runner or the addon, also run at least two benchmark targets and compare every mutant's verdict with a report made before the change. A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference. `bench/run.ts` prints every mutant that is not as the last run of the scope on this machine had it. That holds between two runs of unchanged code as well: one of the two is wrong, so write the mutant into the source and run the suite before anything else.
 - Run each benchmark on a quiet machine. Times vary by about a tenth between identical runs, so one run does not show a small gain.
 - A trap that produced a wrong verdict gets a minimal reproduction in `fixtures/basic/`. `pnpm test:truth` must agree on every mutant there; it finds what nobody thought to assert.
 - Ground truth is the suite itself: `bench/truth.ts` writes each mutant into the source and runs Vitest. `bench/truth/` holds what that gave for the benchmark scopes, and `bench/run.ts` fails on a verdict that disagrees. An entry is changed only after running the suite by hand, never to match a report.
