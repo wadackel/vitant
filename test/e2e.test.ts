@@ -349,3 +349,41 @@ describe('a run in which no test runs', () => {
     expect(cli.status).toBe(1)
   }, 180_000)
 })
+
+describe('tests that leave a file under version control changed', () => {
+  // Inside the repository, so that it resolves the repository's Vitest, and a repository of its own.
+  const project = path.join(root, 'fixtures', `.tmp-written-${process.pid}`)
+  afterAll(() => fs.rmSync(project, { recursive: true, force: true }))
+
+  it('get their verdicts with the files named and a failing exit code', () => {
+    fs.rmSync(project, { recursive: true, force: true })
+    fs.mkdirSync(path.join(project, 'src'), { recursive: true })
+    fs.mkdirSync(path.join(project, 'test'))
+    fs.writeFileSync(path.join(project, 'package.json'), '{ "name": "fixture-written", "private": true, "type": "module" }\n')
+    fs.copyFileSync(path.join(root, 'fixtures/basic/vitest.config.ts'), path.join(project, 'vitest.config.ts'))
+    fs.writeFileSync(path.join(project, 'data.txt'), 'as committed\n')
+    fs.writeFileSync(path.join(project, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b\n')
+    fs.writeFileSync(
+      path.join(project, 'test/add.test.ts'),
+      [
+        "import fs from 'node:fs'",
+        "import { expect, it } from 'vitest'",
+        "import { add } from '../src/add'",
+        "it('adds, and leaves a line in a file of the project', () => {",
+        "  fs.appendFileSync(new URL('../data.txt', import.meta.url), 'a run was here\\n')",
+        '  expect(add(1, 2)).toBe(3)',
+        '})',
+        '',
+      ].join('\n'),
+    )
+    const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args], { cwd: project })
+    git('init', '-q')
+    git('add', '.')
+    expect(git('commit', '-q', '-m', 'as committed').status).toBe(0)
+
+    const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', project], { encoding: 'utf8' })
+    expect(cli.stdout).toContain('1 file(s) under version control differ from before the run')
+    expect(cli.stdout).toContain('data.txt')
+    expect(cli.status).toBe(1)
+  }, 180_000)
+})

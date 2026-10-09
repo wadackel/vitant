@@ -31,7 +31,7 @@ for each one whether the suite detects it.
   --help, --version
 
 The exit code is 1 when a test file had to be given up on, and its mutants are left pending,
-and when no test ran at all.`
+when no test ran at all, and when files under version control are not as they were before the run.`
 
 const { values, positionals } = (() => {
   try {
@@ -218,4 +218,8 @@ if (result.tests === 0 && result.mutants.length > 0) console.log('no test ran: c
 // Vitest sets a failing exit code whenever a test fails, which killed mutants
 // make routine. Exiting outright, because workers the pool keeps in reserve
 // can outlive its shutdown and would hold the process open.
-process.exit(result.abandonedFiles.length > 0 || (result.tests === 0 && result.mutants.length > 0) ? 1 : 0)
+// Tests that leave a file of the project changed ran, from then on, in a
+// project no plain run starts from: the verdicts are printed with that
+// said, and are not to pass for a result in a script.
+const unsound = (result.tests === 0 && result.mutants.length > 0) || result.changedFiles.length > 0
+process.exit(result.abandonedFiles.length > 0 || unsound ? 1 : 0)
