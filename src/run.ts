@@ -102,6 +102,12 @@ export interface RunResult {
    * the rest of the suite, and these might have detected it.
    */
   leftOut: { projects: Record<string, number>; typeTests: number }
+  /**
+   * The runs made with nothing else running, by how they went. One that
+   * passed is a mutant that had failed its file twice in a row and would
+   * have been reported as killed without it.
+   */
+  quietRuns: { failed: number; passed: number }
   /** Test files whose runs failed each other and were made one at a time from then on. */
   exclusiveFiles: string[]
   /**
@@ -1974,6 +1980,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
     tests,
     failedBaselines,
     leftOut,
+    quietRuns: {
+      failed: records.filter((record) => record.type === 'whole' && record.quiet && record.by && record.verdict !== 'passed').length,
+      passed: records.filter((record) => record.type === 'whole' && record.quiet && record.by && record.verdict === 'passed').length,
+    },
     exclusiveFiles: [...status.exclusive].map((file) => path.relative(options.root, file)),
     changedFiles: changedSince(treeBefore, options.root),
     flakyTests: [...status.flaky].flatMap((id) => {

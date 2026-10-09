@@ -1471,7 +1471,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      */
     private wholeSettled(): boolean {
       if (!this.wholeFailure) return false
-      if (this.wholeFailure === 'timeout' || this.wholeWaits.size === 0) return true
+      // A run made with nothing else running counts by itself, whichever test fails in it.
+      if (this.wholeFailure === 'timeout' || this.wholeWaits.size === 0 || this.whole!.quiet) return true
       return this.wholeTests.some((id) => this.whole!.witnesses?.includes(id))
     }
 

@@ -129,6 +129,10 @@ if (leftOut.length > 0 || result.leftOut.typeTests > 0) {
   for (const [project, files] of leftOut) console.log(`  ${files} test file(s) of project ${project}, which the mutants could not be put into`)
   if (result.leftOut.typeTests > 0) console.log(`  ${result.leftOut.typeTests} file(s) of type tests, which run in the type checker`)
 }
+const quietRuns = result.quietRuns.failed + result.quietRuns.passed
+if (quietRuns > 0) {
+  console.log(`${quietRuns} run(s) were made with nothing else running, to see failures that had settled nothing; ${result.quietRuns.passed} passed`)
+}
 if (result.exclusiveFiles.length > 0) {
   console.log(`${result.exclusiveFiles.length} test file(s) were run one at a time: their runs failed each other`)
 }
