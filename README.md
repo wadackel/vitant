@@ -150,15 +150,15 @@ Started for each run, a worker costs the tests themselves where they are heavy (
 
 ### The three targets added last
 
-Chosen for shapes the first nine do not have, and each run for the first time found something. The last three rows came later, one run each. Two to four runs each on the same machine; the check against the suite is of a sample, spread evenly over the mutants.
+Chosen for shapes the first nine do not have, and each run for the first time found something. The last three rows came later, one run each. Two to four runs each on the same machine; the check against the suite is of a sample, spread evenly over the mutants, and for vue, solid, svelte, Effect and shiki of every mutant reported as survived besides.
 
 | Target and scope | Mutants | This tool | Against the suite | StrykerJS |
 |---|---|---|---|---|
 | vue `reactivity`: `packages/reactivity/src` | 1,675 | 130 s | 542 checked: 528 agree, none wrong, 14 not judged | does not start: a test fails in its first run |
-| solid `reactive`: `src/reactive` | 1,560 | 716 s | 300 checked: 296 agree, none wrong, 4 not judged | 212.3 s, not comparable: see below |
-| svelte `sources`: one file of the runtime | 244 | 3,265 s | 69 checked, every survivor among them: all agree | does not start |
-| Effect `data`: three modules that nearly every test file imports | 1,507 | 599 s | 40 checked: all agree | not run |
-| shiki `transformers`: `packages/transformers/src` | 1,037 | 56 s | 100 checked: 97 agree, none wrong, 3 not judged | not run |
+| solid `reactive`: `src/reactive` | 1,560 | 716 s | 635 checked, every survivor among them: 631 agree, none wrong, 4 not judged | 212.3 s, not comparable: see below |
+| svelte `sources`: one file of the runtime | 244 | 3,265 s | 70 checked, every survivor among them: all agree | does not start |
+| Effect `data`: three modules that nearly every test file imports | 1,507 | 599 s | 179 checked, every survivor among them: all agree | not run |
+| shiki `transformers`: `packages/transformers/src` | 1,037 | 56 s | 263 checked, every survivor among them: 260 agree, none wrong, 3 not judged | not run |
 | unocss `core`: `packages-engine/core/src/utils` | 650 | 1 s | 40 checked: all agree | not run |
 | pacer `timing`: three files of `packages/pacer/src` (Vitest 5, happy-dom, fake timers) | 603 | 10 s | 200 checked: 195 agree, none wrong, 5 not judged | not run |
 | xstate `core`: `stateUtils.ts` and `StateMachine.ts` (Vitest 3.2, real timers) | 1,133 | 107 s | 150 checked: 149 agree, none wrong, 1 not judged | not run |
