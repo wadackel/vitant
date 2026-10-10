@@ -150,7 +150,7 @@ Started for each run, a worker costs the tests themselves where they are heavy (
 
 ### The three targets added last
 
-Chosen for shapes the first nine do not have, and each run for the first time found something. The last three rows came later, one run each. Two to four runs each on the same machine; the check against the suite is of a sample, spread evenly over the mutants, and for vue, solid, svelte, Effect and shiki of every mutant reported as survived besides.
+Chosen for shapes the first nine do not have, and each run for the first time found something. The last three rows came later, one run each. Two to four runs each on the same machine; the check against the suite is of a sample, spread evenly over the mutants, and for every target but unocss and h3 of every mutant reported as survived besides.
 
 | Target and scope | Mutants | This tool | Against the suite | StrykerJS |
 |---|---|---|---|---|
@@ -160,9 +160,9 @@ Chosen for shapes the first nine do not have, and each run for the first time fo
 | Effect `data`: three modules that nearly every test file imports | 1,507 | 599 s | 179 checked, every survivor among them: all agree | not run |
 | shiki `transformers`: `packages/transformers/src` | 1,037 | 56 s | 263 checked, every survivor among them: 260 agree, none wrong, 3 not judged | not run |
 | unocss `core`: `packages-engine/core/src/utils` | 650 | 1 s | 40 checked: all agree | not run |
-| pacer `timing`: three files of `packages/pacer/src` (Vitest 5, happy-dom, fake timers) | 603 | 10 s | 200 checked: 195 agree, none wrong, 5 not judged | not run |
-| xstate `core`: `stateUtils.ts` and `StateMachine.ts` (Vitest 3.2, real timers) | 1,133 | 107 s | 150 checked: 149 agree, none wrong, 1 not judged | not run |
-| valibot `schemas`: `library/src/schemas` (Vitest 4, jsdom, no isolation between test files) | 4,672 | 95 s | 150 checked: all agree | not run |
+| pacer `timing`: three files of `packages/pacer/src` (Vitest 5, happy-dom, fake timers) | 603 | 10 s | 298 checked, every survivor among them: 293 agree, none wrong, 5 not judged | 41 s and not one mutant detected, on Vitest 5; not looked into |
+| xstate `core`: `stateUtils.ts` and `StateMachine.ts` (Vitest 3.2, real timers) | 1,133 | 107 s | 270 checked, every survivor among them: 269 agree, none wrong, 1 not judged | 168.6 s next to 123.3 s here on a busy machine; 63 mutants it reports as killed survive here, and all 63 pass the suite |
+| valibot `schemas`: `library/src/schemas` (Vitest 4, jsdom, no isolation between test files) | 4,672 | 95 s | 311 checked, every survivor among them: all agree | 198.1 s next to 116.5 s here on a busy machine; the same verdict on all 4,573 mutants both ran |
 | h3 `utils`: `src/utils` (Vitest 5, every suite also against a server on a port) | 4,096 | 744 s | 150 checked: 142 agree, 8 that pass every test and fail the project's type check | not run |
 
 What they showed, each fixed:
