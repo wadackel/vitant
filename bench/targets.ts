@@ -234,6 +234,52 @@ export const targets: Record<string, Target> = {
       all: { mutate: ['src/**/*.ts'] },
     },
   },
+  // State machines and actors, with tests that wait on real timers. One of
+  // sixteen projects the root config names by the path of their own configs,
+  // which the tool cannot be put into: it is run from the package instead.
+  xstate: {
+    repo: 'https://github.com/statelyai/xstate',
+    commit: 'da4c74efa441dd3a4c1d9835c42c3d1f87cdcaba',
+    install: ['npx -y pnpm@10.34.5 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@10.34.5 add -D -w ${stryker}`,
+    dir: 'packages/core',
+    scopes: {
+      core: { mutate: ['src/stateUtils.ts', 'src/StateMachine.ts'] },
+    },
+  },
+  // Vitest 5. Every suite runs twice, once in the process and once against a
+  // server on a port of its own with real requests.
+  h3: {
+    repo: 'https://github.com/h3js/h3',
+    commit: '66cfb8a357b6285451bad498c2c40002601fae98',
+    install: ['npx -y pnpm@12.3.4 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@12.3.4 add -D ${stryker}`,
+    scopes: {
+      utils: { mutate: ['src/utils/**/*.ts'] },
+    },
+  },
+  // Vitest 5, happy-dom. Debouncing, throttling and queues, tested under fake timers.
+  pacer: {
+    repo: 'https://github.com/TanStack/pacer',
+    commit: '70ac6293e16698d728d90707b4ef0ccd71f02627',
+    install: ['npx -y pnpm@12.6.0 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@12.6.0 add -D -w ${stryker}`,
+    dir: 'packages/pacer',
+    scopes: {
+      timing: { mutate: ['src/debouncer.ts', 'src/throttler.ts', 'src/async-queuer.ts'] },
+    },
+  },
+  // Vitest 4, jsdom, no isolation between test files: 280 small test files next to their sources.
+  valibot: {
+    repo: 'https://github.com/open-circle/valibot',
+    commit: '2d29dbf04d272341a1e617070bd0b03eda8c4404',
+    install: ['npx -y pnpm@11.5.0 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@11.5.0 add -D -w ${stryker}`,
+    dir: 'library',
+    scopes: {
+      schemas: { mutate: ['src/schemas/**/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */
