@@ -100,6 +100,14 @@ export interface WholeJob {
   /** No mutant: the run is to show that a copy of a worker runs the file as a worker started for it does. */
   control?: boolean
   /**
+   * No mutant, and made with nothing else running, among the runs of mutants
+   * made that way: a failure seen with nothing else running is taken for the
+   * mutant's on the premise that the file passes there without one. A test
+   * that waits on a race with a server can lose it the more often the less
+   * the machine has to do; what fails here fails by itself.
+   */
+  calm?: boolean
+  /**
    * The tests that failed with the mutant while trying it and passed again
    * without it. The file failing in one of them settles the mutant in one run.
    */

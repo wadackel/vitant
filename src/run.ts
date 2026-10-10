@@ -338,6 +338,15 @@ interface ApartRecord {
   verdict: 'failed' | 'passed'
 }
 
+/** How a run of a file went with no mutant on and nothing else running, see `WholeJob.calm`. */
+interface CalmRecord {
+  type: 'calm'
+  file: string
+  verdict: 'failed' | 'passed'
+  /** The tests that failed in it. */
+  tests?: string[]
+}
+
 interface ControlRecord {
   type: 'control'
   file: string
@@ -381,6 +390,7 @@ export type SessionRecord = (
   | PairRecord
   | { type: 'pairing'; file: string }
   | ApartRecord
+  | CalmRecord
   | { type: 'worker' }
 ) & {
   at: number
@@ -447,6 +457,12 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
   const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean }[] = []
+  /** Tests that failed in a run with no mutant on and nothing else running. */
+  const restive = new Set<string>()
+  /** Files such a run failed in with no test to name. */
+  const restless = new Set<string>()
+  /** Per file, how many such runs have been made. */
+  const calms = new Map<string, number>()
   /** Per test given its one run in a copy with no mutant on, whether every such run passed. */
   const apart = new Map<string, boolean>()
   /** Per mutant, the tests that failed with it and passed without it next to other runs of their file. */
@@ -509,6 +525,13 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     }
     // In a run of a whole file the record names no test, and the run's own record follows.
     if (record.type === 'stall' && record.id !== '') stalls.push({ mutant: record.mutant, test: record.id })
+    if (record.type === 'calm') {
+      calms.set(record.file, (calms.get(record.file) ?? 0) + 1)
+      if (record.verdict !== 'passed') {
+        if (record.tests?.length) for (const test of record.tests) restive.add(test)
+        else restless.add(record.file)
+      }
+    }
     if (record.type === 'apart') apart.set(record.test, record.verdict === 'passed' && apart.get(record.test) !== false)
     if (record.type === 'early') {
       if (record.site === -1) sharing.add(record.file)
@@ -659,6 +682,15 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   // it has done the same with a mutant somewhere else in the code: one
   // mutant's doing must not cost another the test that detects it.
   for (const [test, sites] of unsteady) if (sites.size >= 2) flaky.add(test)
+  // A failure seen with nothing else running is taken for the mutant's on
+  // the premise that the file passes there with none. In h3 a test that
+  // sends a body too large to a server on a port times out six times in six
+  // when its file is run alone, and passes as a rule with the whole suite
+  // around it: sixteen mutants it has nothing to do with were reported as
+  // timeouts. What fails with no mutant on and nothing else running is left
+  // out like any test that fails by itself, for what it had been taken to
+  // show as well.
+  for (const test of restive) flaky.add(test)
   for (const [file, tests] of gaveAway) {
     if ([...tests].some((test) => test === undefined || !unsteady.has(test))) exclusive.add(file)
   }
@@ -714,8 +746,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     entry.runs++
     if (uncopied.has(record.file) && record.by && record.by !== 'started') plain.add(key)
     if (!settled.has(record)) continue
+    const named = record.test ?? record.tests?.[0]
     if (record.verdict === 'passed') entry.passed++
-    else if (record.test && flaky.has(record.test)) continue
+    else if (named && flaky.has(named)) continue
+    // Nor does a failure count in a file that fails that way with no test to name.
+    else if (restless.has(record.file)) continue
     else if (record.died) entry.died++
     else if (record.verdict === 'failed') entry.failed++
     else entry.timedOut++
@@ -765,7 +800,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1078,6 +1113,11 @@ function planPhase(
       quietJobs.push([mutant, file])
       return
     }
+    // The runs of a file that is run one process at a time stand in one
+    // line, and what the round learns of its tests, that one fails by
+    // itself for one, the runs still in the line do not: in h3 a thousand
+    // of them waited five seconds each for a test that was to be left out.
+    if (status.exclusive.has(file) && (plan.whole[file]?.length ?? 0) >= 24) return
     const hung = entry !== undefined && entry.timedOut + entry.died > 0
     const early =
       status.sharing.has(file) ||
@@ -1218,11 +1258,39 @@ function planPhase(
     quietJobs.sort((a, b) => (fileMs.get(a[1]) ?? 0) - (fileMs.get(b[1]) ?? 0))
     const asked = new Set<number>()
     for (const [mutant, file] of quietJobs) {
-      if (asked.has(mutant)) continue
+      if (asked.has(mutant) || status.restless.has(file)) continue
       asked.add(mutant)
       wholeJob(mutant, file, false, true)
     }
-    plan.quiet = quietJobs.length > 0
+    // Among them runs with no mutant on, as alone as they are: two before
+    // the first of a file, one after every six and one at the end. One such
+    // run passes one time in five for a test that fails four times in five
+    // when left alone; a test is left out once any of them fails in it.
+    for (const [file, list] of Object.entries(plan.whole)) {
+      const calm = (): WholeJob => ({
+        id: jobs++,
+        mutant: -1,
+        ignore: failing.get(file) ?? [],
+        fileMs: fileMs.get(file) ?? 0,
+        fileLoops: fileLoops.get(file) ?? 0,
+        stalled: false,
+        control: true,
+        quiet: true,
+        calm: true,
+        site: -1,
+        early: status.sharing.has(file) || !status.staticSites.has(file),
+        plain: status.uncopied.has(file),
+      })
+      const mixed: WholeJob[] = [calm(), calm()]
+      list.forEach((job, index) => {
+        mixed.push(job)
+        if ((index + 1) % 6 === 0 && index + 1 < list.length) mixed.push(calm())
+      })
+      mixed.push(calm())
+      addWork(file, 0, 0, mixed.length - list.length)
+      plan.whole[file] = mixed
+    }
+    plan.quiet = Object.keys(plan.whole).length > 0
     if (plan.quiet) return { plan, workByFile }
   }
   for (const file of workers < 2 ? [] : status.pairWanted) {
@@ -1782,7 +1850,15 @@ export async function run(options: RunOptions): Promise<RunResult> {
           // other's load for as long as starting takes, which on four
           // cores was long enough for a test that checks the clock to fail
           // in the first of them.
-          if (oneAtATime) for (const spec of plan) await vitest.runTestSpecifications([spec], true)
+          if (oneAtATime) {
+            const failedCalm = () => readRecords().filter((record) => record.type === 'calm' && record.verdict !== 'passed').length
+            const before = failedCalm()
+            for (const spec of plan) {
+              await vitest.runTestSpecifications([spec], true)
+              // A test found to fail by itself is left out of what follows, which is planned anew.
+              if (failedCalm() > before) break
+            }
+          }
           else await vitest.runTestSpecifications(plan, true)
         } finally {
           clearInterval(sweeping)
@@ -1913,6 +1989,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const entry of status.whole.values()) judged += total(entry)
       for (const pair of status.pairs.values()) judged += pair.asked + pair.met
       for (const passes of status.measured.values()) judged += passes
+      for (const runs of status.calms.values()) judged += runs
       if (next.workByFile.size === 0) break
       stalled = judged === progress ? stalled + 1 : 0
       progress = judged
@@ -2155,6 +2232,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     if (record.type === 'whole' && record.by) wholeRuns[record.by]++
     else if (record.type === 'plain') wholeRuns.lost++
   }
+  // A file that fails with no mutant on, nothing else running and no test to name leaves no way to tell what a mutant does to it.
+  for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const pending = abandonedFiles.length > 0
   const { detected } = status
   const proof = (mutant: number): Evidence[] =>

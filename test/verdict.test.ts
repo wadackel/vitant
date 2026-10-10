@@ -114,6 +114,25 @@ describe('what the runs of whole files settle', () => {
     expect(passed.whole.get(`0\n${file}`)?.passed).toBe(1)
   })
 
+  it('takes nothing from a test that fails with no mutant on and nothing else running', () => {
+    const calm = (verdict: 'failed' | 'passed', tests: string[] = []): SessionRecord =>
+      ({ type: 'calm', file, verdict, tests, at: at++ }) as SessionRecord
+    const runs = [whole(0, 'failed', { test: 't2' }), whole(0, 'failed', { test: 't2' }), whole(0, 'failed', { test: 't2', alone: true, quiet: true })]
+    expect(inspect([...runs, calm('passed')]).detected.get(0)).toBe(MUTANT_KILLED)
+    // The file fails in that test by itself where the machine has nothing else to do: so it did with the mutant.
+    const status = inspect([...runs, calm('passed'), calm('failed', ['t2'])])
+    expect(status.detected.has(0)).toBe(false)
+    expect([...status.flaky]).toEqual(['t2'])
+    // Whenever that came out, and also for what the test had shown as a witness.
+    expect(inspect([calm('failed', ['t2']), lead(0, 't2'), whole(0, 'failed', { test: 't2' })]).detected.has(0)).toBe(false)
+    // A failure in another test stands.
+    expect(inspect([...runs, calm('failed', ['t9'])]).detected.get(0)).toBe(MUTANT_KILLED)
+    // With no test to name, nothing the file's failures say counts.
+    const restless = inspect([...runs, calm('failed')])
+    expect(restless.detected.has(0)).toBe(false)
+    expect([...restless.restless]).toEqual([file])
+  })
+
   it('has a file run alone once a run failed and another of the same mutant passed, and drops what ran side by side', () => {
     const status = inspect([
       // Another mutant, failed twice while runs of the file were side by side.

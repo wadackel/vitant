@@ -1013,6 +1013,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
       if (job.trial !== undefined) {
         if (ended !== cloner!.Ended.Done) untold(job, this.wholeFile!)
+      } else if (job.calm) {
+        // A copy that did not get to its end has shown nothing of the file either way.
       } else if (job.control) {
         // A copy that says nothing of the file unmutated says nothing of it with a mutant either.
         if (ended !== cloner!.Ended.Done) emit({ type: 'control', file: this.wholeFile, verdict: 'failed', by })
@@ -1552,6 +1554,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         cloner!.done()
         return cloner!.exit(0)
       }
+      if (this.whole!.calm) {
+        emit({ type: 'calm', file: this.wholeFile, verdict: this.wholeFailure ? 'failed' : 'passed', tests: this.wholeTests })
+        cloner!.done()
+        return cloner!.exit(0)
+      }
       if (this.whole!.control) {
         emit({ type: 'control', file: this.wholeFile, verdict: this.wholeFailure ? 'failed' : 'passed', test: this.wholeTest, by: this.wholeBy })
         cloner!.done()
@@ -1596,10 +1603,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           if (task.result?.state === 'fail') this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
         })
         if (cloned) return this.leave()
-        for (const file of this.whole.pair ? files : []) {
+        for (const file of this.whole.calm ? files : []) {
+          emit({ type: 'calm', file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', tests: this.wholeTests })
+        }
+        for (const file of this.whole.pair && !this.whole.calm ? files : []) {
           emit({ type: 'pair', file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', met: this.pairMet, test: this.wholeTest })
         }
-        for (const file of this.whole.pair ? [] : files) {
+        for (const file of this.whole.pair || this.whole.calm ? [] : files) {
           emit({
             type: 'whole',
             file: file.file.filepath,
