@@ -160,6 +160,10 @@ Chosen for shapes the first nine do not have, and each run for the first time fo
 | Effect `data`: three modules that nearly every test file imports | 1,507 | 599 s | 40 checked: all agree | not run |
 | shiki `transformers`: `packages/transformers/src` | 1,037 | 56 s | 100 checked: 97 agree, none wrong, 3 not judged | not run |
 | unocss `core`: `packages-engine/core/src/utils` | 650 | 1 s | 40 checked: all agree | not run |
+| pacer `timing`: three files of `packages/pacer/src` (Vitest 5, happy-dom, fake timers) | 603 | 10 s | 200 checked: 195 agree, none wrong, 5 not judged | not run |
+| xstate `core`: `stateUtils.ts` and `StateMachine.ts` (Vitest 3.2, real timers) | 1,133 | 107 s | 150 checked: 149 agree, none wrong, 1 not judged | not run |
+| valibot `schemas`: `library/src/schemas` (Vitest 4, jsdom, no isolation between test files) | 4,672 | 95 s | 150 checked: all agree | not run |
+| h3 `utils`: `src/utils` (Vitest 5, every suite also against a server on a port) | 4,096 | 744 s | 150 checked: 142 agree, 8 that pass every test and fail the project's type check | not run |
 
 What they showed, each fixed:
 
