@@ -65,6 +65,37 @@ describe('what the runs of whole files settle', () => {
     expect(inspect([...killed, lead(1, 't1'), whole(1, 'passed'), whole(0, 'failed', { test: 't1', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
   })
 
+  it('takes a test that tried the mutant on its one run in a copy for a witness once it passed in a copy with none', () => {
+    const copied = { ...lead(0, 't1'), copied: true } as SessionRecord
+    const apart = (verdict: 'failed' | 'passed') => ({ type: 'apart', file, test: 't1', verdict, at: at++ }) as SessionRecord
+    const runs = [whole(0, 'failed', { test: 't1' }), whole(0, 'failed', { test: 't1' })]
+    expect(inspect([...runs, copied]).detected.has(0)).toBe(false)
+    expect(inspect([...runs, copied, apart('passed')]).detected.get(0)).toBe(MUTANT_KILLED)
+    // What a copy does to the test is not the mutant's doing.
+    expect(inspect([...runs, copied, apart('failed')]).detected.has(0)).toBe(false)
+    expect(inspect([...runs, copied, apart('passed'), apart('failed')]).detected.has(0)).toBe(false)
+    // And such a test is found out like any other: by a mutant it fails with that its file passes with.
+    const harmless = { ...lead(1, 't1'), copied: true } as SessionRecord
+    expect(inspect([...runs, copied, apart('passed'), harmless, whole(1, 'passed')]).detected.has(0)).toBe(false)
+    // A copy that did not get to say what the test did left word that it was asked, and no more.
+    const untold = { ...lead(1, 't1'), copied: true, killed: [], suspected: [1] } as unknown as SessionRecord
+    const told = inspect([...runs, copied, apart('passed'), untold, whole(1, 'passed')])
+    expect(told.detected.get(0)).toBe(MUTANT_KILLED)
+    expect(told.triedSole.get(1)?.has('t1')).toBe(true)
+  })
+
+  it('holds a second failure without the mutant against a test only where the test could have passed', () => {
+    const again = (nonRepeatable: boolean) =>
+      ({ ...lead(1, 't1', false), killed: [], suspected: [1], nonRepeatable }) as unknown as SessionRecord
+    const killed = [lead(0, 't1'), whole(0, 'failed', { test: 't1' })]
+    // Failed with a mutant, failed again without it, and the file passes with that mutant: the test fails as it pleases.
+    expect(inspect([...killed, again(false), whole(1, 'passed')]).detected.has(0)).toBe(false)
+    // Unless it is a test that fails any second run in a worker, which that is then all it shows.
+    const status = inspect([...killed, again(true), whole(1, 'passed')])
+    expect(status.refuted.size).toBe(0)
+    expect(status.detected.get(0)).toBe(MUTANT_KILLED)
+  })
+
   it('does not let a lead from one test vouch for the failure of another', () => {
     const runs = [lead(0, 't1'), whole(0, 'failed', { test: 't2' }), whole(0, 'failed', { test: 't2' })]
     expect(inspect(runs).detected.has(0)).toBe(false)

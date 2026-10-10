@@ -846,6 +846,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * start from what that left, as those after a mutant do.
      */
     private upset = false
+    /** In a copy made for one test to try a mutant: the test is through, or one before it failed. */
+    private trialOver = false
+    private trialSaid = false
     /** How many tests a pass that measures the file left out for failing with no mutant on. */
     private ignored = 0
     /** Time this worker has spent on mutants its tests tried in passing. */
@@ -924,7 +927,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     private open(job: WholeJob): boolean {
-      if (job.control) return true
+      if (job.control || job.trial !== undefined) return true
       const state = readState(job.mutant)
       // A run asked for by name is made whatever a test has since written of the mutant.
       return job.confirm === true || job.quiet === true || state === MUTANT_PENDING || state === MUTANT_STALLED
@@ -1008,7 +1011,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const limit = hardLimitMs({ baselineMs: job.fileMs })
       const copiedAt = preciseNow()
       const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
-      if (job.control) {
+      if (job.trial !== undefined) {
+        if (ended !== cloner!.Ended.Done) untold(job, this.wholeFile!)
+      } else if (job.control) {
         // A copy that says nothing of the file unmutated says nothing of it with a mutant either.
         if (ended !== cloner!.Ended.Done) emit({ type: 'control', file: this.wholeFile, verdict: 'failed', by })
       } else if (ended === cloner!.Ended.Blocked) {
@@ -1042,7 +1047,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.wholeTests = []
       this.wholeWaits = new Set(job.witnesses)
       this.wholeStartedAt = preciseNow()
-      runtime.a = job.control ? NO_MUTANT : job.mutant
+      // A mutant that is only to be on for one test comes on at that test.
+      runtime.a = job.control || job.trial !== undefined ? NO_MUTANT : job.mutant
+      this.trialOver = false
+      this.trialSaid = false
       // The loops of the whole file share one count, with room for those
       // that run while it loads.
       if (beforeLoad) runtime.n = 0
@@ -1102,12 +1110,16 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const opened = !open || !this.openBeforeLoad || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
         const shares = opened || !(await calm(this.heldBeforeLoad, true))
         if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()] })
+        // No copy is made of a process that holds something open: a test that was to have its one run in one has had its turn.
+        for (const job of shares ? (plan?.whole[this.wholeFile!] ?? []) : []) {
+          if (job.trial !== undefined && claim(`whole.${job.id}`)) untold(job, this.wholeFile!)
+        }
         for (const job of shares ? [] : (plan?.whole[this.wholeFile!] ?? [])) {
           if (job.plain || job.early || !this.open(job)) continue
           // The mutant's code did run while this process loaded the file, so
           // a copy from here would have had it off for that: the job is left
           // for a copy made before loading.
-          if (runtime.h[job.site] === 1) {
+          if (job.trial === undefined && runtime.h[job.site] === 1) {
             if (!told.has(job.site)) emit({ type: 'early', file: this.wholeFile, site: job.site })
             told.add(job.site)
             continue
@@ -1164,7 +1176,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       await super.onBeforeRunTask?.(test)
       if (this.whole) {
         // The first failure settles it.
-        if (this.wholeSettled() || this.whole.ignore.includes(test.id)) test.mode = 'skip'
+        const over = this.whole.trial !== undefined ? this.trialOver : this.wholeSettled()
+        if (over || this.whole.ignore.includes(test.id)) test.mode = 'skip'
         return
       }
       if (test.mode !== 'run' && test.mode !== 'queued') return
@@ -1227,7 +1240,14 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     // next attempt is the one place, across versions, where the previous
     // attempt is known to be over and its result settled.
     onBeforeTryTask(test: TaskLike, options: TryOptions): unknown {
-      if (this.whole) return super.onBeforeTryTask?.(test, options)
+      if (this.whole) {
+        if (this.whole.trial === test.id && this.whole.mutant >= 0) {
+          runtime.n = 0
+          runtime.t = false
+          runtime.a = this.whole.mutant
+        }
+        return super.onBeforeTryTask?.(test, options)
+      }
       if (this.active?.test !== test) this.finishActive()
       if (test.repeats !== NEVER_ENDING) {
         drainStaticHits()
@@ -1460,6 +1480,36 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       }
       if (!this.whole) return
+      if (this.whole.trial !== undefined) {
+        const failed = test.result?.state === 'fail'
+        if (test.id === this.whole.trial) {
+          runtime.a = NO_MUTANT
+          const mutant = this.whole.mutant
+          if (mutant < 0) emit({ type: 'apart', file: test.file.filepath, test: test.id, verdict: failed ? 'failed' : 'passed' })
+          else {
+            emit({
+              type: 'test',
+              file: test.file.filepath,
+              id: test.id,
+              name: test.name,
+              mode: 'planned',
+              ...noMutants,
+              attempts: 1,
+              copied: true,
+              sole: !plan || plan.sole.includes(test.file.filepath) || plan.exclusive.includes(test.file.filepath),
+              killed: failed ? [mutant] : [],
+              survived: failed ? [] : [mutant],
+            })
+          }
+          this.trialOver = true
+          this.trialSaid = true
+        } else if (failed) {
+          // A test before it failed with no mutant on: this copy is not the run the test has in the file.
+          this.trialOver = true
+        }
+        if (this.trialOver && cloned) await this.leave()
+        return
+      }
       this.wholeWaits.delete(test.id)
       if (test.result?.state === 'fail') {
         if (!this.wholeFailure) this.wholeTest = test.id
@@ -1497,6 +1547,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // An error nothing handled may be on its way with an answer; the
       // verdict is read once nothing is.
       await quiet()
+      if (this.whole!.trial !== undefined) {
+        if (!this.trialSaid) untold(this.whole!, this.wholeFile!)
+        cloner!.done()
+        return cloner!.exit(0)
+      }
       if (this.whole!.control) {
         emit({ type: 'control', file: this.wholeFile, verdict: this.wholeFailure ? 'failed' : 'passed', test: this.wholeTest, by: this.wholeBy })
         cloner!.done()
@@ -1822,6 +1877,31 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         unverified: run.unverified,
       })
     }
+  }
+}
+
+/**
+ * What is left of a copy made for one test to try a mutant when the copy did
+ * not get to say what the test did: the test has had its try, and no more is
+ * asked of it. With no mutant on, the test is one whose word in a copy does
+ * not count.
+ */
+function untold(job: WholeJob, file: string): void {
+  if (job.trial === undefined) return
+  if (job.mutant < 0) emit({ type: 'apart', file, test: job.trial, verdict: 'failed' })
+  else {
+    emit({
+      type: 'test',
+      file,
+      id: job.trial,
+      name: '',
+      mode: 'planned',
+      ...noMutants,
+      attempts: 1,
+      copied: true,
+      sole: !plan || plan.sole.includes(file) || plan.exclusive.includes(file),
+      suspected: [job.mutant],
+    })
   }
 }
 

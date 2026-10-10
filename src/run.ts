@@ -28,6 +28,7 @@ import {
   MUTANT_STALLED,
   MUTANT_TIMEOUT,
   type RoundPlan,
+  type WholeJob,
   type SessionConfig,
   channelWatch,
   relative,
@@ -174,6 +175,8 @@ interface TestRecord {
   name: string
   /** `probe` records come with an unmutated run and what it covered. */
   mode: 'probe' | 'planned'
+  /** The test tried the mutant on its one run in a copy of a worker, not on a second run in the worker itself. */
+  copied?: boolean
   baseline?: 'pass' | 'fail' | 'skip'
   baselineMs: number
   baselineLoops: number
@@ -324,6 +327,17 @@ function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | u
  * saves runs; it does not show that a copy that passes is what a started
  * worker would be with a mutant on.
  */
+/**
+ * What a test did in a copy of a worker made to give it its one run, with
+ * no mutant on. Its failing there with a mutant counts only once this passed.
+ */
+interface ApartRecord {
+  type: 'apart'
+  file: string
+  test: string
+  verdict: 'failed' | 'passed'
+}
+
 interface ControlRecord {
   type: 'control'
   file: string
@@ -366,6 +380,7 @@ export type SessionRecord = (
   | ControlRecord
   | PairRecord
   | { type: 'pairing'; file: string }
+  | ApartRecord
   | { type: 'worker' }
 ) & {
   at: number
@@ -431,7 +446,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const stalls: { mutant: number; test: string }[] = []
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
-  const leads: { mutant: number; file: string; test: string; passedAgain: boolean }[] = []
+  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean }[] = []
+  /** Per test given its one run in a copy with no mutant on, whether every such run passed. */
+  const apart = new Map<string, boolean>()
   /** Per mutant, the tests that failed with it and passed without it next to other runs of their file. */
   const beside = new Map<number, Set<string>>()
   /** Per mutant, the tests that tried it with their file to themselves. */
@@ -492,6 +509,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     }
     // In a run of a whole file the record names no test, and the run's own record follows.
     if (record.type === 'stall' && record.id !== '') stalls.push({ mutant: record.mutant, test: record.id })
+    if (record.type === 'apart') apart.set(record.test, record.verdict === 'passed' && apart.get(record.test) !== false)
     if (record.type === 'early') {
       if (record.site === -1) sharing.add(record.file)
       const set = staticSites.get(record.file) ?? new Set()
@@ -532,7 +550,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     for (const mutant of record.survived) test.judged.add(mutant)
     for (const mutant of [...record.killed, ...record.timedOut]) {
       test.judged.add(mutant)
-      leads.push({ mutant, file: record.file, test: record.id, passedAgain: record.sole === true })
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: record.sole === true, copied: record.copied })
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
     }
     if (record.sole) {
@@ -540,8 +558,10 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         triedSole.set(mutant, (triedSole.get(mutant) ?? new Set()).add(record.id))
       }
     }
-    for (const mutant of record.suspected ?? []) {
-      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false })
+    // A copy that did not get to say what the test did left a record so that the test is not asked again, and no more.
+    for (const mutant of record.copied ? [] : (record.suspected ?? [])) {
+      // `undone`: the test failed again without the mutant because it cannot be run a second time in a worker at all.
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false, undone: record.nonRepeatable && !record.copied })
     }
     for (const mutant of record.unverified) {
       test.judged.add(mutant)
@@ -670,9 +690,17 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const passedWith = new Set<string>()
   for (const record of settled) if (record.verdict === 'passed') passedWith.add(wholeKey(record.mutant, record.file))
   const refuted = new Set<string>()
-  for (const { mutant, file, test } of leads) if (passedWith.has(wholeKey(mutant, file))) refuted.add(test)
-  for (const { mutant, file, test, passedAgain } of leads) {
+  // A test that cannot be run a second time in a worker fails its second
+  // run with whatever mutant was on for it, by construction and not by
+  // chance: that says nothing against what it does on its one run in a copy
+  // of a worker, where one of the mutants it is given is one its file is
+  // known to pass with, so that failing by chance still shows.
+  for (const { mutant, file, test, undone } of leads) if (!undone && passedWith.has(wholeKey(mutant, file))) refuted.add(test)
+  for (const { mutant, file, test, passedAgain, copied } of leads) {
     if (flaky.has(test)) continue
+    // What a copy does to the test is not the mutant's doing: without a copy
+    // in which the test passed with no mutant on, its failing in one is no lead.
+    if (copied && apart.get(test) !== true) continue
     note(mutant, { kind: 'lead', file, test })
     const files = suspects.get(mutant) ?? new Set()
     files.add(file)
@@ -694,7 +722,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.verdict === 'passed') continue
     if (record.quiet) entry.quiet++
     if (record.knew) entry.knowing++
-    note(record.mutant, { kind: record.died ? 'died' : record.verdict, quiet: record.quiet || undefined, file: record.file, test: record.test, by: record.by })
+    // Where the run had failed before any test did, an error nothing handled for one, the test named is the first that then failed.
+    note(record.mutant, { kind: record.died ? 'died' : record.verdict, quiet: record.quiet || undefined, file: record.file, test: record.test ?? record.tests?.[0], by: record.by })
     if (record.died) continue
     if (record.by && !record.alone) entry.beside++
     // A worker the mutant had blocked under a test and a run of the file a limit ended say the same thing.
@@ -736,7 +765,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -828,6 +857,26 @@ function planPhase(
       if (entry.kind !== 'lead' && entry.test && entry.file === file) failed.add(entry.test)
     }
     only.set(mutant, failed)
+  }
+  // A test that cannot be run a second time in a worker never tries a
+  // mutant there, so a failure of the file in it has no witness and waits
+  // for a run made with nothing else running: 183 such runs one after
+  // another on solid. In a copy of a worker that went through the tests
+  // before it with no mutant on, the test has its one run with the mutant on
+  // from its start, which is what a test that can be re-run gives on its
+  // second.
+  const trials: { mutant: number; file: string; test: string }[] = []
+  if (settling && cloning) {
+    for (const [mutant, file] of settledIn) {
+      // No copy is made of a process once the file has loaded, where loading leaves something open.
+      if (status.sharing.has(file) || status.uncopied.has(file)) continue
+      for (const id of only.get(mutant)!) {
+        const test = status.tests.get(id)
+        if (!test?.done || test.failed || !test.coverage || !test.pristine || status.apart.get(id) === false) continue
+        if (status.triedSole.get(mutant)?.has(id)) continue
+        trials.push({ mutant, file, test: id })
+      }
+    }
   }
   // And a test that failed with the mutant next to other runs of its file
   // tries it once more with the file to itself: what it finds then counts.
@@ -978,6 +1027,46 @@ function planPhase(
   }
   plan.ignore = [...failing.values()].flat()
   const controlled = new Set<string>()
+  const shown = new Set<string>()
+  for (const { mutant, file, test } of trials) {
+    const job = (of: number): WholeJob => ({
+      id: jobs++,
+      mutant: of,
+      ignore: failing.get(file) ?? [],
+      fileMs: fileMs.get(file) ?? 0,
+      fileLoops: fileLoops.get(file) ?? 0,
+      stalled: false,
+      witnesses: [],
+      trial: test,
+      site: of < 0 ? -1 : siteOf[of],
+      // The mutant comes on at the test: the file loads without it either way.
+      early: false,
+      plain: false,
+    })
+    const list = (plan.whole[file] ??= [])
+    if (!shown.has(test)) {
+      shown.add(test)
+      // First the run that shows the test passes in a copy at all, once per test.
+      if (status.apart.get(test) === undefined) {
+        list.push(job(-1))
+        addWork(file, 0, 0, 1)
+      }
+      // Then mutants the file is known to pass with, which the test is to
+      // pass with too. A test trying mutants in a worker meets such mutants
+      // as a matter of course, and one that fails by chance is found out by
+      // them; here only mutants the file failed with are tried otherwise.
+      const harmless = (status.tests.get(test)!.coverage?.covered ?? []).filter(
+        (other) => (status.whole.get(wholeKey(other, file))?.passed ?? 0) > 0 && !status.triedSole.get(other)?.has(test),
+      )
+      for (const other of harmless.slice(0, 3)) {
+        list.push(job(other))
+        addWork(file, 0, 0, 1)
+      }
+    }
+    list.push(job(mutant))
+    addWork(file, 0, 0, 1)
+    workByFile.get(file)!.wholeMs = fileMs.get(file) ?? 0
+  }
   /** Runs that are to be made with nothing else running, which is a round of their own. */
   const quietJobs: [number, string][] = []
   const wholeJob = (mutant: number, file: string, confirm: boolean, quiet = false) => {
@@ -1807,7 +1896,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
       }
       planned = Object.entries(next.plan.whole).flatMap(([file, jobs]) =>
-        jobs.filter((job) => !job.control).map(({ id, mutant, plain, exclusive, quiet, witnesses }) => ({
+        jobs.filter((job) => !job.control && job.trial === undefined).map(({ id, mutant, plain, exclusive, quiet, witnesses }) => ({
           id,
           mutant,
           file,
@@ -1859,7 +1948,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // The runs of a file that is run one process at a time stand in one
         // line whatever is done; more workers for it would hold a place each
         // while they wait their turn.
-        const serial = status.exclusive.has(spec.moduleId)
+        // A test trying a mutant in a copy is to have its file to itself, as one trying it in a worker has.
+        const trialing = (next.plan.whole[spec.moduleId] ?? []).some((job) => job.trial !== undefined)
+        const serial = status.exclusive.has(spec.moduleId) || trialing
         const wholeUnits =
           !cloning || work.wholeRuns === 0
             ? work.wholeRuns
@@ -1872,7 +1963,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // A run that a copy did not get through takes a worker of its own.
         const alone = cloning ? (next.plan.whole[spec.moduleId] ?? []).filter((job) => job.plain).length : 0
         for (let i = 0; i < alone; i++) units.push({ spec, workMs: work.wholeMs })
-        if (work.chunks === 0 && !(spec.moduleId in next.plan.probe)) continue
+        if (trialing || (work.chunks === 0 && !(spec.moduleId in next.plan.probe))) continue
         // A worker stops at the first test a mutant leaves broken, and what
         // it had taken goes to whichever worker is still on the file. Where
         // that happened before, more of them start together.

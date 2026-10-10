@@ -104,6 +104,15 @@ export interface WholeJob {
    * without it. The file failing in one of them settles the mutant in one run.
    */
   witnesses?: string[]
+  /**
+   * The mutant is on for this test alone, in a copy that ran the tests before
+   * it with no mutant on, and the copy ends with the test. For a test that
+   * cannot be run a second time in one worker and so cannot try a mutant
+   * there: in the copy it runs once, as it does in a run of the file. With
+   * `mutant` -1 no mutant is on at all: the run that shows the test passes
+   * in a copy, without which its failing in one says nothing.
+   */
+  trial?: string
   site: number
   /** The mutant's code runs while the file loads, as far as is known. */
   early: boolean
