@@ -1,6 +1,6 @@
 # vitant
 
-A proof of concept of a mutation testing tool for TypeScript projects that use Vitest. It has one job: to say for every mutant what the project's own test suite would say if the mutant were in the source for real, and to get there faster than running the suite once per mutant. There is no faster, less careful mode.
+A proof of concept of a mutation testing tool for TypeScript projects that use Vitest. It has one job: to say for every mutant what the project's own test suite would say if the mutant were in the source for real, and to get there faster than running the suite once per mutant. No verdict is a guess: the one option that does less work, `--confirm`, reports what it left out under a status of its own.
 
 It works only with Vitest 3.0 or later, and has been run against 3.0, 3.2, 4.1 and 5.0.
 
@@ -22,7 +22,7 @@ node src/cli.ts --root ../my-app --changed origin/main
 node src/cli.ts --root ../my-app --changed origin/main --incremental
 ```
 
-Positional arguments are passed to Vitest as test file filters. `--report` writes every mutant with its status as JSON. `--no-clone` starts a worker for every whole-file run instead of copying one (see How it works). `--static` also runs the mutants in code that only runs while a module loads.
+Positional arguments are passed to Vitest as test file filters. `--report` writes every mutant with its status as JSON. `--no-clone` starts a worker for every whole-file run instead of copying one (see How it works). `--static` also runs the mutants in code that only runs while a module loads. `--confirm <n>` stops running a mutant once it has passed the `n` test files nearest to it (see Tuning).
 
 "Fresh worker" below means a worker process in which nothing of the project has run, or a copy of one.
 
@@ -31,6 +31,7 @@ Positional arguments are passed to Vitest as test file filters. `--report` write
 | Killed | A test file failed when run whole, in a fresh worker, with the mutant on from before the file was imported: in a test that had failed with the mutant while trying it with the file to itself, or twice with one of the two runs made while nothing else ran. A worker that dies in such a run counts as the file failing, as it does for Vitest. |
 | Timeout | The same, with the file running into a loop or a hang instead of failing. Counted as detected. |
 | Survived | Every test file the mutant can change anything in passed, in a fresh worker, with the mutant on from before the file was imported. |
+| Unconfirmed | Only with `--confirm <n>`: the `n` test files nearest to the mutant passed with it, and others that reach it were not run. Counted as survived in the score. |
 | NoCoverage | No test runs the mutated code. |
 | Static | The code only runs while a module loads, and no test or hook reaches it. Not run unless `--static` is given, and then judged like any other. |
 | Pending | The run gave up on a test file before the mutant was settled. |
@@ -264,6 +265,24 @@ Whether a detected mutant is called Killed or Timeout can differ between runs: a
 | `--max-workers` | the number of processors | More than that and tests that wait on the clock fail on a machine that is behind; a third more gave wrong verdicts on hosted CI runners. |
 | `--recycle-heap-mb` | half the machine's memory divided by the workers, at most 1,536 | A worker hands over once its live heap passes this, or its resident size passes 1.5 times this. Lower uses less memory and costs more restarts. |
 | `--changed <ref>` | | Only mutants whose code lies entirely on lines changed since `ref`. |
+| `--confirm <n>` | every test file that reaches the mutant | A mutant that has passed the `n` test files nearest to it is run against no more, and is reported as Unconfirmed where more reach it. |
+
+`--confirm` is the one option that gives up part of the answer for time. A mutant no test detects is the costly kind: it has to pass every test file whose tests reach it, and in a project whose tests all go through the same code that is every file for most mutants. The test files are taken nearest first: two by how many of the source file's mutants their tests reach, two by how large a part those are of everything their tests reach, then the rest by the first measure. With a limit the run stops there, and where two files are as near as each other the path decides and not how long they took, so that which mutants are left open does not depend on how long anything took; it does depend on what the tests were seen to reach, which differs between runs where a test reaches code in some runs only. A file in which a test failed or stopped answering while trying the mutant is run whatever the limit. Nothing is concluded from the runs not made: such a mutant is Unconfirmed with the number of files it passed and the number left, never Survived, and the score counts it as survived, so that the score with the option is at most the score without.
+
+What `--confirm 4` leaves out, against a run without it of the same scope:
+
+| Scope | Whole-file runs | With `--confirm 4` | Unconfirmed | Of those, detected without the limit |
+|---|---|---|---|---|
+| jotai `vanilla` | 3,412 | 1,587 | 72 | 0 |
+| xstate `core` | 4,744 | 1,619 | 90 | 0 |
+| pinia `pinia` | 1,482 | 858 | 60 | 0 |
+| Effect `data` | 7,727 | 2,559 | 28 | 2 |
+| h3 `utils` | 8,641 | 6,891 | 84 | 6 |
+| immer | 3,246 | 2,646 | 93 | 1 |
+| query `core` | 4,392 | 4,127 | 134 | 2 |
+| svelte `sources` | 963 | 664 | 18 | 0 |
+
+Every other mutant has the status of the run without the limit, but for one of h3 whose test passes or fails with it by chance (two runs of six fail, written into the source) and two there that a test reaches in some runs only. Where few test files reach a mutant the option saves nothing, and it never saves anything on a mutant that is detected.
 
 Things that turned out to matter, each measured:
 
@@ -277,6 +296,9 @@ Things that turned out to matter, each measured:
 ## Measured and dropped
 
 Ideas that were implemented, measured on the benchmark, and removed because they did not pay off:
+
+- **One run for two mutants that should fare alike,** counted from the reports of 15 scopes and not built. An `if` with no `else` whose condition is made `false` and the same `if` with its block emptied differ only in whether the condition is evaluated: of 1,805 such pairs one has two verdicts, and only the 208 pairs that survive would spare a run of every file each. A comparison or a logical operator swapped for another, against the same condition made `true` or `false`, does not hold at all: with both of those surviving the swap is detected often enough that nothing can be taken from them.
+- **Ending a whole-file run that takes many times what the file takes unmutated,** as a timeout. Counted from the records: at ten times and at least a second it would have cut no run that passed, and saved 40% of the time in whole-file runs on query, 16% on es-toolkit and solid, 11% on h3, 8% on Effect. A limit in seconds gives another verdict on a machine that is behind, and what it saves in query is tests waiting for something that no longer comes, which no count of loop turns stands for.
 
 - **Ending a run of a whole file as soon as its test can no longer finish,** where today it waits for Vitest's own time limit, five seconds as a rule. The sign was to be the one the workers already go by while tests try mutants: no processor time used and nothing keeping the event loop alive beyond what the worker itself holds, for half a second. Logged without acting on it, the sign was right every time it showed: 78 tests of query, 285 of solid, 24 of hono and 5 of jotai all ran into the limit afterwards, 1,700 s of waiting between them, most of solid's in the round that makes its runs one at a time. It is not sound all the same, and was not built. What Node lists as keeping the loop alive leaves out everything that was told not to: timers and sockets that are unref'd, among them Vitest's own timer for the limit, child processes, a timer made with `{ ref: false }`, which never passes through `unref`. It leaves out a worker thread altogether, a DNS query, and whatever a native addon does on a thread of its own. A test that waits for a thread to end, or for an unref'd child process, shows the sign and goes on 600 ms later; both were run. With one more timer allowed, as the check inside the workers allows for the limit's own, 50 tests of hono that sleep a second showed it and passed. That check has the same blind spots; what it finds is a lead, and a run that reaches Vitest's limit has to follow.
 - **A copy made at the moment a mutant is first reached,** in the middle of a file's run, so that the tests before it are run once for all mutants (split-stream execution). Counted from the records and not built: the part of a passing whole-file run that comes before the first test to reach its mutant is 1% of all the time spent on such runs in hono, solid and Effect, 8% in jotai and immer, and 14% at most, in shiki. A copy made while a test is under way shares its open sockets and timers with the worker it came from, which is a good deal to take on for that.

@@ -23,6 +23,8 @@ for each one whether the suite detects it.
   --elements <file>       write it for mutation-testing-elements: a page for a name ending in .html, JSON otherwise
   --incremental           reuse the last run's results for test files nothing they load has changed in
   --static                also run mutants in code that only runs while a module loads
+  --confirm <n>           let a mutant go once it has passed the n test files nearest to it, and report it
+                          as unconfirmed, not as survived, where others reach it (default: all of them)
   --no-related            run every test file, not only those that import a mutated file
   --no-clone              start a worker for every whole-file run instead of copying one
   --max-workers <n>       workers at once (default: the number of processors)
@@ -58,6 +60,7 @@ const { values, positionals } = (() => {
         incremental: { type: 'boolean', default: false },
         'no-clone': { type: 'boolean', default: false },
         static: { type: 'boolean', default: false },
+        confirm: { type: 'string' },
         report: { type: 'string' },
         elements: { type: 'string' },
       },
@@ -86,6 +89,12 @@ function recycleDefault(): number {
   return Math.max(512, Math.min(1536, Math.floor((os.totalmem() / 1024 / 1024) * 0.5 / workers / 1.5)))
 }
 
+const confirm = values.confirm === undefined ? Infinity : Number(values.confirm)
+if (!(confirm === Infinity || (Number.isInteger(confirm) && confirm >= 1))) {
+  console.error(`--confirm takes a whole number of files, 1 or more\n\n${usage}`)
+  process.exit(2)
+}
+
 const root = fs.realpathSync(path.resolve(values.root))
 const result = await run({
   root,
@@ -107,6 +116,7 @@ const result = await run({
   incremental: values.incremental,
   clone: !values['no-clone'],
   static: values.static,
+  confirm,
   // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
   maxWorkers: Number(values['max-workers'] ?? os.availableParallelism()),
   log: (message) => console.error(message),
@@ -114,15 +124,17 @@ const result = await run({
 
 const { counts } = result
 const detected = counts.Killed + counts.Timeout
-const covered = detected + counts.Survived
+// Unconfirmed counts as survived: a score that is to be relied on must not rest on runs that were not made.
+const covered = detected + counts.Survived + counts.Unconfirmed
 const percent = (part: number, whole: number) =>
   whole === 0 ? 'n/a' : `${((part / whole) * 100).toFixed(2)}%`
 
 for (const mutant of result.mutants) {
-  if (mutant.status !== 'Survived') continue
+  if (mutant.status !== 'Survived' && mutant.status !== 'Unconfirmed') continue
   const { line, column } = mutant.location.start
+  const label = mutant.confirmed ? `Unconfirmed (passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files)` : 'Survived'
   console.log(
-    `Survived ${mutant.file}:${line}:${column + 1} ${mutant.mutator} -> ${mutant.replacement.split('\n')[0].slice(0, 60)}`,
+    `${label} ${mutant.file}:${line}:${column + 1} ${mutant.mutator} -> ${mutant.replacement.split('\n')[0].slice(0, 60)}`,
   )
 }
 
@@ -130,11 +142,17 @@ const order: MutantStatus[] = [
   'Killed',
   'Timeout',
   'Survived',
+  ...(confirm === Infinity ? [] : (['Unconfirmed'] as const)),
   'NoCoverage',
   'Static',
   'Pending',
 ]
 console.log(order.map((status) => `${status} ${counts[status]}`).join('  '))
+if (confirm !== Infinity) {
+  console.log(
+    `--confirm ${confirm}: ${counts.Unconfirmed} mutant(s) passed the test files nearest to them and were not run against the rest; they count as survived in the score`,
+  )
+}
 console.log(
   `score ${percent(detected, covered + counts.NoCoverage)} (covered ${percent(detected, covered)})  ` +
     `${result.tests} tests in ${result.testFiles} files, vitest ${result.vitestVersion}`,

@@ -28,6 +28,10 @@ const languages: Record<string, string> = { '.ts': 'typescript', '.tsx': 'typesc
 
 function reason(mutant: MutantResult): string | undefined {
   if (mutant.status === 'Static') return 'runs only while a module loads; --static has such mutants run'
+  if (mutant.confirmed) {
+    const { passed, open } = mutant.confirmed
+    return `unconfirmed: passed ${passed} of the ${passed + open} test files that reach it, the rest not run (--confirm)`
+  }
   // A lead decided nothing; the run of the file did.
   const run = mutant.evidence?.find((entry) => entry.kind !== 'lead')
   if (!run) return mutant.timeoutCause
@@ -52,7 +56,7 @@ export function toElements(result: RunResult, root: string, version: string): El
       replacement: mutant.replacement,
       // The format counts columns from one.
       location: { start: { line: start.line, column: start.column + 1 }, end: { line: end.line, column: end.column + 1 } },
-      status: mutant.status === 'Static' ? 'Ignored' : mutant.status,
+      status: mutant.status === 'Static' ? 'Ignored' : mutant.status === 'Unconfirmed' ? 'Survived' : mutant.status,
       statusReason: reason(mutant),
       static: mutant.static,
     })

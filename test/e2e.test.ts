@@ -234,7 +234,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(22)
+    expect(second.reused).toBe(24)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 180_000)
@@ -254,7 +254,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(21)
+    expect(after.reused).toBe(23)
     expect(after.result.counts).toEqual(before.counts)
   }, 180_000)
 
@@ -266,7 +266,7 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(21)
+    expect(after.reused).toBe(23)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 180_000)
@@ -289,6 +289,29 @@ describe('with mutants in code that only runs while a module loads run too', () 
     const others = (run: RunResult) =>
       run.mutants.filter((m) => result.mutants[m.id].status !== 'Static').map((m) => `${m.id} ${m.status}`)
     expect(others(judged)).toEqual(others(result))
+  }, 180_000)
+})
+
+describe('with a limit on the test files a mutant is run against', () => {
+  it('reports a mutant with files left as unconfirmed, and no other verdict differently', () => {
+    const report = reportPath('confirm')
+    const cli = spawnSync(
+      process.execPath,
+      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--confirm', '1', '--report', report],
+      { encoding: 'utf8' },
+    )
+    expect(cli.status, cli.stderr).toBe(0)
+    const limited: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    // Only the hook of the farther file fails with `reset` emptied; the nearest file passes.
+    const emptied = limited.mutants.find((m) => m.file === 'src/tally.ts' && m.location.start.line === 17)!
+    expect(result.mutants[emptied.id].status).toBe('Killed')
+    expect(emptied.status).toBe('Unconfirmed')
+    expect(emptied.confirmed).toEqual({ passed: 1, open: 1 })
+    expect(cli.stdout).toContain('Unconfirmed (passed 1 of 2 files) src/tally.ts:17')
+    for (const mutant of limited.mutants) {
+      if (mutant.status !== 'Unconfirmed') expect(`${mutant.id} ${mutant.status}`).toBe(`${mutant.id} ${result.mutants[mutant.id].status}`)
+      else expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
+    }
   }, 180_000)
 })
 

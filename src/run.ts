@@ -39,6 +39,7 @@ import { sweep } from './runtime/turns.ts'
 export type MutantStatus =
   | 'Killed'
   | 'Survived'
+  | 'Unconfirmed'
   | 'Timeout'
   | 'NoCoverage'
   | 'Static'
@@ -60,6 +61,8 @@ export interface MutantResult {
   killedBy: number
   /** For a timeout, what stopped the run: the loop limit, the timer, or a re-run in a fresh worker. */
   timeoutCause?: string
+  /** For an unconfirmed mutant, how many of the test files that reach it were run, all passing, and how many were not. */
+  confirmed?: { passed: number; open: number }
   /**
    * For a detected mutant, the runs of whole files that say so and the tests
    * that led to them: what to read when the suite disagrees with the verdict.
@@ -165,6 +168,8 @@ export interface RunOptions extends GenerateOptions {
   clone: boolean
   /** Run mutants in code that only runs while a module loads. */
   static: boolean
+  /** How many of the test files that reach a mutant it has to pass to be let go, the nearest first; all of them when infinite. */
+  confirm: number
   log: (message: string) => void
 }
 
@@ -837,6 +842,15 @@ function chunkSize(baselineMs: number): number {
  */
 let judgeStatic = false
 
+/**
+ * With a limit on the files a mutant is run against, the mutants that passed
+ * the files within it and have others left, with how many of each. Such a
+ * mutant is not known to survive: over fifteen projects, 22 of some 3,400
+ * that passed their four nearest files failed a later one.
+ */
+let confirmFiles = Infinity
+const unconfirmed = new Map<number, { passed: number; open: number }>()
+
 type Planned = {
   plan: RoundPlan
   workByFile: Map<string, { workMs: number; chunks: number; wholeRuns: number; wholeMs: number }>
@@ -1204,6 +1218,39 @@ function planPhase(
       }
       return counts.get(source) ?? 0
     }
+    // A file written for one module reaches less of it than a wide file
+    // does in passing, and goes through little else: h3's unit tests of its
+    // proxy reach 14 sites, every one in the proxy's source, where four
+    // other files reach 20 to 98 of them among hundreds, and they are what
+    // fails for the mutants there. So two files by how much of the source
+    // they go through, then two by how much of what they go through is the
+    // source, then the rest. Under a limit the cost of a file does not break
+    // a tie: which files a mutant is run against is not to change with the
+    // machine's load.
+    const share = (file: string, source: number): number => {
+      const all = status.exercised.get(file)?.size ?? 0
+      return all === 0 ? 0 : familiarity(file, source) / all
+    }
+    const nearest = (files: string[], source: number): string[] => {
+      const tie = (a: string, b: string) =>
+        confirmFiles === Infinity ? (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0) : a < b ? -1 : a > b ? 1 : 0
+      const broad = [...files].sort((a, b) => familiarity(b, source) - familiarity(a, source) || tie(a, b))
+      const narrow = [...files].sort((a, b) => share(b, source) - share(a, source) || tie(a, b))
+      const taken = new Set<string>()
+      const take = (list: string[], count: number) => {
+        for (const file of list) {
+          if (count === 0) break
+          if (taken.has(file)) continue
+          taken.add(file)
+          count--
+        }
+      }
+      take(broad, 2)
+      take(narrow, 2)
+      take(broad, Infinity)
+      return [...taken]
+    }
+    unconfirmed.clear()
     const { unsure } = status
     for (let mutant = 0; mutant < state.length; mutant++) {
       // Code no test reaches is reported as such and not run.
@@ -1211,15 +1258,21 @@ function planPhase(
       if (!status.reached.has(siteOf[mutant]) && !judgeStatic && unsure.size === 0) continue
       const targets = new Set([...(covering.get(mutant) ?? []), ...unsure])
       for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) targets.add(file)
-      const open = [...targets].filter(
-        (file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))),
-      )
+      const source = sourceOf[mutant]
+      const ranked = nearest([...targets], source)
+      // A file in which a test stopped answering with the mutant is a lead like a
+      // failure there, and no planner path but this one would run it.
+      const within = new Set([...ranked.slice(0, confirmFiles), ...(status.blocked.get(mutant) ?? [])])
+      const open = ranked.filter((file) => within.has(file) && !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
+      if (open.length === 0 && ranked.length > within.size) {
+        const left = ranked.filter((file) => !within.has(file) && !wholeVerdict(status.whole.get(wholeKey(mutant, file)))).length
+        if (left > 0) unconfirmed.set(mutant, { passed: targets.size - left, open: left })
+      }
       // A failure seen once is run again before anything else: repeated, it
       // ends the search. Otherwise a few files go first and twice as many
       // each round, so that a mutant some file detects costs little and one
-      // that survives few rounds: the files whose tests go through most of
-      // the mutant's source file, then the cheapest. The cheapest alone say
-      // nothing of which file detects: of the 322 test files that load
+      // that survives few rounds: the nearest files first. The cheapest alone
+      // say nothing of which file detects: of the 322 test files that load
       // Effect's `Chunk`, one to three fail on most of its mutants, the
       // cheapest of them the 181st cheapest at the median, and the file
       // whose tests reach most of `Chunk` is one of them for 109 mutants in
@@ -1227,14 +1280,12 @@ function planPhase(
       // stop early for, and every round ends on its slowest run, so the
       // rest goes at once, but not before a file that knows the source.
       const suspect = open.filter((file) => status.whole.has(wholeKey(mutant, file)))
-      const source = sourceOf[mutant]
-      open.sort((a, b) => familiarity(b, source) - familiarity(a, source) || (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
       // Where a run is a copy of a worker, a round costs more than the runs
       // it saves: a few files first, then all that is left.
       const done = targets.size - open.length
       const wave = cloning ? (done > 0 ? open.length : 4) : Math.max(1, done)
       const likely = done === 0 && open.length > 0 && familiarity(open[0], source) > 0
-      const batch = suspect.length > 0 ? suspect : rarelyFails && !likely ? open : open.slice(0, wave)
+      const batch = suspect.length > 0 ? suspect : (rarelyFails && !likely) || confirmFiles !== Infinity ? open : open.slice(0, wave)
       for (const file of batch) wholeJob(mutant, file, false)
     }
   }
@@ -1621,6 +1672,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   let treeWarned = false
   const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0 }
   judgeStatic = options.static
+  confirmFiles = options.confirm
+  unconfirmed.clear()
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
   options.log(
@@ -2228,6 +2281,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const counts: Record<MutantStatus, number> = {
     Killed: 0,
     Survived: 0,
+    Unconfirmed: 0,
     Timeout: 0,
     NoCoverage: 0,
     Static: 0,
@@ -2255,7 +2309,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending) status = 'Pending'
-    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = 'Survived'
+    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
     return {
@@ -2269,6 +2323,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       coveredBy: coveredBy[mutant.id],
       killedBy: killedBy[mutant.id],
       timeoutCause: status === 'Timeout' ? (timeoutCauses.get(mutant.id) ?? 'fresh worker') : undefined,
+      confirmed: status === 'Unconfirmed' ? unconfirmed.get(mutant.id) : undefined,
       evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,
     }
   })

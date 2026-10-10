@@ -1,9 +1,10 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone] [--runs N]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N]
 //
 // `vitant-no-clone` is this tool starting a worker for every whole-file run.
+// `vitant-confirm4` is it with `--confirm 4`, held against the scope's report of `vitant`.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
@@ -27,7 +28,7 @@ const { values, positionals } = parseArgs({
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone] [--runs N]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N]')
   process.exit(1)
 }
 
@@ -138,11 +139,12 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant']) {
+for (const tool of ['vitant-no-clone', 'vitant', 'vitant-confirm4']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
   const args = [path.join(repoRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
   if (tool === 'vitant-no-clone') args.push('--no-clone')
+  if (tool === 'vitant-confirm4') args.push('--confirm', '4')
   if ('changed' in scope) args.push('--changed', scope.changed)
   else for (const glob of scope.mutate) args.push('--mutate', glob)
   // What the last run of the scope said, to hold this one against. Two runs
@@ -175,6 +177,31 @@ for (const tool of ['vitant-no-clone', 'vitant']) {
     mutants: Reported[]
   }
   reports[tool] = { counts, wholeRuns, rounds, abandonedFiles: abandonedFiles.length }
+  if (tool === 'vitant-confirm4') {
+    // A limit leaves runs out and guesses nothing: a mutant is unconfirmed or as the run without the limit has it.
+    if (!fs.existsSync(vitantReport)) {
+      console.log(`${tool}: no report of a run without the limit to compare with`)
+      continue
+    }
+    const full = new Map((JSON.parse(fs.readFileSync(vitantReport, 'utf8')) as { mutants: Reported[] }).mutants.map((mutant) => [keyOf(mutant), mutant.status]))
+    const open: Record<string, number> = {}
+    const differing = mutants.filter((mutant) => {
+      const was = full.get(keyOf(mutant))
+      if (was === undefined) return false
+      if (mutant.status === 'Unconfirmed') {
+        open[kind(was)] = (open[kind(was)] ?? 0) + 1
+        return kind(was) !== 'detected' && was !== 'Survived'
+      }
+      return kind(was) !== kind(mutant.status)
+    })
+    console.log(`${tool}: unconfirmed, by what the run without the limit has: ${JSON.stringify(open)}; ${differing.length} mutant(s) differ otherwise`)
+    for (const mutant of differing.slice(0, 20)) {
+      console.log(`  ${mutant.file}:${mutant.location.start.line}:${mutant.location.start.column} ${mutant.mutator}: ${full.get(keyOf(mutant))} without the limit, ${mutant.status} with it`)
+    }
+    ;(reports[tool] as { unconfirmed?: unknown }).unconfirmed = open
+    if (differing.length > 0) keep()
+    continue
+  }
   if (before) {
     const was = new Map(before.map((mutant) => [keyOf(mutant), mutant.status]))
     const changed = mutants.filter((mutant) => was.has(keyOf(mutant)) && kind(was.get(keyOf(mutant))!) !== kind(mutant.status))

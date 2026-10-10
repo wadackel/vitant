@@ -8,7 +8,7 @@ vitant is a mutation testing tool for projects that use Vitest, run as a standal
 
 ## Priorities
 
-1. **Verdicts are correct.** A verdict (Killed, Timeout, Survived) must equal what the plain suite does with the mutant written into the source. There is no faster, less careful mode, and no change is worth a verdict that may be wrong.
+1. **Verdicts are correct.** A verdict (Killed, Timeout, Survived) must equal what the plain suite does with the mutant written into the source. No change is worth a verdict that may be wrong. An option may leave work out for time, as `--confirm` does, only if it is off by default, concludes nothing from the runs it did not make, and reports every mutant it left open under a status of its own; where it stops must not depend on how long anything took.
 2. **Then speed.** The yardstick is StrykerJS on the benchmark targets.
 3. **No tuning to the benchmark.** A rule that only helps the projects under `bench/` is not an improvement.
 
