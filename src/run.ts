@@ -105,7 +105,7 @@ export interface RunResult {
    * which is where type tests run. A mutant reported as survived survived
    * the rest of the suite, and these might have detected it.
    */
-  leftOut: { projects: Record<string, number>; typeTests: number }
+  leftOut: { projects: Record<string, number>; typeTests: number; typeCheck?: boolean }
   /**
    * The runs made with nothing else running, by how they went. One that
    * passed is a mutant that had failed its file twice in a row and would
@@ -1667,6 +1667,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // Projects declared in the config get their own servers, which take
     // neither the plugins nor the runner given to the root.
     config(config: { test?: Record<string, unknown> & { projects?: unknown[] } }) {
+      // The project has Vitest check types with its tests, which fails a
+      // run for a mutant that breaks them with every test passing, and this
+      // tool does not: the report is to say that survivors may be such.
+      if ((config.test?.typecheck as { enabled?: boolean } | undefined)?.enabled === true) leftOut.typeCheck = true
       // What the project starts its workers with stays: tests can depend
       // on it, `--expose-gc` for one.
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {

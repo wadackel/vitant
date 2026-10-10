@@ -253,7 +253,7 @@ export const targets: Record<string, Target> = {
     repo: 'https://github.com/h3js/h3',
     commit: '66cfb8a357b6285451bad498c2c40002601fae98',
     install: ['npx -y pnpm@12.3.4 install --frozen-lockfile'],
-    installStryker: `npx -y pnpm@12.3.4 add -D ${stryker}`,
+    installStryker: `npx -y pnpm@12.3.4 add -D -w ${stryker}`,
     scopes: {
       utils: { mutate: ['src/utils/**/*.ts'] },
     },

@@ -168,6 +168,9 @@ if (result.flakyTests.length > 0) {
   for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
 }
 const leftOut = Object.entries(result.leftOut.projects)
+if (result.leftOut.typeCheck) {
+  console.log('the project has Vitest check types along with its tests, which is not done here: a mutant that only breaks types fails its suite and is reported as survived')
+}
 if (leftOut.length > 0 || result.leftOut.typeTests > 0) {
   console.log('not the whole suite: a mutant reported as survived was not run with')
   for (const [project, files] of leftOut) console.log(`  ${files} test file(s) of project ${project}, which the mutants could not be put into`)
