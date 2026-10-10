@@ -387,3 +387,31 @@ describe('tests that leave a file under version control changed', () => {
     expect(cli.status).toBe(1)
   }, 180_000)
 })
+
+describe('a project that has Vitest check types with its tests', () => {
+  const project = path.join(root, 'fixtures', `.tmp-typed-${process.pid}`)
+  afterAll(() => fs.rmSync(project, { recursive: true, force: true }))
+
+  it('is told that this is not done, and its tests run without it', () => {
+    fs.rmSync(project, { recursive: true, force: true })
+    fs.mkdirSync(path.join(project, 'src'), { recursive: true })
+    fs.mkdirSync(path.join(project, 'test'))
+    fs.writeFileSync(path.join(project, 'package.json'), '{ "name": "fixture-typed", "private": true, "type": "module" }\n')
+    fs.writeFileSync(
+      path.join(project, 'vitest.config.ts'),
+      "import { defineConfig } from 'vitest/config'\nexport default defineConfig({ test: { include: ['test/**/*.test.ts'], typecheck: { enabled: true } } })\n",
+    )
+    fs.writeFileSync(path.join(project, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b\n')
+    fs.writeFileSync(
+      path.join(project, 'test/add.test.ts'),
+      "import { expect, it } from 'vitest'\nimport { add } from '../src/add'\nit('adds', () => {\n  expect(add(1, 2)).toBe(3)\n})\n",
+    )
+    const report = reportPath('typed')
+    const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', project, '--report', report], { encoding: 'utf8' })
+    expect(cli.status, cli.stderr).toBe(0)
+    expect(cli.stdout).toContain('check types along with its tests')
+    const typed = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+    expect(typed.leftOut.typeCheck).toBe(true)
+    expect(typed.counts.Killed).toBeGreaterThan(0)
+  }, 180_000)
+})

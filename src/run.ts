@@ -1667,10 +1667,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // Projects declared in the config get their own servers, which take
     // neither the plugins nor the runner given to the root.
     config(config: { test?: Record<string, unknown> & { projects?: unknown[] } }) {
-      // The project has Vitest check types with its tests, which fails a
-      // run for a mutant that breaks them with every test passing, and this
-      // tool does not: the report is to say that survivors may be such.
-      if ((config.test?.typecheck as { enabled?: boolean } | undefined)?.enabled === true) leftOut.typeCheck = true
       // What the project starts its workers with stays: tests can depend
       // on it, `--expose-gc` for one.
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
@@ -1685,7 +1681,14 @@ export async function run(options: RunOptions): Promise<RunResult> {
         inline.plugins = [...(inline.plugins ?? []), instrumentPlugin]
         inline.test = { ...withArgv(inline.test), runner: paths.runner }
       }
-      config.test = withArgv(config.test)
+      // The project may have Vitest check types with its tests, which
+      // fails a run for a mutant that breaks them with every test passing.
+      // That is switched off here and not above, with the rest of what is
+      // given to Vitest, so that what the project asked for can be read
+      // first: the report is to say that survivors may be such mutants.
+      const typecheck = (config.test?.typecheck ?? {}) as { enabled?: boolean }
+      if (typecheck.enabled === true) leftOut.typeCheck = true
+      config.test = { ...withArgv(config.test), typecheck: { ...typecheck, enabled: false } }
     },
     // As the file is loaded rather than as a transform of what was
     // loaded: other plugins rewrite the source first, `import.meta.env`
@@ -1728,7 +1731,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
       minWorkers: options.maxWorkers,
       reporters: [{}],
       coverage: { enabled: false },
-      typecheck: { enabled: false },
       // One run failing must not call off the others of its round.
       bail: 0,
       passWithNoTests: true,
