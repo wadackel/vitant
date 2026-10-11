@@ -40,6 +40,8 @@ export const targets: Record<string, Target> = {
     installStryker: `npx -y yarn@1.22.22 add -W -D ${stryker}`,
     scopes: {
       math: { mutate: ['packages/math/src/**/*.ts'] },
+      // A few files of the scope above: what makes it slow, in minutes.
+      angle: { mutate: ['packages/math/src/angle.ts', 'packages/math/src/utils.ts'] },
       element: { mutate: ['packages/element/src/**/*.ts'] },
       // The pinned commit itself: a feature touching App.tsx and three other files.
       pr: { changed: 'HEAD~1' },
@@ -175,6 +177,8 @@ export const targets: Record<string, Target> = {
     installStryker: `cd packages/solid && npx -y pnpm@9.15.0 add -D ${stryker}`,
     scopes: {
       reactive: { mutate: ['src/reactive/*.ts'] },
+      // A few files of the scope above: what makes it slow, in minutes.
+      scheduler: { mutate: ['src/reactive/scheduler.ts', 'src/reactive/observable.ts'] },
     },
   },
   // Vitest 5, a monorepo of some forty projects in one config: every test
@@ -188,6 +192,8 @@ export const targets: Record<string, Target> = {
     projects: ['effect'],
     scopes: {
       data: { mutate: ['packages/effect/src/Duration.ts', 'packages/effect/src/Chunk.ts', 'packages/effect/src/Option.ts'] },
+      // A few files of the scope above: what makes it slow, in minutes.
+      option: { mutate: ['packages/effect/src/Option.ts'] },
     },
   },
   // Vitest 5, no isolation between test files, and tests that run the
@@ -262,6 +268,8 @@ export const targets: Record<string, Target> = {
     installStryker: `npx -y pnpm@12.3.4 add -D -w ${stryker}`,
     scopes: {
       utils: { mutate: ['src/utils/**/*.ts'] },
+      // A few files of the scope above: what makes it slow, in minutes.
+      session: { mutate: ['src/utils/session.ts', 'src/utils/body.ts'] },
     },
   },
   // Vitest 5, happy-dom. Debouncing, throttling and queues, tested under fake timers.

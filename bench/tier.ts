@@ -3,7 +3,7 @@
 // "does this change do less work, and is every verdict as it was" that does
 // not wait for the scopes that take an hour or for a quiet machine.
 //
-//   node bench/tier.ts [<target>:<scope> ...]
+//   node bench/tier.ts [slow | <target>:<scope> ...]
 //
 // The counts say how much there was to do and the seconds how long this
 // machine took over it, whatever else it was doing. Exits with 1 when a
@@ -15,8 +15,10 @@ import path from 'node:path'
 
 // Each is here for a way of running tests the others do not have, see bench/targets.ts.
 const quick = ['ufo:all', 'pinia:pinia', 'zustand:all', 'es-toolkit:array', 'hono:router', 'immer:all']
+// A few files each of the scopes that take ten minutes to an hour, with what makes those slow: about a quarter of an hour.
+const slow = ['h3:session', 'excalidraw:angle', 'effect:option', 'solid:scheduler']
 
-const scopes = process.argv.length > 2 ? process.argv.slice(2) : quick
+const scopes = process.argv[2] === 'slow' ? slow : process.argv.length > 2 ? process.argv.slice(2) : quick
 const rows: string[][] = [['scope', 's', 'whole runs', 'whole s pass/det', 'trials', 'trial cpu s', 'workers', 'quiet', 'rounds', 'changed', 'truth']]
 let wrong = false
 for (const name of scopes) {

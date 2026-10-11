@@ -346,8 +346,9 @@ function check(truth: Truth): boolean {
       tally['not in the report']++
       continue
     }
-    // A mutant that only runs while a file loads is reported as such, without a verdict.
-    if (mutant.status === 'Static') {
+    // A mutant that only runs while a file loads is reported as such, without
+    // a verdict, and so is one that a test left out of the runs reaches.
+    if (mutant.status === 'Static' || mutant.status === 'Unconfirmed') {
       tally[entry.suite === 'pass' ? 'not judged' : 'not judged that fail the suite']++
       continue
     }

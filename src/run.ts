@@ -63,6 +63,8 @@ export interface MutantResult {
   timeoutCause?: string
   /** For an unconfirmed mutant, how many of the test files that reach it were run, all passing, and how many were not. */
   confirmed?: { passed: number; open: number }
+  /** For an unconfirmed mutant, the tests that reach it and were left out of every run for failing by themselves. */
+  leftOut?: string[]
   /**
    * For a detected mutant, the runs of whole files that say so and the tests
    * that led to them: what to read when the suite disagrees with the verdict.
@@ -2330,14 +2332,30 @@ export async function run(options: RunOptions): Promise<RunResult> {
       file: relative(options.root, entry.file),
       test: entry.test === undefined ? undefined : (status.tests.get(entry.test)?.name ?? entry.test),
     }))
+  // A test that fails by itself is left out of the runs of its file, and a
+  // mutant it reaches has then passed the file without the one test that
+  // may be what detects it: in h3 two tests that time out now and then on a
+  // busy machine were all that fails on three mutants, which the suite
+  // fails with every time. What the test would do with the mutant cannot be
+  // told from its failures, so such a mutant has not survived the suite.
+  const leftOutOf = new Map<number, string[]>()
+  const everywhere: string[] = []
+  for (const id of status.flaky) {
+    const test = status.tests.get(id)
+    if (!test?.coverage) continue
+    // Measured in a worker that mutants had been tried in, what the test reaches is not known.
+    if (!test.pristine) everywhere.push(label(test))
+    else for (const mutant of new Set([...test.coverage.covered, ...test.coverage.cleanup])) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
+  }
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
+    const leftOut = [...(leftOutOf.get(mutant.id) ?? []), ...everywhere]
     let status: MutantStatus
     // Only what runs of whole files found counts; what a test found while trying a mutant led to them.
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending) status = 'Pending'
-    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) ? 'Unconfirmed' : 'Survived'
+    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || leftOut.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
     return {
@@ -2352,6 +2370,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       killedBy: killedBy[mutant.id],
       timeoutCause: status === 'Timeout' ? (timeoutCauses.get(mutant.id) ?? 'fresh worker') : undefined,
       confirmed: status === 'Unconfirmed' ? unconfirmed.get(mutant.id) : undefined,
+      leftOut: status === 'Unconfirmed' && leftOut.length > 0 ? leftOut : undefined,
       evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,
     }
   })

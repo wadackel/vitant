@@ -1,0 +1,17 @@
+{
+  "command": "related",
+  "mutants": [
+    {"file":"packages/effect/src/Option.ts","start":[36,15],"end":[36,31],"mutator":"StringLiteral","replacement":"\"\"","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[735,26],"end":[739,3],"mutator":"BlockStatement","replacement":"{}","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[736,8],"end":[736,19],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[736,21],"end":[738,5],"mutator":"BlockStatement","replacement":"{}","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[975,10],"end":[981,1],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
+    {"file":"packages/effect/src/Option.ts","start":[1388,12],"end":[1388,92],"mutator":"ArrowFunction","replacement":"() => undefined","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[1421,12],"end":[1421,88],"mutator":"ArrowFunction","replacement":"() => undefined","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[1462,12],"end":[1462,118],"mutator":"ArrowFunction","replacement":"() => undefined","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[1581,19],"end":[1583,5],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
+    {"file":"packages/effect/src/Option.ts","start":[1853,6],"end":[1853,18],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[1853,20],"end":[1855,3],"mutator":"BlockStatement","replacement":"{}","suite":"pass"},
+    {"file":"packages/effect/src/Option.ts","start":[1936,65],"end":[1936,70],"mutator":"BooleanLiteral","replacement":"true","suite":"fail"}
+  ]
+}

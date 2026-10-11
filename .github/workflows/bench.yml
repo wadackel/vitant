@@ -2,7 +2,8 @@
 # verdicts are those the targets' own suites give, as recorded under
 # bench/truth, and how long it takes there. A push runs this tool alone;
 # StrykerJS and the tool without copies of a worker take several times as
-# long and run when the workflow is started by hand.
+# long and run when the workflow is started by hand, which is also where the
+# times in the README come from.
 name: bench
 
 on:
@@ -11,8 +12,11 @@ on:
       tools:
         description: Tools to run, as bench/run.ts takes them
         default: stryker,vitant-no-clone,vitant
+      runs:
+        description: Times each tool is run; the README takes the middle one of three
+        default: '1'
       math:
-        description: Also run excalidraw math, which takes hours on four cores
+        description: Also run excalidraw math and svelte sources, which take hours on four cores
         type: boolean
         default: false
   push:
@@ -55,6 +59,11 @@ jobs:
           - { target: pacer, scope: timing }
           - { target: xstate, scope: core }
           - { target: valibot, scope: schemas }
+          - { target: shiki, scope: transformers }
+          - { target: effect, scope: data }
+          - { target: h3, scope: utils }
+          - { target: es-toolkit, scope: pr }
+          - { target: vue, scope: pr }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -75,7 +84,8 @@ jobs:
       - name: Run
         env:
           TOOLS: ${{ inputs.tools || 'vitant' }}
-        run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS"
+          RUNS: ${{ inputs.runs || '1' }}
+        run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS" --runs "$RUNS"
       - name: Summary
         if: ${{ !cancelled() }}
         run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -85,11 +95,17 @@ jobs:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}
           path: bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}
 
-  math:
-    name: excalidraw math (ubuntu-24.04)
+  long:
+    name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (ubuntu-24.04)
     if: ${{ inputs.math }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        bench:
+          - { target: excalidraw, scope: math }
+          - { target: svelte, scope: sources }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -105,17 +121,17 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm build:native
-      - name: Set up excalidraw
-        run: node bench/setup.ts excalidraw > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
+      - name: Set up ${{ matrix.bench.target }}
+        run: node bench/setup.ts "${{ matrix.bench.target }}" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
       - name: Run
         env:
           TOOLS: ${{ inputs.tools }}
-        run: node bench/run.ts excalidraw math --tool "$TOOLS"
+        run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS"
       - name: Summary
         if: ${{ !cancelled() }}
-        run: node bench/summary.ts excalidraw math | tee -a "$GITHUB_STEP_SUMMARY"
+        run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
-          name: bench-excalidraw-math-ubuntu-24.04
-          path: bench/results/excalidraw-math
+          name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-ubuntu-24.04
+          path: bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}

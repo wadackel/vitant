@@ -132,7 +132,11 @@ const percent = (part: number, whole: number) =>
 for (const mutant of result.mutants) {
   if (mutant.status !== 'Survived' && mutant.status !== 'Unconfirmed') continue
   const { line, column } = mutant.location.start
-  const label = mutant.confirmed ? `Unconfirmed (passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files)` : 'Survived'
+  const why = [
+    ...(mutant.confirmed ? [`passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files`] : []),
+    ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that reach it fail by themselves and were left out`] : []),
+  ]
+  const label = mutant.status === 'Unconfirmed' ? `Unconfirmed (${why.join('; ')})` : 'Survived'
   console.log(
     `${label} ${mutant.file}:${line}:${column + 1} ${mutant.mutator} -> ${mutant.replacement.split('\n')[0].slice(0, 60)}`,
   )
@@ -142,7 +146,7 @@ const order: MutantStatus[] = [
   'Killed',
   'Timeout',
   'Survived',
-  ...(confirm === Infinity ? [] : (['Unconfirmed'] as const)),
+  ...(confirm === Infinity && counts.Unconfirmed === 0 ? [] : (['Unconfirmed'] as const)),
   'NoCoverage',
   'Static',
   'Pending',
@@ -184,6 +188,10 @@ if (result.failedBaselines.length > 0) {
 if (result.flakyTests.length > 0) {
   console.log(`${result.flakyTests.length} test(s) failed with a mutant and passed with the same one, and were not counted:`)
   for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
+}
+const unjudged = result.mutants.filter((mutant) => mutant.leftOut).length
+if (unjudged > 0) {
+  console.log(`${unjudged} mutant(s) such tests reach passed their test files without them and are unconfirmed; they count as survived in the score`)
 }
 const leftOut = Object.entries(result.leftOut.projects)
 if (result.leftOut.typeCheck) {
