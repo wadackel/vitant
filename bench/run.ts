@@ -169,14 +169,15 @@ for (const tool of ['vitant-no-clone', 'vitant', 'vitant-confirm4']) {
   // The tool exits with 1 when it gave up on a test file.
   if (timing.exitCodes.some((code) => code !== 0)) keep()
   if (!fs.existsSync(report)) continue
-  const { counts, wholeRuns, rounds, abandonedFiles, mutants } = JSON.parse(fs.readFileSync(report, 'utf8')) as {
+  const { counts, wholeRuns, work, rounds, abandonedFiles, mutants } = JSON.parse(fs.readFileSync(report, 'utf8')) as {
     counts: unknown
     wholeRuns: unknown
+    work: unknown
     rounds: number
     abandonedFiles: string[]
     mutants: Reported[]
   }
-  reports[tool] = { counts, wholeRuns, rounds, abandonedFiles: abandonedFiles.length }
+  reports[tool] = { counts, wholeRuns, work, rounds, abandonedFiles: abandonedFiles.length }
   if (tool === 'vitant-confirm4') {
     // A limit leaves runs out and guesses nothing: a mutant is unconfirmed or as the run without the limit has it.
     if (!fs.existsSync(vitantReport)) {
@@ -205,6 +206,7 @@ for (const tool of ['vitant-no-clone', 'vitant', 'vitant-confirm4']) {
   if (before) {
     const was = new Map(before.map((mutant) => [keyOf(mutant), mutant.status]))
     const changed = mutants.filter((mutant) => was.has(keyOf(mutant)) && kind(was.get(keyOf(mutant))!) !== kind(mutant.status))
+    ;(reports[tool] as { changed?: number }).changed = changed.length
     if (changed.length > 0) {
       console.log(`${tool}: ${changed.length} mutant(s) are not as the last run of this scope had them`)
       for (const mutant of changed.slice(0, 20)) {

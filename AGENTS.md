@@ -37,6 +37,7 @@ Benchmarks clone third-party projects into `bench/.work/` and take minutes to ho
 
 ```sh
 node bench/setup.ts <target>
+node bench/tier.ts                    # six short scopes in about five minutes: what each run spent, and whether every verdict held
 node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone]   # also checks against bench/truth/
 node bench/truth.ts make --root <project> --report <report.json> --out <truth.json> [--related]
 node bench/conformance.ts bench/.work/test262   # instrumented code against test262
@@ -62,7 +63,7 @@ node bench/conformance.ts bench/.work/test262   # instrumented code against test
 
 - Run `pnpm typecheck` and `pnpm test`.
 - For anything that touches instrumentation, planning, the runner or the addon, also run at least two benchmark targets and compare every mutant's verdict with a report made before the change. A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference. `bench/run.ts` prints every mutant that is not as the last run of the scope on this machine had it. That holds between two runs of unchanged code as well: one of the two is wrong, so write the mutant into the source and run the suite before anything else.
-- Run each benchmark on a quiet machine. Times vary by about a tenth between identical runs, so one run does not show a small gain.
+- Judge a change to how much work is done by the counts first: `bench/tier.ts` prints whole-file runs, trials and the time added up over the processes, which a busy machine changes by a few in a hundred between identical runs. Seconds come second and need a quiet machine: they vary by about a tenth between identical runs there, so one run does not show a small gain. The times in the README are taken on CI runners.
 - A trap that produced a wrong verdict gets a minimal reproduction in `fixtures/basic/`. `pnpm test:truth` must agree on every mutant there; it finds what nobody thought to assert.
 - Ground truth is the suite itself: `bench/truth.ts` writes each mutant into the source and runs Vitest. `bench/truth/` holds what that gave for the benchmark scopes, and `bench/run.ts` fails on a verdict that disagrees. An entry is changed only after running the suite by hand, never to match a report.
 - Say what was run and what was not. Do not report a platform, a target or a path as working without having run it.

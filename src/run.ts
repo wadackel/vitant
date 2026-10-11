@@ -138,6 +138,21 @@ export interface RunResult {
   /** How many times Vitest was asked to run files. */
   rounds: number
   wholeRuns: WholeRuns
+  /**
+   * What the run spent, in counts and in time added up over the processes
+   * that spent it. Wall-clock time says how long the machine took, other
+   * work on it included; these say how much there was to do.
+   */
+  work: {
+    /** Times a test was run with a mutant on in a worker, to find a lead. */
+    trials: number
+    /** CPU time of the workers over the tests they ran to measure them and to make those trials. */
+    trialCpuMs: number
+    /** Time the whole-file runs took, by whether the file passed. */
+    wholeMs: { passed: number; detected: number }
+    /** Worker processes Vitest started. */
+    workers: number
+  }
   unplaced: number
   skippedFiles: string[]
   vitestVersion: string
@@ -2288,10 +2303,20 @@ export async function run(options: RunOptions): Promise<RunResult> {
     Pending: 0,
   }
   const wholeRuns: WholeRuns = { started: 0, 'copied before load': 0, 'copied after load': 0, lost: 0 }
+  const work = { trials: 0, trialCpuMs: 0, wholeMs: { passed: 0, detected: 0 }, workers: 0 }
   for (const record of records) {
-    if (record.type === 'whole' && record.by) wholeRuns[record.by]++
-    else if (record.type === 'plain') wholeRuns.lost++
+    if (record.type === 'whole' && record.by) {
+      wholeRuns[record.by]++
+      work.wholeMs[record.verdict === 'passed' ? 'passed' : 'detected'] += record.ms ?? 0
+    } else if (record.type === 'plain') wholeRuns.lost++
+    else if (record.type === 'test') {
+      work.trials += record.attempts
+      work.trialCpuMs += record.cpuMs
+    } else if (record.type === 'worker') work.workers++
   }
+  work.trialCpuMs = Math.round(work.trialCpuMs)
+  work.wholeMs.passed = Math.round(work.wholeMs.passed)
+  work.wholeMs.detected = Math.round(work.wholeMs.detected)
   // A file that fails with no mutant on, nothing else running and no test to name leaves no way to tell what a mutant does to it.
   for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const pending = abandonedFiles.length > 0
@@ -2352,6 +2377,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     abandonedFiles,
     rounds,
     wholeRuns,
+    work,
     unplaced: generated.unplaced,
     skippedFiles: generated.skipped,
     vitestVersion,
