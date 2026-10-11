@@ -372,6 +372,15 @@ describe('test files whose runs do not stand each other, or that fail now and th
     }
     expect(verdicts(run).filter((line) => !line.startsWith('src/gauge.ts'))).toEqual(verdicts(plain).filter((line) => !line.startsWith('src/gauge.ts')))
   }, 120_000)
+
+  it('does not call a mutant survived that failed a run of a file in a test that reaches it, though another run passed', () => {
+    const run = runClash('clash-lever', { CLASH_LEVER: `${process.pid}-${Date.now()}` })
+    const halved = run.mutants.find((mutant) => mutant.file === 'src/lever.ts' && mutant.replacement === 'turns / 2')!
+    expect(plain.mutants.find((mutant) => mutant.id === halved.id)!.status).toBe('Killed')
+    expect(halved.status).toBe('Unconfirmed')
+    expect(halved.wavered).toEqual(['test/lever.test.ts > pulls the lever'])
+    expect(verdicts(run).filter((line) => !line.includes('turns / 2'))).toEqual(verdicts(plain).filter((line) => !line.includes('turns / 2')))
+  }, 120_000)
 })
 
 

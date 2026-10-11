@@ -65,6 +65,8 @@ export interface MutantResult {
   confirmed?: { passed: number; open: number }
   /** For an unconfirmed mutant, the tests that reach it and were left out of every run for failing by themselves. */
   leftOut?: string[]
+  /** For an unconfirmed mutant, the tests that reach it and failed in a run of their file with it, which another run of the file passed. */
+  wavered?: string[]
   /**
    * For a detected mutant, the runs of whole files that say so and the tests
    * that led to them: what to read when the suite disagrees with the verdict.
@@ -2347,15 +2349,33 @@ export async function run(options: RunOptions): Promise<RunResult> {
     if (!test.pristine) everywhere.push(label(test))
     else for (const mutant of new Set([...test.coverage.covered, ...test.coverage.cleanup])) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
   }
+  // A run of a file that passes settles it for the mutant, whatever failed
+  // before: the failure was other runs of the file in the way, or the test's
+  // own doing. Not where the test that failed reaches the mutant. A mutant
+  // can make a test a matter of chance, a check for a session under way
+  // taken out and three requests at once for one: the file then fails in
+  // most runs and passes in some, and the suite fails with the mutant all
+  // the same.
+  const waveredIn = new Map<number, Set<string>>()
+  for (const record of records) {
+    if (record.type !== 'whole' || !record.by || record.verdict === 'passed') continue
+    for (const id of record.tests ?? (record.test === undefined ? [] : [record.test])) {
+      const test = status.tests.get(id)
+      if (!test?.coverage) continue
+      if (test.pristine && !test.coverage.covered.includes(record.mutant) && !test.coverage.cleanup.includes(record.mutant)) continue
+      waveredIn.set(record.mutant, (waveredIn.get(record.mutant) ?? new Set()).add(label(test)))
+    }
+  }
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
     const leftOut = [...(leftOutOf.get(mutant.id) ?? []), ...everywhere]
+    const wavered = [...(waveredIn.get(mutant.id) ?? [])].filter((test) => !leftOut.includes(test))
     let status: MutantStatus
     // Only what runs of whole files found counts; what a test found while trying a mutant led to them.
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending) status = 'Pending'
-    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || leftOut.length > 0 ? 'Unconfirmed' : 'Survived'
+    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || leftOut.length + wavered.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
     return {
@@ -2371,6 +2391,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       timeoutCause: status === 'Timeout' ? (timeoutCauses.get(mutant.id) ?? 'fresh worker') : undefined,
       confirmed: status === 'Unconfirmed' ? unconfirmed.get(mutant.id) : undefined,
       leftOut: status === 'Unconfirmed' && leftOut.length > 0 ? leftOut : undefined,
+      wavered: status === 'Unconfirmed' && wavered.length > 0 ? wavered : undefined,
       evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,
     }
   })

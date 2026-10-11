@@ -30,8 +30,9 @@ on:
 permissions:
   contents: read
 
+# A push ends the run of the push before it, and leaves alone a run started by hand, which is what the README's times are taken from.
 concurrency:
-  group: bench-${{ github.ref }}
+  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}
   cancel-in-progress: true
 
 jobs:
