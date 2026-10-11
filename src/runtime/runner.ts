@@ -268,6 +268,7 @@ const beat = new Float64Array(workerData.shared, 0, 2)
 const mutant = new Int32Array(workerData.shared, 16, 2)
 const testId = new Uint8Array(workerData.shared, 24, 256)
 const deadline = new Float64Array(workerData.deadline)
+const resident = new Float64Array(workerData.resident)
 const sleeper = new Int32Array(new SharedArrayBuffer(4))
 const fd = fs.openSync(workerData.statePath, 'r+')
 const cpu = () => { const u = process.cpuUsage(); return (u.user + u.system) / 1000 }
@@ -278,7 +279,9 @@ for (;;) {
   // A run of a whole file can also wait for good on what a mutant keeps
   // from happening while the file loads, using no CPU time at all and with
   // no test's time limit to end it.
-  const overdue = deadline[0] > 0 && Date.now() > deadline[0]
+  // Nor does a limit on time come soon enough for a mutant that takes a
+  // gigabyte a second.
+  const overdue = (deadline[0] > 0 && Date.now() > deadline[0]) || (resident[0] > 0 && process.memoryUsage.rss() > resident[0])
   if ((beat[1] > 0 && cpu() - started > beat[1]) || overdue) {
     const end = testId.indexOf(0)
     const id = new TextDecoder().decode(testId.subarray(0, end === -1 ? testId.length : end))
@@ -306,6 +309,8 @@ const beatMutant = new Int32Array(shared, 16, 2)
 const beatTest = new Uint8Array(shared, 24, 256)
 /** When a run of a whole file has to be over, by the clock; 0 outside one. */
 const wallDeadline = new Float64Array(new SharedArrayBuffer(8))
+/** How much memory a run of a whole file may hold, in bytes; 0 outside one. */
+const residentLimit = new Float64Array(new SharedArrayBuffer(8))
 let watching = false
 /** Whether this process is a copy made for one whole-file run. */
 let cloned = false
@@ -322,6 +327,7 @@ function watch(): void {
     workerData: {
       shared,
       deadline: wallDeadline.buffer,
+      resident: residentLimit.buffer,
       statePath: paths.state,
       resultsPath: path.join(paths.results, `${process.pid}.jsonl`),
     },
@@ -350,7 +356,7 @@ interface Cloner {
   /** In a copy: its verdict is written. */
   done(): void
   /** Waits for a copy to end and says how it did. */
-  supervise(pid: number, stuckMs: number, ceilingMs: number): number
+  supervise(pid: number, stuckMs: number, ceilingMs: number, residentLimit: number): number
   Ended: { Done: number; Blocked: number; Lost: number }
   exit(code: number): never
 }
@@ -691,6 +697,17 @@ function hardLimitMs(run: { baselineMs: number }): number {
   return limitMs(run) * 5
 }
 
+/**
+ * The most memory a run of a whole file may hold with a mutant on. Like the
+ * limit on time it is a judgement: four times what the file's tests were
+ * seen to leave a worker holding, and a gigabyte. Where that was not
+ * measured, and for a file that takes most of its memory while it loads,
+ * what this process holds stands in.
+ */
+function residentLimitOf(job: { fileRss: number }): number {
+  return Math.max(job.fileRss, process.memoryUsage.rss()) * 4 + 1024 ** 3
+}
+
 function firstError(test: TaskLike): string | undefined {
   const error = test.result?.errors?.[0] as { message?: string } | undefined
   return error?.message?.slice(0, 500)
@@ -1005,7 +1022,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // several times what the file may take.
       const limit = hardLimitMs({ baselineMs: job.fileMs })
       const copiedAt = preciseNow()
-      const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000)
+      const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000, job.control || job.calm ? 0 : residentLimitOf(job))
       if (job.trial !== undefined) {
         if (ended !== cloner!.Ended.Done) untold(job, this.wholeFile!)
       } else if (job.calm) {
@@ -1077,6 +1094,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       heartbeat()
       // A copy is watched, for this too, by the process it was copied from.
       wallDeadline[0] = cloned ? 0 : realNow() + hardLimitMs(file)
+      residentLimit[0] = cloned || job.control || job.calm ? 0 : residentLimitOf(job)
       // A count of iterations says a loop is long, not that it does not
       // end: a mutant can send a loop over a few million elements that it
       // is through with in milliseconds, and the suite passes. Here, where
@@ -1580,6 +1598,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         runtime.a = -1
         beat[1] = 0
         wallDeadline[0] = 0
+        residentLimit[0] = 0
         runtime.x = this.loopLimit
         // A hook or the file itself can fail with every test passing.
         forEachTask(files, (task) => {

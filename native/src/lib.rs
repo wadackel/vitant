@@ -188,8 +188,9 @@ pub fn done() -> Result<()> {
 pub enum Ended {
     /// By itself, having written its verdict.
     Done,
-    /// Stopped for using more CPU time than it may without a heartbeat: it
-    /// blocks, which is a verdict.
+    /// Stopped for using more CPU time than it may without a heartbeat, or
+    /// for holding more memory than it may: it blocks, or it would take the
+    /// machine with it, either of which is a verdict.
     Blocked,
     /// Without a verdict. It ended on its own; or it sat without using CPU
     /// time or returning to its event loop, as one waiting for a thread it
@@ -202,7 +203,7 @@ pub enum Ended {
 /// message on a channel both share has to reach the copy. The copy has no
 /// thread to watch it, so the watching is done here.
 #[napi]
-pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64) -> Result<Ended> {
+pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) -> Result<Ended> {
     // Zero and below name groups of processes to `waitpid` and `kill`.
     if pid <= 0 {
         return Err(Error::from_reason(format!("not a process id: {pid}")));
@@ -231,6 +232,14 @@ pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64) -> Result<Ended> {
         if started.elapsed().as_secs_f64() * 1000.0 > ceiling_ms {
             stop(pid);
             return Ok(Ended::Lost);
+        }
+        // A copy can take a gigabyte a second, and as many copies as there
+        // are workers do so at once when mutants next to each other in the
+        // source all do: the limits on time come after the machine is out
+        // of memory.
+        if resident_limit > 0.0 && resident_bytes(pid).is_some_and(|held| held > resident_limit) {
+            stop(pid);
+            return Ok(Ended::Blocked);
         }
         // Without its CPU time the copy cannot be judged; the ceiling ends it.
         let Some(cpu) = cpu_ms(pid) else { continue };
@@ -271,6 +280,28 @@ struct Timebase {
 #[cfg(target_os = "macos")]
 unsafe extern "C" {
     fn mach_timebase_info(info: *mut Timebase) -> libc::c_int;
+}
+
+/// Memory a process holds in RAM, in bytes.
+#[cfg(target_os = "macos")]
+fn resident_bytes(pid: i32) -> Option<f64> {
+    // SAFETY: the kernel fills the structure, which is plain numbers.
+    unsafe {
+        let mut usage: libc::rusage_info_v2 = std::mem::zeroed();
+        if libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, (&raw mut usage).cast()) != 0 {
+            return None;
+        }
+        Some(usage.ri_resident_size as f64)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn resident_bytes(pid: i32) -> Option<f64> {
+    let statm = std::fs::read_to_string(format!("/proc/{pid}/statm")).ok()?;
+    let pages: f64 = statm.split_ascii_whitespace().nth(1)?.parse().ok()?;
+    // SAFETY: plain system call.
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as f64;
+    Some(pages * page)
 }
 
 /// CPU time a process has used, in milliseconds.

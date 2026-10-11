@@ -71,6 +71,8 @@ export interface WholeJob {
   fileMs: number
   /** How often instrumented loops go round in the file's tests together, unmutated. */
   fileLoops: number
+  /** The most resident memory a worker had at the end of one of the file's tests, unmutated; 0 where that was not measured. */
+  fileRss: number
   /** The mutant already blocked a worker while a test tried it. */
   stalled: boolean
   /** A test of the file failed with the mutant while trying it; the run is to see whether the file does. */

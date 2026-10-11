@@ -204,6 +204,8 @@ interface TestRecord {
   baseline?: 'pass' | 'fail' | 'skip'
   baselineMs: number
   baselineLoops: number
+  /** Resident memory of the worker when the test ended. */
+  rss?: number
   baselineRetry: boolean
   /**
    * No other process ran the file at the time, as in the first round. What a
@@ -428,7 +430,7 @@ interface TestState {
   file: string
   name: string
   /** From the last passing unmutated run. */
-  coverage?: { sites: number; covered: number[]; cleanup: number[]; baselineMs: number; baselineLoops: number }
+  coverage?: { sites: number; covered: number[]; cleanup: number[]; baselineMs: number; baselineLoops: number; rss: number }
   /** No mutant had been on in the worker when that run was made. */
   pristine: boolean
   /** Mutants this test already ran to a verdict. */
@@ -642,6 +644,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
           cleanup: record.cleanup,
           baselineMs: record.baselineMs,
           baselineLoops: record.baselineLoops,
+          rss: record.rss ?? 0,
         }
       }
     } else if (record.baseline === 'fail') {
@@ -1092,9 +1095,11 @@ function planPhase(
   const failing = new Map<string, string[]>()
   const fileMs = new Map<string, number>()
   const fileLoops = new Map<string, number>()
+  const fileRss = new Map<string, number>()
   for (const [id, test] of status.tests) {
     fileMs.set(test.file, (fileMs.get(test.file) ?? 0) + (test.coverage?.baselineMs ?? 0))
     fileLoops.set(test.file, (fileLoops.get(test.file) ?? 0) + (test.coverage?.baselineLoops ?? 0))
+    fileRss.set(test.file, Math.max(fileRss.get(test.file) ?? 0, test.coverage?.rss ?? 0))
     if (test.failed || status.flaky.has(id)) failing.set(test.file, [...(failing.get(test.file) ?? []), id])
   }
   plan.ignore = [...failing.values()].flat()
@@ -1107,6 +1112,7 @@ function planPhase(
       ignore: failing.get(file) ?? [],
       fileMs: fileMs.get(file) ?? 0,
       fileLoops: fileLoops.get(file) ?? 0,
+      fileRss: fileRss.get(file) ?? 0,
       stalled: false,
       witnesses: [],
       trial: test,
@@ -1166,6 +1172,7 @@ function planPhase(
       ignore: failing.get(file) ?? [],
       fileMs: fileMs.get(file) ?? 0,
       fileLoops: fileLoops.get(file) ?? 0,
+      fileRss: fileRss.get(file) ?? 0,
       // Timing out under a test counts like having blocked a worker, and so
       // does a run of this file that a limit ended or that took its worker with it.
       stalled: state[mutant] === MUTANT_STALLED || state[mutant] === MUTANT_TIMEOUT || hung,
@@ -1347,6 +1354,7 @@ function planPhase(
         ignore: failing.get(file) ?? [],
         fileMs: fileMs.get(file) ?? 0,
         fileLoops: fileLoops.get(file) ?? 0,
+        fileRss: fileRss.get(file) ?? 0,
         stalled: false,
         control: true,
         quiet: true,
@@ -1376,6 +1384,7 @@ function planPhase(
         ignore: failing.get(file) ?? [],
         fileMs: fileMs.get(file) ?? 0,
         fileLoops: fileLoops.get(file) ?? 0,
+        fileRss: fileRss.get(file) ?? 0,
         stalled: false,
         control: true,
         pair: true,
