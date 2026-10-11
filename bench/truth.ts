@@ -318,7 +318,13 @@ async function make(): Promise<Truth> {
       }
       originals.set(file, source)
       fs.writeFileSync(file, written(file, source, entry))
-      const { suite } = await runSuite(root, argsFor(entry.file), limitMs)
+      // A test that fails one run in three by itself is easily missed by
+      // the runs above and as easily fails here: a failure the mutant
+      // causes is there in every run, so one that passes settles it.
+      let suite: Suite = 'fail'
+      for (let attempt = 0; attempt < (entry.suite === 'fail' ? 3 : 1) && suite === 'fail'; attempt++) {
+        suite = (await runSuite(root, argsFor(entry.file), limitMs)).suite
+      }
       fs.writeFileSync(file, source)
       originals.delete(file)
       if (suite !== entry.suite) console.error(`${entry.file}:${entry.start.join(':')} ${entry.suite} at first, ${suite} alone`)
