@@ -152,7 +152,7 @@ function runSuite(
   root: string,
   args: string[],
   limitMs: number,
-): Promise<{ suite: Suite; ms: number; failed: string[] }> {
+): Promise<{ suite: Suite; ms: number; failed: string[]; excused: boolean }> {
   return new Promise((resolve) => {
     const startedAt = performance.now()
     const results = path.join(root, 'node_modules', `.truth-${process.pid}-${runs++}.json`)
@@ -193,9 +193,23 @@ function runSuite(
       // What failed is known to be only tests that fail by themselves: not a failure of the mutant's.
       const onlyFlaky = known && failed.length > 0 && failed.every((test) => flaky.has(test))
       const suite = timedOut ? 'timeout' : code === 0 || onlyFlaky ? 'pass' : 'fail'
-      resolve({ suite, ms: performance.now() - startedAt, failed })
+      resolve({ suite, ms: performance.now() - startedAt, failed, excused: !timedOut && code !== 0 && onlyFlaky })
     })
   })
+}
+
+/**
+ * The suite with a mutant written in. A run in which only tests failed that
+ * fail by themselves is no pass yet: Vitest also ends with an error for what
+ * nothing handled, in a run whose tests all pass, and its report does not
+ * list that. Such a run is made again, and one that never ends cleanly fails.
+ */
+async function runMutated(root: string, args: string[], limitMs: number): Promise<Suite> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const run = await runSuite(root, args, limitMs)
+    if (!run.excused) return run.suite
+  }
+  return 'fail'
 }
 
 /** Copies of the project next to it, each with links in place of the `node_modules` directories. */
@@ -276,7 +290,7 @@ async function make(): Promise<Truth> {
           const source = fs.readFileSync(file, 'utf8')
           originals.set(file, source)
           fs.writeFileSync(file, written(file, source, entry))
-          const { suite } = await runSuite(dir, argsFor(entry.file), limitMs)
+          const suite = await runMutated(dir, argsFor(entry.file), limitMs)
           fs.writeFileSync(file, source)
           originals.delete(file)
           entries[index] = { ...entry, suite }
@@ -308,7 +322,7 @@ async function make(): Promise<Truth> {
       }
       originals.set(file, source)
       fs.writeFileSync(file, written(file, source, entry))
-      const { suite } = await runSuite(root, argsFor(entry.file), limitMs)
+      const suite = await runMutated(root, argsFor(entry.file), limitMs)
       fs.writeFileSync(file, source)
       originals.delete(file)
       if (suite !== entry.suite) console.error(`${entry.file}:${entry.start.join(':')} ${entry.suite} at first, ${suite} alone`)
