@@ -152,16 +152,18 @@ function runSuite(
   root: string,
   args: string[],
   limitMs: number,
-): Promise<{ suite: Suite; ms: number; failed: string[]; excused: boolean }> {
+): Promise<{ suite: Suite; ms: number; failed: string[] }> {
   return new Promise((resolve) => {
     const startedAt = performance.now()
     const results = path.join(root, 'node_modules', `.truth-${process.pid}-${runs++}.json`)
     // Its own process group: a mutant can leave workers the suite never ends.
-    const child = spawn(process.execPath, [vitestBin(root), ...args, '--reporter=json', `--outputFile=${results}`], {
+    const unhandled = `${results}.errors`
+    const reporter = path.join(import.meta.dirname, 'truth-reporter.mjs')
+    const child = spawn(process.execPath, [vitestBin(root), ...args, '--reporter=json', `--reporter=${reporter}`, `--outputFile=${results}`], {
       cwd: root,
       stdio: 'ignore',
       detached: true,
-      env: { ...process.env, CI: 'true' },
+      env: { ...process.env, CI: 'true', VITANT_TRUTH_ERRORS: unhandled },
     })
     let timedOut = false
     const timer = setTimeout(() => {
@@ -189,27 +191,21 @@ function runSuite(
         }
         if (report.numFailedTestSuites > 0 && failed.length === 0) known = false
       } catch {}
+      // Tests that fail by themselves excuse a run only where nothing else
+      // failed it: an error nothing handled ends Vitest the same way with
+      // every test passing, and is not in the report.
+      let clean = false
+      try {
+        clean = fs.readFileSync(unhandled, 'utf8') === '0'
+      } catch {}
       fs.rmSync(results, { force: true })
+      fs.rmSync(unhandled, { force: true })
       // What failed is known to be only tests that fail by themselves: not a failure of the mutant's.
-      const onlyFlaky = known && failed.length > 0 && failed.every((test) => flaky.has(test))
+      const onlyFlaky = known && clean && failed.length > 0 && failed.every((test) => flaky.has(test))
       const suite = timedOut ? 'timeout' : code === 0 || onlyFlaky ? 'pass' : 'fail'
-      resolve({ suite, ms: performance.now() - startedAt, failed, excused: !timedOut && code !== 0 && onlyFlaky })
+      resolve({ suite, ms: performance.now() - startedAt, failed })
     })
   })
-}
-
-/**
- * The suite with a mutant written in. A run in which only tests failed that
- * fail by themselves is no pass yet: Vitest also ends with an error for what
- * nothing handled, in a run whose tests all pass, and its report does not
- * list that. Such a run is made again, and one that never ends cleanly fails.
- */
-async function runMutated(root: string, args: string[], limitMs: number): Promise<Suite> {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const run = await runSuite(root, args, limitMs)
-    if (!run.excused) return run.suite
-  }
-  return 'fail'
 }
 
 /** Copies of the project next to it, each with links in place of the `node_modules` directories. */
@@ -290,7 +286,7 @@ async function make(): Promise<Truth> {
           const source = fs.readFileSync(file, 'utf8')
           originals.set(file, source)
           fs.writeFileSync(file, written(file, source, entry))
-          const suite = await runMutated(dir, argsFor(entry.file), limitMs)
+          const { suite } = await runSuite(dir, argsFor(entry.file), limitMs)
           fs.writeFileSync(file, source)
           originals.delete(file)
           entries[index] = { ...entry, suite }
@@ -322,7 +318,7 @@ async function make(): Promise<Truth> {
       }
       originals.set(file, source)
       fs.writeFileSync(file, written(file, source, entry))
-      const suite = await runMutated(root, argsFor(entry.file), limitMs)
+      const { suite } = await runSuite(root, argsFor(entry.file), limitMs)
       fs.writeFileSync(file, source)
       originals.delete(file)
       if (suite !== entry.suite) console.error(`${entry.file}:${entry.start.join(':')} ${entry.suite} at first, ${suite} alone`)
