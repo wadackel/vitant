@@ -312,11 +312,15 @@ interface WholeState {
 const wholeKey = (mutant: number, file: string) => `${mutant}\n${file}`
 
 /**
- * A failure counts once it has been seen twice, as nothing can re-run a file
- * in place: in a second run of the file, or in the same test that failed with
- * the mutant while trying it. A lead from another test does not do: trying a
+ * A failure counts once it has been seen twice: in the same test that failed
+ * with the mutant while trying it, or in a second run of the file made with
+ * nothing else running. A lead from another test does not do: trying a
  * mutant in a worker can fail a test for good reasons that a whole run does
  * not share, and then one test of the file failing by chance would settle it.
+ * Nor does a second run made at once next to the first: of 3,184 such runs
+ * over twenty projects 8 passed, and those that failed settled nothing, the
+ * test that had failed trying the mutant or the run with nothing else
+ * running being what did.
  */
 function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | undefined {
   if (!state) return undefined
@@ -815,7 +819,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const pairWanted = new Set<string>()
   for (const [key, entry] of whole) {
     const file = key.split('\n')[1]
-    if (entry.repeated > 0 || entry.passed > 0 || entry.beside < 2 || exclusive.has(file)) continue
+    if (entry.repeated > 0 || entry.passed > 0 || entry.beside === 0 || exclusive.has(file)) continue
     const pair = pairs.get(file)
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
@@ -909,7 +913,7 @@ function planPhase(
     testsMs.set(test.file, (testsMs.get(test.file) ?? 0) + (test.coverage?.baselineMs ?? 0))
   }
   const unsettled = [...status.whole]
-    .filter(([, entry]) => entry.passed === 0 && entry.repeated === 0 && entry.quiet === 0 && entry.failed + entry.timedOut + entry.died >= 2)
+    .filter(([, entry]) => entry.passed === 0 && entry.repeated === 0 && entry.quiet === 0 && entry.failed + entry.timedOut + entry.died > 0)
     .map(([key]) => ({ mutant: Number(key.split('\n')[0]), file: key.split('\n')[1] }))
     .sort((a, b) => (testsMs.get(a.file) ?? 0) - (testsMs.get(b.file) ?? 0))
   const settledIn = new Map<number, string>()
@@ -1138,7 +1142,7 @@ function planPhase(
     // Unless a test of the file has given a lead that no run so far knew of: a run that goes on to it comes first.
     const unknown =
       entry?.knowing === 0 && [...(status.witnesses.get(mutant) ?? [])].some((id) => status.tests.get(id)?.file === file)
-    if (!quiet && !unknown && entry && entry.passed === 0 && entry.repeated === 0 && entry.failed + entry.timedOut + entry.died >= 2) {
+    if (!quiet && !unknown && entry && entry.passed === 0 && entry.repeated === 0 && entry.failed + entry.timedOut + entry.died > 0) {
       quietJobs.push([mutant, file])
       return
     }
@@ -1283,8 +1287,8 @@ function planPhase(
         const left = ranked.filter((file) => !within.has(file) && !wholeVerdict(status.whole.get(wholeKey(mutant, file)))).length
         if (left > 0) unconfirmed.set(mutant, { passed: targets.size - left, open: left })
       }
-      // A failure seen once is run again before anything else: repeated, it
-      // ends the search. Otherwise a few files go first and twice as many
+      // A file the mutant has failed in comes before any other: what settles
+      // that failure ends the search. Otherwise a few files go first and twice as many
       // each round, so that a mutant some file detects costs little and one
       // that survives few rounds: the nearest files first. The cheapest alone
       // say nothing of which file detects: of the 322 test files that load
@@ -1551,7 +1555,6 @@ function writeSession(
   fs.rmSync(dir, { recursive: true, force: true })
   fs.mkdirSync(paths.results, { recursive: true })
   fs.mkdirSync(paths.trying)
-  fs.mkdirSync(paths.again)
   fs.mkdirSync(paths.locks)
   const config: SessionConfig = {
     runtimeGlobal: RUNTIME_GLOBAL,
@@ -2012,10 +2015,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // in which case the run it ended never got to the tests after it.
       for (let mutant = 0; mutant < state.length; mutant++) {
         if ((state[mutant] !== MUTANT_KILLED && state[mutant] !== MUTANT_TIMEOUT) || status.detected.has(mutant)) continue
-        // Two failures that settle nothing are not waited on: the test that
-        // failed is given the mutant to try, which is what could settle them.
+        // A failure that settles nothing is not waited on: the test that
+        // failed is given the mutant to try, which is what could settle it.
         const waiting = (entry?: WholeState) =>
-          !wholeVerdict(entry) && (entry === undefined || entry.failed + entry.timedOut + entry.died < 2)
+          !wholeVerdict(entry) && (entry === undefined || entry.failed + entry.timedOut + entry.died === 0)
         const files = status.suspects.get(mutant)
         if (files && [...files].some((file) => waiting(status.whole.get(wholeKey(mutant, file))))) continue
         state[mutant] = MUTANT_PENDING

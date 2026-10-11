@@ -85,7 +85,7 @@ export interface WholeJob {
   /**
    * No mutant, and made at the same moment as another such run of the file:
    * the two show whether runs of the file fail each other. Asked of a file
-   * in which a mutant failed twice in a test that had given no lead, which
+   * in which a mutant failed in a test that had given no lead, which
    * is what a mutant that is detected looks like, and what every mutant
    * looks like in a file whose runs never get past each other.
    */
@@ -289,8 +289,6 @@ export function sessionPaths(dir: string) {
     claims: path.join(dir, 'claims'),
     /** One file per worker, named by its process id: an Int32, the mutant it has on for a test, or -1. */
     trying: path.join(dir, 'trying'),
-    /** One empty file per whole-file run a copy asks to have made once more, named by the job's id. */
-    again: path.join(dir, 'again'),
     /** One directory per test file a whole-file run of which is under way and must be the only one, see `WholeJob.exclusive`. */
     locks: path.join(dir, 'locks'),
     runner: path.join(dir, 'runner.mjs'),

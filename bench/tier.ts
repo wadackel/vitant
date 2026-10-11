@@ -17,7 +17,7 @@ import path from 'node:path'
 const quick = ['ufo:all', 'pinia:pinia', 'zustand:all', 'es-toolkit:array', 'hono:router', 'immer:all']
 
 const scopes = process.argv.length > 2 ? process.argv.slice(2) : quick
-const rows: string[][] = [['scope', 's', 'whole runs', 'whole s pass/det', 'trials', 'trial cpu s', 'workers', 'rounds', 'changed', 'truth']]
+const rows: string[][] = [['scope', 's', 'whole runs', 'whole s pass/det', 'trials', 'trial cpu s', 'workers', 'quiet', 'rounds', 'changed', 'truth']]
 let wrong = false
 for (const name of scopes) {
   const [target, scope] = name.split(':')
@@ -42,6 +42,7 @@ for (const name of scopes) {
     String(report.work.trials),
     seconds(report.work.trialCpuMs),
     String(report.work.workers),
+    String(report.quiet),
     String(report.rounds),
     String(report.changed ?? ''),
     report.truth?.replace(/^\d+ mutants checked against the suite: /, '') ?? '',

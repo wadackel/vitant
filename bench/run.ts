@@ -169,15 +169,16 @@ for (const tool of ['vitant-no-clone', 'vitant', 'vitant-confirm4']) {
   // The tool exits with 1 when it gave up on a test file.
   if (timing.exitCodes.some((code) => code !== 0)) keep()
   if (!fs.existsSync(report)) continue
-  const { counts, wholeRuns, work, rounds, abandonedFiles, mutants } = JSON.parse(fs.readFileSync(report, 'utf8')) as {
+  const { counts, wholeRuns, work, quietRuns, rounds, abandonedFiles, mutants } = JSON.parse(fs.readFileSync(report, 'utf8')) as {
     counts: unknown
     wholeRuns: unknown
     work: unknown
+    quietRuns: { failed: number; passed: number }
     rounds: number
     abandonedFiles: string[]
     mutants: Reported[]
   }
-  reports[tool] = { counts, wholeRuns, work, rounds, abandonedFiles: abandonedFiles.length }
+  reports[tool] = { counts, wholeRuns, work, quiet: quietRuns.failed + quietRuns.passed, rounds, abandonedFiles: abandonedFiles.length }
   if (tool === 'vitant-confirm4') {
     // A limit leaves runs out and guesses nothing: a mutant is unconfirmed or as the run without the limit has it.
     if (!fs.existsSync(vitantReport)) {

@@ -867,7 +867,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     /** The witnesses of the job that have not run yet, see `wholeSettled`. */
     private wholeWaits = new Set<string>()
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
-    private wholeAgain = false
     /** How the process making the whole-file run came to be. */
     private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
@@ -939,10 +938,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
-      const first = this.copy(job, beforeLoad, false)
-      if (first !== 'again') return first === 'copy'
-      await this.standStill()
-      return this.copy(job, beforeLoad, true) === 'copy'
+      return this.copy(job, beforeLoad)
     }
 
     /** Leaves nothing under way between this process and the main one, so that a copy can be made. */
@@ -977,10 +973,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     /**
      * The copying itself, which nothing may interrupt: see `standStill`. In the
-     * process that was copied this waits for the copy to end and says whether
-     * the copy asked for the run to be made again.
+     * process that was copied this waits for the copy to end. Returns whether
+     * this is the copy.
      */
-    private copy(job: WholeJob, beforeLoad: boolean, second: boolean): 'copy' | 'again' | 'done' {
+    private copy(job: WholeJob, beforeLoad: boolean): boolean {
       const by = beforeLoad ? 'copied before load' : 'copied after load'
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
@@ -990,18 +986,17 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       } catch {
         // No copy could be made; a worker started for the job makes the run.
         emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
-        return 'done'
+        return false
       }
       if (pid === 0) {
         cloned = true
         this.wholeBy = by
-        this.wholeAgain = second
         copiedFrom = self
         // Node read the process id when it started, which was in the process
         // this is a copy of; a signal the tests send themselves must not go there.
         Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
         this.keepToItself()
-        return 'copy'
+        return true
       }
       // This process waits without touching the channel to the main
       // process, which the copy uses in its place. A copy that keeps to its
@@ -1037,10 +1032,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // own. Whatever it was, a worker started for the job alone decides.
         emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
       }
-      const again = path.join(paths.again, String(job.id))
-      if (!fs.existsSync(again)) return 'done'
-      fs.rmSync(again)
-      return 'again'
+      return false
     }
 
     /** Turns the job's mutant on for the rest of the file's run. */
@@ -1577,15 +1569,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
       })
-      // A failure counts at once only where it repeats what a test showed
-      // while trying the mutant. Any other has to be seen twice, and the
-      // process this is a copy of can make the second run on the spot,
-      // which a round of its own for it would take seconds to get to.
-      const job = this.whole!
-      const repeats =
-        this.wholeTests.some((id) => job.witnesses?.includes(id)) ||
-        (this.wholeFailure === 'timeout' && job.stalled)
-      if (this.wholeFailure && !repeats && !this.wholeAgain && !job.quiet) fs.writeFileSync(path.join(paths.again, String(job.id)), '')
       cloner!.done()
       return cloner!.exit(0)
     }

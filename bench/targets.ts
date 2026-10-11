@@ -58,6 +58,8 @@ export const targets: Record<string, Target> = {
     scopes: {
       array: { mutate: ['src/array/*.ts'] },
       all: { mutate: ['src/**/*.ts'] },
+      // The pinned commit itself, as a pull request would be run.
+      pr: { changed: 'HEAD~1' },
     },
   },
   // Vitest 5, jsdom: React components rendered with Testing Library.
@@ -145,6 +147,8 @@ export const targets: Record<string, Target> = {
     projects: ['unit', 'unit-gc', 'unit-jsdom'],
     scopes: {
       reactivity: { mutate: ['packages/reactivity/src/**/*.ts'] },
+      // The pinned commit itself, as a pull request would be run.
+      pr: { changed: 'HEAD~1' },
     },
   },
   // Vitest 4: two test files register over a thousand sample directories
@@ -232,6 +236,8 @@ export const targets: Record<string, Target> = {
     installStryker: `npx -y yarn@1.22.22 add -D ${stryker}`,
     scopes: {
       all: { mutate: ['src/**/*.ts'] },
+      // The pinned commit itself, as a pull request would be run.
+      pr: { changed: 'HEAD~1' },
     },
   },
   // State machines and actors, with tests that wait on real timers. One of

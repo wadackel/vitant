@@ -790,6 +790,10 @@
     {"file":"src/utils/timing.ts","start":[64,40],"end":[64,65],"mutator":"ArithmeticOperator","replacement":"performance.now() + start","suite":"pass"},
     {"file":"src/utils/ws.ts","start":[93,8],"end":[93,42],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},
     {"file":"src/utils/ws.ts","start":[147,8],"end":[147,19],"mutator":"ConditionalExpression","replacement":"true","suite":"fail","note":"every test passes; the run fails on the type check Vitest makes for this project, which this tool does not make"},
-    {"file":"src/utils/ws.ts","start":[157,36],"end":[157,68],"mutator":"StringLiteral","replacement":"\"\"","suite":"pass"}
+    {"file":"src/utils/ws.ts","start":[157,36],"end":[157,68],"mutator":"StringLiteral","replacement":"\"\"","suite":"pass"},
+    {"file":"src/utils/body.ts","start":[66,10],"end":[66,34],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},
+    {"file":"src/utils/body.ts","start":[66,36],"end":[68,7],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
+    {"file":"src/utils/session.ts","start":[163,6],"end":[163,21],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},
+    {"file":"src/utils/session.ts","start":[163,23],"end":[165,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail"}
   ]
 }

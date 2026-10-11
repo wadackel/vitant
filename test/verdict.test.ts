@@ -191,10 +191,10 @@ describe('what the runs of whole files settle', () => {
     expect(inspect([seen('t9', '/project/other.test.ts'), stall('t9'), timeout]).detected.has(0)).toBe(false)
   })
 
-  it('asks for two unmutated runs at once where a mutant failed twice without a lead, and goes by them', () => {
+  it('asks for two unmutated runs at once where a mutant failed without a lead, and goes by them', () => {
     const pair = (verdict: 'failed' | 'passed', met = true): SessionRecord =>
       ({ type: 'pair', file, verdict, met, at: at++ }) as SessionRecord
-    const runs = [whole(0, 'failed', { test: 't2' }), whole(0, 'failed', { test: 't2' })]
+    const runs = [whole(0, 'failed', { test: 't2' })]
     expect([...inspect(runs).pairWanted]).toEqual([file])
     expect(inspect([lead(0, 't1'), whole(0, 'failed', { test: 't1' })]).pairWanted.size).toBe(0)
 
