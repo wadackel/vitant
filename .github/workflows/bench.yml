@@ -42,39 +42,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Runners differ by half in speed from one job to the next, so a time says
+  # something of a change only beside one of another commit taken on the
+  # same model of processor, which the summary names. That takes starting
+  # the targets in question twice rather than all of them.
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      bench: ${{ steps.pick.outputs.bench }}
+    steps:
+      - id: pick
+        env:
+          ONLY: ${{ inputs.only }}
+          ALL: |
+            ufo all
+            zustand all
+            es-toolkit array
+            immer all
+            pinia pinia
+            jotai vanilla
+            query core
+            hono router
+            hono utils
+            excalidraw pr
+            vue reactivity
+            solid reactive
+            pacer timing
+            xstate core
+            valibot schemas
+            shiki transformers
+            effect data
+            h3 utils
+            es-toolkit pr
+            vue pr
+        run: |
+          node -e '
+            const only = process.env.ONLY.split(/\s+/).filter(Boolean)
+            const all = process.env.ALL.trim().split("\n").map((line) => line.trim().split(" "))
+            const bench = all.filter(([target]) => only.length === 0 || only.includes(target)).map(([target, scope]) => ({ target, scope }))
+            console.log("bench=" + JSON.stringify(bench))
+          ' >> "$GITHUB_OUTPUT"
+
   run:
     name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (${{ matrix.runner }})
-    # Runners differ by half in speed from one job to the next, so a time says
-    # something of a change only beside one of another commit taken on the
-    # same model of processor, which the summary names.
-    if: ${{ !inputs.only || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.bench.target)) }}
+    needs: plan
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
         runner: [ubuntu-24.04, macos-15]
-        bench:
-          - { target: ufo, scope: all }
-          - { target: zustand, scope: all }
-          - { target: es-toolkit, scope: array }
-          - { target: immer, scope: all }
-          - { target: pinia, scope: pinia }
-          - { target: jotai, scope: vanilla }
-          - { target: query, scope: core }
-          - { target: hono, scope: router }
-          - { target: hono, scope: utils }
-          - { target: excalidraw, scope: pr }
-          - { target: vue, scope: reactivity }
-          - { target: solid, scope: reactive }
-          - { target: pacer, scope: timing }
-          - { target: xstate, scope: core }
-          - { target: valibot, scope: schemas }
-          - { target: shiki, scope: transformers }
-          - { target: effect, scope: data }
-          - { target: h3, scope: utils }
-          - { target: es-toolkit, scope: pr }
-          - { target: vue, scope: pr }
+        bench: ${{ fromJSON(needs.plan.outputs.bench) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
