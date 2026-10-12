@@ -484,6 +484,11 @@ async function quiet(): Promise<void> {
   while (calls > 0 || unanswered.size > 0) await new Promise((resolve) => realSetTimeout(resolve, 0))
 }
 
+/** Whether `waited` came about within the time an answer of the main process may take on a machine that is behind. */
+function inTime(waited: Promise<unknown>): Promise<boolean> {
+  return Promise.race([waited.then(() => true), new Promise<boolean>((resolve) => realSetTimeout(() => resolve(false), 60_000))])
+}
+
 /** Ids of the calls this process has sent to the main process and has no answer to. */
 const watched = (globalThis as { __vitant_unanswered?: Set<string> }).__vitant_unanswered
 const unanswered = watched ?? new Set<string>()
@@ -1053,11 +1058,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * which is how runs of jotai on a macOS runner came to no end.
      */
     private async giveWay(): Promise<never> {
-      const still = await Promise.race([
-        this.standStill().then(() => true),
-        new Promise<boolean>((resolve) => realSetTimeout(() => resolve(false), 10_000)),
-      ])
-      return cloner!.exit(still ? RECYCLED : 1)
+      return cloner!.exit((await inTime(this.standStill())) ? RECYCLED : 1)
     }
 
     /** Leaves nothing under way between this process and the main one, so that a copy can be made. */
@@ -1704,10 +1705,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       } finally {
         // Vitest would go on to tell the main process the file is through,
         // which the process this was copied from does.
-        if (hosted && !cloned) {
-          await quiet()
-          cloner!.exit(0)
-        }
+        // An answer that never comes must not keep the file from ending:
+        // ended as one that failed, this copy takes the worker with it.
+        if (hosted && !cloned) cloner!.exit((await inTime(quiet())) ? 0 : 1)
       }
     }
 
