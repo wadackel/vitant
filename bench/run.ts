@@ -1,11 +1,14 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N] [--limit MINUTES]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4] [--runs N] [--limit MINUTES]
 //
 // `--limit` ends a run of this tool that goes on for that long, having first
 // written down what its processes were doing (`<tool>.hang.txt`).
 // `vitant-no-clone` is this tool starting a worker for every whole-file run.
+// `vitant-base` is the tool as another checkout has it, named by VITANT_BASE:
+// two commits are compared on one machine, CI runners differing by a third
+// from one job to the next.
 // `vitant-confirm4` is it with `--confirm 4`, held against the scope's report of `vitant`.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
@@ -31,7 +34,7 @@ const { values, positionals } = parseArgs({
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N] [--limit MINUTES]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4] [--runs N] [--limit MINUTES]')
   process.exit(1)
 }
 
@@ -170,10 +173,15 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant', 'vitant-confirm4']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
-  const args = [path.join(repoRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
+  const toolRoot = tool === 'vitant-base' ? process.env.VITANT_BASE : repoRoot
+  if (!toolRoot) {
+    console.error('vitant-base: VITANT_BASE is to name the checkout of the tool to compare with')
+    process.exit(1)
+  }
+  const args = [path.join(toolRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if (tool === 'vitant-confirm4') args.push('--confirm', '4')
   if ('changed' in scope) args.push('--changed', scope.changed)

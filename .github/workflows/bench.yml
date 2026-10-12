@@ -28,6 +28,9 @@ on:
       limit:
         description: Minutes after which a run of this tool is ended as one that hangs
         default: '150'
+      base:
+        description: Commit of this tool to run as vitant-base, for comparing two commits in one job
+        default: ''
   push:
     branches: [main]
     paths:
@@ -41,7 +44,7 @@ permissions:
 
 # A push ends the run of the push before it, and leaves alone a run started by hand, which is what the README's times are taken from.
 concurrency:
-  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}
+  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}
   cancel-in-progress: true
 
 jobs:
@@ -113,10 +116,21 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm build:native
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ inputs.base }}
+        with:
+          ref: ${{ inputs.base }}
+          path: base
+      - name: Build the tool to compare with
+        if: ${{ inputs.base }}
+        run: |
+          ln -s ../node_modules base/node_modules
+          cd base && pnpm build:native
       - name: Set up ${{ matrix.bench.target }}
         run: node bench/setup.ts "${{ matrix.bench.target }}" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
       - name: Run
         env:
+          VITANT_BASE: ${{ inputs.base && format('{0}/base', github.workspace) || '' }}
           TOOLS: ${{ inputs.tools || 'vitant' }}
           RUNS: ${{ inputs.runs || '1' }}
           # The longest run of this tool here, one that starts a worker for every run of a file, took 106 minutes.
