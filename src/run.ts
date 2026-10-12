@@ -1792,6 +1792,26 @@ function changedSince(before: Map<string, string>, root: string): string[] {
   return [...workingTree(root)].filter(([file, held]) => before.get(file) !== held).map(([file]) => relative(root, file))
 }
 
+/**
+ * How much the records hold of what a round is made for; a round that adds
+ * nothing to it got nowhere. A test that tries a mutant with its file to
+ * itself counts though it had tried the mutant before, next to other runs,
+ * and adds no mutant to those it has judged: the tests of one file take a
+ * round each for that, and three of them in a row left Effect's
+ * `RateLimiter.test.ts`, with every mutant it reaches, without a verdict.
+ */
+export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<number>): number {
+  let count = 0
+  for (const test of status.tests.values()) count += test.judged.size + Number(test.done)
+  for (let mutant = 0; mutant < state.length; mutant++) if (state[mutant] !== MUTANT_PENDING) count++
+  for (const entry of status.whole.values()) count += entry.runs
+  for (const pair of status.pairs.values()) count += pair.asked + pair.met
+  for (const passes of status.measured.values()) count += passes
+  for (const runs of status.calms.values()) count += runs
+  for (const tried of status.triedSole.values()) count += tried.size
+  return count
+}
+
 export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
@@ -2185,13 +2205,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
           had: total(status.whole.get(wholeKey(mutant, file))),
         })),
       )
-      let judged = 0
-      for (const test of status.tests.values()) judged += test.judged.size + Number(test.done)
-      for (const value of state) if (value !== MUTANT_PENDING) judged++
-      for (const entry of status.whole.values()) judged += total(entry)
-      for (const pair of status.pairs.values()) judged += pair.asked + pair.met
-      for (const passes of status.measured.values()) judged += passes
-      for (const runs of status.calms.values()) judged += runs
+      const judged = headway(status, state)
       if (next.workByFile.size === 0) break
       stalled = judged === progress ? stalled + 1 : 0
       progress = judged

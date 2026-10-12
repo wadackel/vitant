@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { doubts, inspect, type SessionRecord } from '../src/run.ts'
+import { doubts, headway, inspect, type SessionRecord } from '../src/run.ts'
 
 const file = '/project/a.test.ts'
 const MUTANT_KILLED = 1
@@ -259,6 +259,14 @@ describe('what the runs of whole files settle', () => {
     expect(status.detected.size).toBe(0)
     expect(status.uncopied.has(file)).toBe(true)
     expect(status.plain.has(`0\n${file}`)).toBe(true)
+  })
+})
+
+describe('a round that got somewhere', () => {
+  it('is one in which a test tried, with its file to itself, a mutant it had tried next to other runs', () => {
+    const state = new Uint8Array(1)
+    const before = [lead(0, 't1', false), lead(0, 't2', false), whole(0, 'failed'), lead(0, 't1')]
+    expect(headway(inspect([...before, lead(0, 't2')]), state)).toBeGreaterThan(headway(inspect(before), state))
   })
 })
 
