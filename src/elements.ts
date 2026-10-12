@@ -29,6 +29,7 @@ const languages: Record<string, string> = { '.ts': 'typescript', '.tsx': 'typesc
 function reason(mutant: MutantResult): string | undefined {
   if (mutant.status === 'Static') return 'runs only while a module loads; --static has such mutants run'
   if (mutant.wavered) return `unconfirmed: failed in one run of their file with it and not in another, ${mutant.wavered.join('; ')}`
+  if (mutant.doubted) return `unconfirmed: failed only in what fails by chance, ${mutant.doubted.join('; ')}`
   if (mutant.leftOut) return `unconfirmed: left out of every run for failing by themselves, ${mutant.leftOut.join('; ')}`
   if (mutant.confirmed) {
     const { passed, open } = mutant.confirmed

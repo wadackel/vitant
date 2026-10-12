@@ -3,6 +3,7 @@ import { doubts, inspect, type SessionRecord } from '../src/run.ts'
 
 const file = '/project/a.test.ts'
 const MUTANT_KILLED = 1
+const MUTANT_TIMEOUT = 2
 
 let at = 0
 const whole = (mutant: number, verdict: 'failed' | 'passed' | 'timeout', more: object = {}): SessionRecord =>
@@ -114,6 +115,42 @@ describe('what the runs of whole files settle', () => {
     expect(passed.whole.get(`0\n${file}`)?.passed).toBe(1)
   })
 
+  it('does not count the failures of a test that failed and passed with another mutant', () => {
+    // With mutant 0 the test failed a run of its file and not the next: it can fail by chance.
+    const chance = [whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })]
+    // The file is run one process at a time from there on, and only such runs count.
+    const runs = [whole(1, 'failed', { test: 't2', alone: true }), whole(1, 'failed', { test: 't2', alone: true, quiet: true })]
+    expect(inspect(runs).detected.get(1)).toBe(MUTANT_KILLED)
+    const status = inspect([...chance, ...runs])
+    expect(status.detected.has(1)).toBe(false)
+    expect([...(status.doubted.get(1) ?? [])]).toEqual(['t2'])
+    // It stays in the runs: a mutant may be what made it a matter of chance.
+    expect([...status.flaky]).toEqual([])
+    // Whenever that came out.
+    expect(inspect([...runs, ...chance]).detected.has(1)).toBe(false)
+    // What it fails after failing with the mutant while trying it, and passing without, counts.
+    expect(inspect([...chance, ...runs, lead(1, 't2')]).detected.get(1)).toBe(MUTANT_KILLED)
+    // So does a run in which a test failed that never did such a thing.
+    const both = whole(1, 'failed', { tests: ['t2', 't3'], test: 't2', alone: true, quiet: true })
+    expect(inspect([...chance, ...runs, both, both]).detected.get(1)).toBe(MUTANT_KILLED)
+  })
+
+  it('does not count runs a limit ended in a file where such a run passed another time', () => {
+    // The limit ends whichever test is running, so the test named says nothing here.
+    const chance = [whole(0, 'timeout', { test: 't3' }), whole(0, 'passed', { alone: true, quiet: true })]
+    const runs = [whole(1, 'timeout', { test: 't4', alone: true }), whole(1, 'timeout', { test: 't4', alone: true, quiet: true })]
+    expect(inspect(runs).detected.get(1)).toBe(MUTANT_TIMEOUT)
+    const status = inspect([...chance, ...runs])
+    expect(status.detected.has(1)).toBe(false)
+    expect([...(status.doubted.get(1) ?? [])]).toEqual([file])
+    // A failure of a test is no such run.
+    const failures = [whole(1, 'failed', { test: 't4', alone: true }), whole(1, 'failed', { test: 't4', alone: true, quiet: true })]
+    expect(inspect([...chance, ...failures]).detected.get(1)).toBe(MUTANT_KILLED)
+    // A mutant that had blocked a worker under a test of the file is what the limit ended.
+    const stall = { type: 'stall', id: 't4', mutant: 1, at: at++ } as SessionRecord
+    expect(inspect([...chance, ...runs, { ...lead(9, 't4'), killed: [] } as SessionRecord, stall]).detected.get(1)).toBe(MUTANT_TIMEOUT)
+  })
+
   it('takes nothing from a test that fails with no mutant on and nothing else running', () => {
     const calm = (verdict: 'failed' | 'passed', tests: string[] = []): SessionRecord =>
       ({ type: 'calm', file, verdict, tests, at: at++ }) as SessionRecord
@@ -172,9 +209,9 @@ describe('what the runs of whole files settle', () => {
   it('leaves a test out for every mutant only once it failed and passed alone with mutants in two places', () => {
     const one = [whole(0, 'failed', { test: 't2', alone: true }), whole(0, 'passed', { alone: true })]
     const other = [whole(1, 'failed', { test: 't2', alone: true }), whole(1, 'failed', { test: 't2', alone: true, quiet: true })]
-    // One mutant may have made the test a matter of chance; what the test fails for another still counts.
+    // One mutant may have made the test a matter of chance: it stays in the runs, and what it alone fails is not counted.
     expect(inspect([...one, ...other]).flaky.size).toBe(0)
-    expect(inspect([...one, ...other]).detected.get(1)).toBe(MUTANT_KILLED)
+    expect(inspect([...one, ...other]).detected.has(1)).toBe(false)
     const two = [...one, whole(2, 'failed', { test: 't2', alone: true }), whole(2, 'passed', { alone: true })]
     // Mutants 0 and 2 at one place in the code are one observation, at two places two.
     expect(inspect([...two, ...other], [0, 1, 0]).flaky.size).toBe(0)

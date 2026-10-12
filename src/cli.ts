@@ -136,6 +136,7 @@ for (const mutant of result.mutants) {
     ...(mutant.confirmed ? [`passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files`] : []),
     ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that reach it fail by themselves and were left out`] : []),
     ...(mutant.wavered ? [`${mutant.wavered.length} test(s) that reach it failed in one run of their file and not in another`] : []),
+    ...(mutant.doubted ? [`failed only in ${mutant.doubted.join(', ')}, which fails by chance`] : []),
   ]
   const label = mutant.status === 'Unconfirmed' ? `Unconfirmed (${why.join('; ')})` : 'Survived'
   console.log(
@@ -193,6 +194,10 @@ if (result.flakyTests.length > 0) {
 const unjudged = result.mutants.filter((mutant) => mutant.leftOut).length
 if (unjudged > 0) {
   console.log(`${unjudged} mutant(s) such tests reach passed their test files without them and are unconfirmed; they count as survived in the score`)
+}
+const doubted = result.mutants.filter((mutant) => mutant.doubted).length
+if (doubted > 0) {
+  console.log(`${doubted} mutant(s) failed only in tests or test files that fail by chance, and are unconfirmed; they count as survived in the score`)
 }
 const wavering = result.mutants.filter((mutant) => mutant.wavered).length
 if (wavering > 0) {
