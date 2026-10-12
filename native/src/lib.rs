@@ -111,6 +111,8 @@ pub fn fork(lock: i32) -> Result<i32> {
     // that no other thread is needed and none is in the middle of anything
     // (see the runner); what follows in the copy is plain system calls.
     unsafe {
+        #[cfg(not(target_os = "linux"))]
+        let copied_from = libc::getpid();
         let pid = libc::fork();
         if pid == 0 {
             // A copy whose event loop could not be rebuilt would go on with
@@ -121,6 +123,8 @@ pub fn fork(lock: i32) -> Result<i32> {
             // A copy must not outlive the process that watches it.
             #[cfg(target_os = "linux")]
             libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL);
+            #[cfg(not(target_os = "linux"))]
+            end_with(copied_from);
             return Ok(0);
         }
         // Read before the next call replaces it.
@@ -130,6 +134,46 @@ pub fn fork(lock: i32) -> Result<i32> {
             Some(error) => Err(error),
             None => Ok(pid),
         }
+    }
+}
+
+/// The process this one is a copy of.
+#[cfg(not(target_os = "linux"))]
+static COPIED_FROM: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
+#[cfg(not(target_os = "linux"))]
+extern "C" fn end_if_orphaned(_: libc::c_int) {
+    // SAFETY: both calls may be made from a signal handler.
+    unsafe {
+        if libc::getppid() != COPIED_FROM.load(Ordering::Relaxed) {
+            libc::_exit(1);
+        }
+    }
+}
+
+/// Has this process, a copy, end once the process it was copied from is
+/// gone. Only Linux has a call for that. A check the copy makes in its
+/// event loop is not made by one a mutant keeps in a loop, which is the copy
+/// that then runs for good on a core of its own, and a thread that looks
+/// would be one more a copy of the copy is without: the kernel interrupts
+/// the copy on a timer instead, whatever it is doing.
+///
+/// # Safety
+/// For the copy, straight after `fork`.
+#[cfg(not(target_os = "linux"))]
+unsafe fn end_with(copied_from: libc::pid_t) {
+    COPIED_FROM.store(copied_from, Ordering::Relaxed);
+    // SAFETY: plain system calls; the structures are plain numbers, valid
+    // when zeroed, and a system call the signal cuts short is started again.
+    unsafe {
+        let mut action: libc::sigaction = std::mem::zeroed();
+        action.sa_sigaction = end_if_orphaned as extern "C" fn(libc::c_int) as libc::sighandler_t;
+        action.sa_flags = libc::SA_RESTART;
+        libc::sigemptyset(&mut action.sa_mask);
+        libc::sigaction(libc::SIGALRM, &action, ptr::null_mut());
+        let second = libc::timeval { tv_sec: 1, tv_usec: 0 };
+        // A copy does not get the timer of the process it was copied from.
+        libc::setitimer(libc::ITIMER_REAL, &libc::itimerval { it_interval: second, it_value: second }, ptr::null_mut());
     }
 }
 
