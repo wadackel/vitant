@@ -315,6 +315,15 @@ let watching = false
 /** Whether this process is a copy made for one whole-file run. */
 let cloned = false
 /**
+ * Whether this process is a copy that runs one test file as a worker Vitest
+ * started for the file would: the process Vitest did start hands every file
+ * it is given to such a copy and runs nothing of the project itself, so that
+ * it stays what a worker is before its first file, for the next.
+ */
+let hosted = false
+/** What Vitest put in the place of `process.exit` when the worker started; it takes it back after the first file. */
+let exitGuard: typeof process.exit | undefined
+/**
  * Started with the first file rather than with the process: a process that
  * is going to be copied must not have the thread, which a copy would be
  * without while still holding its message ports.
@@ -336,9 +345,10 @@ function watch(): void {
 const heartbeat = () => {
   const usage = process.cpuUsage()
   beat[0] = (usage.user + usage.system) / 1000
+  // A copy whose watcher is gone has nobody to hand a verdict to, and one
+  // that runs a file nobody to end it.
+  if ((cloned || hosted) && process.ppid !== copiedFrom) cloner!.exit(1)
   if (cloned) {
-    // A copy whose watcher is gone has nobody to hand a verdict to.
-    if (process.ppid !== copiedFrom) cloner!.exit(1)
     // It has no thread to watch it; the process it was copied from does,
     // from outside, and is told what the thread would read.
     cloner!.heartbeat(beat[0], beat[1])
@@ -357,6 +367,7 @@ interface Cloner {
   done(): void
   /** Waits for a copy to end and says how it did. */
   supervise(pid: number, stuckMs: number, ceilingMs: number, residentLimit: number): number
+  wait(pid: number): void
   Ended: { Done: number; Blocked: number; Lost: number }
   exit(code: number): never
 }
@@ -892,9 +903,49 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private openBeforeLoad: Set<string> | undefined
     /** Vitest gave up on a test part-way, and with it on the rest of its suite. */
     private dropped = false
+    /** A copy of this process runs the file; this one imports nothing of it. */
+    private away = false
+
+    /**
+     * Hands the file to a copy of this process and waits for it. Returns
+     * whether this is the process that waited.
+     */
+    private async handOver(): Promise<boolean> {
+      exitGuard ??= process.exit
+      await this.standStill()
+      forkLock ??= fs.openSync(paths.config, 'r')
+      const self = process.pid
+      let pid: number
+      try {
+        pid = cloner!.fork(forkLock)
+      } catch {
+        // Running the file here would leave its traces for the next; the
+        // round after this one finds its work not done.
+        return process.kill(process.pid, 'SIGKILL')
+      }
+      if (pid !== 0) {
+        cloner!.wait(pid)
+        this.away = true
+        this.keepToItself()
+        return true
+      }
+      hosted = true
+      copiedFrom = self
+      Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
+      process.exit = exitGuard
+      workerResources = activeResources()
+      this.keepToItself()
+      return false
+    }
+
+    async importFile(filepath: string, source: unknown): Promise<unknown> {
+      if (this.away) return
+      return super.importFile(filepath, source)
+    }
 
     async onBeforeCollect(paths: (string | { filepath: string })[]): Promise<unknown> {
       loadRound()
+      if (cloner && !hosted && !cloned && !watching && (await this.handOver())) return super.onBeforeCollect?.(paths)
       loaded = false
       const file = typeof paths[0] === 'string' ? paths[0] : paths[0]?.filepath
       this.wholeFile = file
@@ -1112,6 +1163,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     async onCollected(files: TaskLike[]): Promise<unknown> {
+      if (this.away) return super.onCollected?.(files)
       if (this.template) {
         const told = new Set<number>()
         // A file, a socket, a child process, a watcher or a timer the file
@@ -1591,7 +1643,21 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       return cloner!.exit(0)
     }
 
-    onAfterRunFiles(files: TaskLike[]): unknown {
+    async onAfterRunFiles(files: TaskLike[]): Promise<unknown> {
+      if (this.away) return super.onAfterRunFiles?.(files)
+      try {
+        return await this.afterRunFiles(files)
+      } finally {
+        // Vitest would go on to tell the main process the file is through,
+        // which the process this was copied from does.
+        if (hosted && !cloned) {
+          await quiet()
+          cloner!.exit(0)
+        }
+      }
+    }
+
+    private afterRunFiles(files: TaskLike[]): unknown {
       // The file's tests and hooks are through, which is all another run of it could meet.
       release()
       if (this.whole) {

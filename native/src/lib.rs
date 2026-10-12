@@ -261,6 +261,20 @@ pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) 
     }
 }
 
+/// Waits for a copy that runs a test file as a worker would, which nobody
+/// watches from outside: it watches itself and the copies it makes, as a
+/// worker Vitest started does. Like `supervise` this does not run the event
+/// loop, for the same reason.
+#[napi]
+pub fn wait(pid: i32) -> Result<()> {
+    if pid <= 0 {
+        return Err(Error::from_reason(format!("not a process id: {pid}")));
+    }
+    // SAFETY: plain system call on a child of this process.
+    unsafe { uninterrupted(|| libc::waitpid(pid, ptr::null_mut(), 0)) };
+    Ok(())
+}
+
 fn stop(pid: i32) {
     // SAFETY: plain system calls on a child of this process.
     unsafe {

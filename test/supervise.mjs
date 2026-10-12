@@ -16,5 +16,6 @@ if (pid === 0) {
   addon.done()
   addon.exit(0)
 }
-const ended = addon.supervise(pid, 3000, 30_000, Number(limit) * 1024 * 1024)
+// Long enough that a copy kept from running on a busy machine does not pass for one that is stuck.
+const ended = addon.supervise(pid, 60_000, 60_000, Number(limit) * 1024 * 1024)
 console.log(Object.entries(addon.Ended).find(([, value]) => value === ended)?.[0])

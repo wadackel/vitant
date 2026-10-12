@@ -1756,7 +1756,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
         if (major >= 4) return { ...test, execArgv: [...((test.execArgv as string[]) ?? []), ...workerArgv] }
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
-        const forks = { ...pools.forks, isolate: true, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
+        const forks = { ...pools.forks, isolate: !cloning, singleFork: false, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
         return { ...test, poolOptions: { ...pools, forks } }
       }
       for (const project of config.test?.projects ?? []) {
@@ -1909,7 +1909,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const sources = [...generated.files.keys()]
     const sourceOf = generated.mutants.map((mutant) => sources.indexOf(mutant.file))
     let progress = -1
-    /** Whether the round in flight has whole-file runs. */
+    /** Whether the workers of the round in flight copy themselves, which those of every round after the first do where a process can be copied. */
     let copying = false
     /** The whole-file runs of the round in flight, with how many records each pair had before it. */
     let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
@@ -1923,13 +1923,17 @@ export async function run(options: RunOptions): Promise<RunResult> {
         fs.mkdirSync(paths.claims)
         const roundStartedAt = performance.now()
         // Only workers that are to be copied need V8 to keep to one thread,
-        // which slows down the tests they run themselves. Before Vitest 4
-        // the pool takes its arguments once, for all rounds.
+        // which slows down the tests they run themselves: those of the
+        // first round, a worker to every file, are not. Before Vitest 4 the
+        // pool takes its arguments once, for all rounds.
         if (cloning && major >= 4) {
           for (const project of new Set(plan.map((spec) => spec.project))) {
-            const config = project.config as { execArgv?: string[] }
+            const config = project.config as { execArgv?: string[]; isolate?: boolean }
             const own = (config.execArgv ?? []).filter((argument) => !workerArgv.includes(argument))
             config.execArgv = copying ? [...own, ...workerArgv] : own
+            // A worker that can copy itself hands each file to a copy and
+            // stays as it started; any other has to be started for its file.
+            config.isolate = !copying
           }
         }
         // A worker stopped while it held a lock would keep the others waiting for good.
@@ -1954,6 +1958,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
           clearInterval(sweeping)
         }
         rounds++
+        // A worker that hands its files to copies tells Vitest nothing of
+        // them, and Vitest forgets what it knew of a file when the file is
+        // run again: what failed outside the tests is read while it is there.
+        if (!copying) for (const file of vitest.state.getFiles()) collectSuiteErrors(file, options.root, suiteErrors)
         const seconds = ((performance.now() - roundStartedAt) / 1000).toFixed(1)
         const detected = fs.readFileSync(paths.state).filter((value) => value !== MUTANT_PENDING).length
         options.log(`round ${rounds} took ${seconds}s, ${detected} mutants detected so far`)
@@ -2087,7 +2095,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         abandonedFiles.push(...next.workByFile.keys())
         break
       }
-      copying = Object.keys(next.plan.whole).length > 0
+      copying = cloning
       // Workers claim a test's mutants a few at a time and
       // keep claiming until none are left, so a round ends within one chunk of
       // its work running out. A file gets a worker run per `budgetMs` of work,
@@ -2180,7 +2188,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
           `~${Math.round(totalWork / 1000)}s of test time on ${options.maxWorkers} workers`,
       )
     }
-    for (const file of vitest.state.getFiles()) collectSuiteErrors(file, options.root, suiteErrors)
   } finally {
     // A worker that does not end when asked keeps Vitest waiting, and once
     // nothing else is left to wait for, Node ends the process there, with
@@ -2425,7 +2432,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       return test ? [label(test)] : []
     }),
     nonRepeatableTests,
-    suiteErrors,
+    suiteErrors: [...new Set(suiteErrors)],
     abandonedFiles,
     rounds,
     wholeRuns,
