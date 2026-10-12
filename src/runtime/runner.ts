@@ -243,6 +243,15 @@ function trying(mutant: number): void {
   fs.writeSync(tryingFd, new Uint8Array(tryingMutant.buffer), 0, 4, 0)
 }
 
+/** The mutant the process with this id had on for a test when it last said, -1 for none. */
+function triedBy(pid: number): number {
+  try {
+    return new Int32Array(new Uint8Array(fs.readFileSync(path.join(paths.trying, String(pid)))).buffer)[0] ?? -1
+  } catch {
+    return -1
+  }
+}
+
 let resultsFd: number | undefined
 function emit(record: unknown): void {
   resultsFd ??= fs.openSync(path.join(paths.results, `${process.pid}.jsonl`), 'a')
@@ -367,7 +376,8 @@ interface Cloner {
   done(): void
   /** Waits for a copy to end and says how it did. */
   supervise(pid: number, stuckMs: number, ceilingMs: number, residentLimit: number): number
-  wait(pid: number): void
+  /** Waits for a copy that watches itself, and says whether it ended by itself and well. */
+  wait(pid: number): boolean
   Ended: { Done: number; Blocked: number; Lost: number }
   exit(code: number): never
 }
@@ -910,7 +920,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * Hands the file to a copy of this process and waits for it. Returns
      * whether this is the process that waited.
      */
-    private async handOver(): Promise<boolean> {
+    private async handOver(file: string): Promise<boolean> {
       exitGuard ??= process.exit
       await this.standStill()
       forkLock ??= fs.openSync(paths.config, 'r')
@@ -924,7 +934,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return process.kill(process.pid, 'SIGKILL')
       }
       if (pid !== 0) {
-        cloner!.wait(pid)
+        // A copy can end over what a worker started for the file would not
+        // meet: on macOS the first use of some system frameworks ends a
+        // process that was copied. One that a mutant took down says which.
+        if (!cloner!.wait(pid) && !(triedBy(pid) >= 0)) emit({ type: 'unhanded', file })
         this.away = true
         this.keepToItself()
         return true
@@ -945,9 +958,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onBeforeCollect(paths: (string | { filepath: string })[]): Promise<unknown> {
       loadRound()
-      if (cloner && !hosted && !cloned && !watching && (await this.handOver())) return super.onBeforeCollect?.(paths)
-      loaded = false
       const file = typeof paths[0] === 'string' ? paths[0] : paths[0]?.filepath
+      if (cloner && !hosted && !cloned && !watching && plan?.handed.includes(file) && (await this.handOver(file))) return super.onBeforeCollect?.(paths)
+      loaded = false
       this.wholeFile = file
       const jobs = plan?.whole[file] ?? []
       // Before anything of the file runs here, loading it included.

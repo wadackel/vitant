@@ -6,8 +6,9 @@ import { addonTarget } from '../src/platform.ts'
 
 const target = addonTarget()
 const addon = target && path.join(import.meta.dirname, `../build/fork.${target.name}.node`)
+// A copy has one thread: with the threads V8 gives its garbage collector, it would wait for one it does not have.
 const watch = (takes: number, limit: number): string =>
-  spawnSync(process.execPath, [path.join(import.meta.dirname, 'supervise.mjs'), addon!, String(takes), String(limit)], { encoding: 'utf8' }).stdout.trim()
+  spawnSync(process.execPath, ['--single-threaded', path.join(import.meta.dirname, 'supervise.mjs'), addon!, String(takes), String(limit)], { encoding: 'utf8' }).stdout.trim()
 
 describe.runIf(addon && fs.existsSync(addon))('watching a copy of a process', () => {
   it('stops a copy that takes memory without end', () => {

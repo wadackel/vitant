@@ -264,15 +264,16 @@ pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) 
 /// Waits for a copy that runs a test file as a worker would, which nobody
 /// watches from outside: it watches itself and the copies it makes, as a
 /// worker Vitest started does. Like `supervise` this does not run the event
-/// loop, for the same reason.
+/// loop, for the same reason. Says whether the copy ended by itself and well.
 #[napi]
-pub fn wait(pid: i32) -> Result<()> {
+pub fn wait(pid: i32) -> Result<bool> {
     if pid <= 0 {
         return Err(Error::from_reason(format!("not a process id: {pid}")));
     }
+    let mut status = 0;
     // SAFETY: plain system call on a child of this process.
-    unsafe { uninterrupted(|| libc::waitpid(pid, ptr::null_mut(), 0)) };
-    Ok(())
+    let ended = unsafe { uninterrupted(|| libc::waitpid(pid, &mut status, 0)) };
+    Ok(ended == pid && libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0)
 }
 
 fn stop(pid: i32) {

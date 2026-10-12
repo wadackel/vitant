@@ -402,6 +402,12 @@ interface PlainRecord {
   mutant: number
 }
 
+/** A copy of a worker that had been handed a test file ended with no mutant on and without getting through it. */
+interface UnhandedRecord {
+  type: 'unhanded'
+  file: string
+}
+
 /** A site's code ran while the file loaded, where a whole-file run had taken it not to; -1 for the file as a whole. */
 interface EarlyRecord {
   type: 'early'
@@ -416,6 +422,7 @@ export type SessionRecord = (
   | StallRecord
   | EarlyRecord
   | PlainRecord
+  | UnhandedRecord
   | ControlRecord
   | PairRecord
   | { type: 'pairing'; file: string }
@@ -510,6 +517,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   }
   /** Files a copy of a worker did not get through, which is where copies are checked. */
   const lost = new Set<string>()
+  /** Files that workers are started for: a copy made to go through one ended over something no mutant did. */
+  const unhanded = new Set<string>()
   /**
    * Per kind of copy and file, how the file went in such a copy unmutated.
    * One failure may be a test failing by chance, and running a file in
@@ -533,6 +542,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       for (const site of record.staticSites) set.add(site)
       staticSites.set(record.file, set)
     }
+    if (record.type === 'unhanded') unhanded.add(record.file)
     if (record.type === 'plain') {
       plain.add(wholeKey(record.mutant, record.file))
       lost.add(record.file)
@@ -831,7 +841,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
     if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, pairWanted, pairs, beside, triedSole, refuted }
+  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1020,6 +1030,7 @@ function planPhase(
     ignore: [],
     exclusive: [...status.exclusive],
     sole: [],
+    handed: [],
     settling: false,
     quiet: false,
     whole: {},
@@ -1801,7 +1812,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
         if (major >= 4) return { ...test, execArgv: [...((test.execArgv as string[]) ?? []), ...workerArgv] }
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
-        const forks = { ...pools.forks, isolate: !cloning, singleFork: false, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
+        const forks = { ...pools.forks, isolate: true, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
         return { ...test, poolOptions: { ...pools, forks } }
       }
       for (const project of config.test?.projects ?? []) {
@@ -1956,6 +1967,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     let progress = -1
     /** Whether the workers of the round in flight copy themselves, which those of every round after the first do where a process can be copied. */
     let copying = false
+    /** The test files of the round in flight that go to workers which hand them to copies, see `RoundPlan.handed`. */
+    let handed = new Set<string>()
     /** The whole-file runs of the round in flight, with how many records each pair had before it. */
     let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
     let stalled = 0
@@ -1967,19 +1980,27 @@ export async function run(options: RunOptions): Promise<RunResult> {
         fs.rmSync(paths.claims, { recursive: true, force: true })
         fs.mkdirSync(paths.claims)
         const roundStartedAt = performance.now()
-        // Only workers that are to be copied need V8 to keep to one thread,
-        // which slows down the tests they run themselves: those of the
-        // first round, a worker to every file, are not. Before Vitest 4 the
-        // pool takes its arguments once, for all rounds.
-        if (cloning && major >= 4) {
-          for (const project of new Set(plan.map((spec) => spec.project))) {
-            const config = project.config as { execArgv?: string[]; isolate?: boolean }
-            const own = (config.execArgv ?? []).filter((argument) => !workerArgv.includes(argument))
-            config.execArgv = copying ? [...own, ...workerArgv] : own
-            // A worker that can copy itself hands each file to a copy and
-            // stays as it started; any other has to be started for its file.
-            config.isolate = !copying
+        const launch = async (part: typeof plan, hands: boolean) => {
+          if (part.length === 0) return
+          // Only workers that are to be copied need V8 to keep to one thread,
+          // which slows down the tests they run themselves: those of the
+          // first round, a worker to every file, are not. Before Vitest 4 the
+          // pool takes its arguments once, for all rounds.
+          if (cloning && major >= 4) {
+            for (const project of new Set(part.map((spec) => spec.project))) {
+              const config = project.config as { execArgv?: string[]; isolate?: boolean }
+              const own = (config.execArgv ?? []).filter((argument) => !workerArgv.includes(argument))
+              config.execArgv = copying ? [...own, ...workerArgv] : own
+              // A worker that hands each file to a copy stays as it started;
+              // any other has to be started for its file.
+              config.isolate = !hands
+            }
           }
+          await vitest.runTestSpecifications(part, true)
+          // A worker that hands its files to copies tells Vitest nothing of
+          // them, and Vitest forgets what it knew of a file when the file is
+          // run again: what failed outside the tests is read while it is there.
+          if (!hands) for (const file of vitest.state.getFiles()) collectSuiteErrors(file, options.root, suiteErrors)
         }
         // A worker stopped while it held a lock would keep the others waiting for good.
         const sweeping = setInterval(() => sweep(paths.locks), 100)
@@ -1993,20 +2014,19 @@ export async function run(options: RunOptions): Promise<RunResult> {
             const failedCalm = () => readRecords().filter((record) => record.type === 'calm' && record.verdict !== 'passed').length
             const before = failedCalm()
             for (const spec of plan) {
-              await vitest.runTestSpecifications([spec], true)
+              await launch([spec], handed.has(spec.moduleId))
               // A test found to fail by itself is left out of what follows, which is planned anew.
               if (failedCalm() > before) break
             }
           }
-          else await vitest.runTestSpecifications(plan, true)
+          else {
+            await launch(plan.filter((spec) => handed.has(spec.moduleId)), true)
+            await launch(plan.filter((spec) => !handed.has(spec.moduleId)), false)
+          }
         } finally {
           clearInterval(sweeping)
         }
         rounds++
-        // A worker that hands its files to copies tells Vitest nothing of
-        // them, and Vitest forgets what it knew of a file when the file is
-        // run again: what failed outside the tests is read while it is there.
-        if (!copying) for (const file of vitest.state.getFiles()) collectSuiteErrors(file, options.root, suiteErrors)
         const seconds = ((performance.now() - roundStartedAt) / 1000).toFixed(1)
         const detected = fs.readFileSync(paths.state).filter((value) => value !== MUTANT_PENDING).length
         options.log(`round ${rounds} took ${seconds}s, ${detected} mutants detected so far`)
@@ -2226,6 +2246,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const unitsOf = new Map<string, number>()
       for (const spec of plan) unitsOf.set(spec.moduleId, (unitsOf.get(spec.moduleId) ?? 0) + 1)
       next.plan.sole = [...unitsOf].flatMap(([file, count]) => (count === 1 ? [file] : []))
+      // Before Vitest 4 the pool is told once, for all rounds, whether a worker is started for every file.
+      handed = new Set(cloning && major >= 4 ? [...unitsOf.keys()].filter((file) => !status.unhanded.has(file) && !next.plan.whole[file]?.some((job) => job.plain)) : [])
+      next.plan.handed = [...handed]
       fs.writeFileSync(paths.plan, JSON.stringify(next.plan))
       const totalWork = units.reduce((sum, unit) => sum + unit.workMs, 0)
       options.log(

@@ -60,6 +60,13 @@ export interface RoundPlan {
   quiet: boolean
   /** Test files that one worker has to itself in the round, as every file has in the first. */
   sole: string[]
+  /**
+   * Test files whose worker hands them to a copy of itself and stays as it
+   * started. A file with a run to make in a worker started for it is none:
+   * that run is made where a copy did not get through, and a copy of the
+   * worker is a copy. Nor is a file such a copy ended over before.
+   */
+  handed: string[]
 }
 
 export interface WholeJob {
