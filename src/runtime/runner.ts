@@ -376,8 +376,8 @@ interface Cloner {
   done(): void
   /** Waits for a copy to end and says how it did. */
   supervise(pid: number, stuckMs: number, ceilingMs: number, residentLimit: number): number
-  /** Waits for a copy that watches itself, and says whether it ended by itself and well. */
-  wait(pid: number): boolean
+  /** Waits for a copy that watches itself; the code it ended itself with, or -1. */
+  wait(pid: number): number
   Ended: { Done: number; Blocked: number; Lost: number }
   exit(code: number): never
 }
@@ -389,6 +389,11 @@ const cloner: Cloner | undefined =
   process.env.VITANT_FORK && process.execArgv.includes('--single-threaded')
     ? createRequire(import.meta.url)(process.env.VITANT_FORK)
     : undefined
+
+/** What a copy that runs a test file ends with to be replaced by another, see `handOver`. */
+const RECYCLED = 75
+/** How many copies one after another are given a file in a round. */
+const MAX_COPIES = 50
 
 /** How long a copy may go without a heartbeat while using no CPU time. */
 const STUCK_MS = 3000
@@ -925,19 +930,36 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       await this.standStill()
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
-      let pid: number
-      try {
-        pid = cloner!.fork(forkLock)
-      } catch {
-        // Running the file here would leave its traces for the next; the
-        // round after this one finds its work not done.
-        return process.kill(process.pid, 'SIGKILL')
-      }
-      if (pid !== 0) {
-        // A copy can end over what a worker started for the file would not
-        // meet: on macOS the first use of some system frameworks ends a
-        // process that was copied. One that a mutant took down says which.
-        if (!cloner!.wait(pid) && !(triedBy(pid) >= 0)) emit({ type: 'unhanded', file })
+      for (let copies = 1; ; copies++) {
+        let pid: number
+        try {
+          pid = cloner!.fork(forkLock)
+        } catch {
+          // Running the file here would leave its traces for the next; the
+          // round after this one finds its work not done.
+          return process.kill(process.pid, 'SIGKILL')
+        }
+        if (pid === 0) break
+        const ended = cloner!.wait(pid)
+        // A copy that a mutant left unfit for the tests that follow, or
+        // that holds too much, ends itself with what it had taken handed
+        // back. This process is still what a worker is before its first
+        // file, so the next copy goes on with the file here and now, where
+        // a worker Vitest started has to leave the rest to the next round:
+        // one file of vue took eighteen rounds that way. Not without end,
+        // for a copy that ends so having got nowhere.
+        if (ended === RECYCLED && copies < MAX_COPIES) continue
+        if (ended !== 0 && ended !== RECYCLED) {
+          // A copy can end over what a worker started for the file would not
+          // meet: on macOS the first use of some system frameworks ends a
+          // process that was copied. One that a mutant took down says which.
+          if (!(triedBy(pid) >= 0)) emit({ type: 'unhanded', file })
+          // However it ended, it may have done so in the middle of a message
+          // to the main process, and no message of this process after that
+          // would be read as one. The channel goes with this process, and the
+          // round after this one finds the file's work not done.
+          return process.kill(process.pid, 'SIGKILL')
+        }
         this.away = true
         this.keepToItself()
         return true
@@ -1020,6 +1042,22 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
       return this.copy(job, beforeLoad)
+    }
+
+    /**
+     * Ends this copy, which runs a test file, for another to take its place.
+     * A worker Vitest started ends on the spot, and its channel with it. This
+     * one's channel is the one the process it was copied from goes on using:
+     * ended with half a message sent, what a test printed for one, it left
+     * the main process waiting for the other half and the file never over,
+     * which is how runs of jotai on a macOS runner came to no end.
+     */
+    private async giveWay(): Promise<never> {
+      const still = await Promise.race([
+        this.standStill().then(() => true),
+        new Promise<boolean>((resolve) => realSetTimeout(() => resolve(false), 10_000)),
+      ])
+      return cloner!.exit(still ? RECYCLED : 1)
     }
 
     /** Leaves nothing under way between this process and the main one, so that a copy can be made. */
@@ -1370,7 +1408,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // Re-running tests thousands of times in one process accumulates
           // whatever each run leaks. The main process plans what is left for
           // a fresh worker.
-          if (recycle) process.kill(process.pid, 'SIGKILL')
+          if (recycle) {
+            if (hosted && !cloned) return this.giveWay()
+            process.kill(process.pid, 'SIGKILL')
+          }
           test.context.skip()
         }
       }
