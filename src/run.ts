@@ -1611,6 +1611,51 @@ interface SuiteTask {
   tasks?: SuiteTask[]
 }
 
+/**
+ * The tests that leave a mutant no run of whole files detected open, per
+ * mutant: those left out of the runs for failing by themselves, and those
+ * that failed a run with the mutant where another run passed.
+ */
+export function doubts(
+  status: { flaky: Set<string>; tests: Map<string, TestState> },
+  records: SessionRecord[],
+  label: (test: TestState) => string,
+): { leftOutOf: Map<number, string[]>; everywhere: string[]; waveredIn: Map<number, Set<string>> } {
+  // A test that fails by itself is left out of the runs of its file, and a
+  // mutant it reaches has then passed the file without the one test that
+  // may be what detects it: in h3 two tests that time out now and then on a
+  // busy machine were all that fails on three mutants, which the suite
+  // fails with every time. What the test would do with the mutant cannot be
+  // told from its failures, so such a mutant has not survived the suite.
+  const leftOutOf = new Map<number, string[]>()
+  const everywhere: string[] = []
+  for (const id of status.flaky) {
+    const test = status.tests.get(id)
+    if (!test?.coverage) continue
+    // Measured in a worker that mutants had been tried in, what the test reaches is not known.
+    if (!test.pristine) everywhere.push(label(test))
+    else for (const mutant of new Set([...test.coverage.covered, ...test.coverage.cleanup])) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
+  }
+  // A run of a file that passes settles it for the mutant, whatever failed
+  // before: the failure was other runs of the file in the way, or the test's
+  // own doing. Not where the test that failed reaches the mutant. A mutant
+  // can make a test a matter of chance, a check for a session under way
+  // taken out and three requests at once for one: the file then fails in
+  // most runs and passes in some, and the suite fails with the mutant all
+  // the same.
+  const waveredIn = new Map<number, Set<string>>()
+  for (const record of records) {
+    if (record.type !== 'whole' || !record.by || record.verdict === 'passed') continue
+    for (const id of record.tests ?? (record.test === undefined ? [] : [record.test])) {
+      const test = status.tests.get(id)
+      if (!test?.coverage) continue
+      if (test.pristine && !test.coverage.covered.includes(record.mutant) && !test.coverage.cleanup.includes(record.mutant)) continue
+      waveredIn.set(record.mutant, (waveredIn.get(record.mutant) ?? new Set()).add(label(test)))
+    }
+  }
+  return { leftOutOf, everywhere, waveredIn }
+}
+
 function collectSuiteErrors(task: SuiteTask, root: string, into: string[]): void {
   if (task.type === 'test') return
   for (const error of task.result?.errors ?? []) {
@@ -2350,38 +2395,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       file: relative(options.root, entry.file),
       test: entry.test === undefined ? undefined : (status.tests.get(entry.test)?.name ?? entry.test),
     }))
-  // A test that fails by itself is left out of the runs of its file, and a
-  // mutant it reaches has then passed the file without the one test that
-  // may be what detects it: in h3 two tests that time out now and then on a
-  // busy machine were all that fails on three mutants, which the suite
-  // fails with every time. What the test would do with the mutant cannot be
-  // told from its failures, so such a mutant has not survived the suite.
-  const leftOutOf = new Map<number, string[]>()
-  const everywhere: string[] = []
-  for (const id of status.flaky) {
-    const test = status.tests.get(id)
-    if (!test?.coverage) continue
-    // Measured in a worker that mutants had been tried in, what the test reaches is not known.
-    if (!test.pristine) everywhere.push(label(test))
-    else for (const mutant of new Set([...test.coverage.covered, ...test.coverage.cleanup])) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
-  }
-  // A run of a file that passes settles it for the mutant, whatever failed
-  // before: the failure was other runs of the file in the way, or the test's
-  // own doing. Not where the test that failed reaches the mutant. A mutant
-  // can make a test a matter of chance, a check for a session under way
-  // taken out and three requests at once for one: the file then fails in
-  // most runs and passes in some, and the suite fails with the mutant all
-  // the same.
-  const waveredIn = new Map<number, Set<string>>()
-  for (const record of records) {
-    if (record.type !== 'whole' || !record.by || record.verdict === 'passed') continue
-    for (const id of record.tests ?? (record.test === undefined ? [] : [record.test])) {
-      const test = status.tests.get(id)
-      if (!test?.coverage) continue
-      if (test.pristine && !test.coverage.covered.includes(record.mutant) && !test.coverage.cleanup.includes(record.mutant)) continue
-      waveredIn.set(record.mutant, (waveredIn.get(record.mutant) ?? new Set()).add(label(test)))
-    }
-  }
+  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label)
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
     const leftOut = [...(leftOutOf.get(mutant.id) ?? []), ...everywhere]

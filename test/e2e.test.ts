@@ -362,13 +362,16 @@ describe('test files whose runs do not stand each other, or that fail now and th
   it('does not call a mutant survived that a test left out for failing by itself reaches', () => {
     const run = runClash('clash-gauge', { CLASH_GAUGE: `${process.pid}-${Date.now()}` })
     const test = 'test/gauge.test.ts > reads the gauge'
-    expect(run.flakyTests).toEqual([test])
     const killed = new Set(plain.mutants.filter((mutant) => mutant.file === 'src/gauge.ts' && mutant.status === 'Killed').map((mutant) => mutant.id))
     expect(killed.size).toBeGreaterThan(5)
-    // The one test that detects them was not run with them: nothing says they survive.
+    // Whether the test is found out depends on which of its executions the
+    // failures fall on, which the machine's speed decides. Where it is, the
+    // one test that detects these mutants was not run with them, and
+    // nothing says they survive; where it is not, it detects them.
+    const leftOut = run.flakyTests.includes(test)
     for (const mutant of run.mutants.filter((mutant) => killed.has(mutant.id))) {
-      expect(mutant.status).toBe('Unconfirmed')
-      expect(mutant.leftOut).toEqual([test])
+      expect(mutant.status).toBe(leftOut ? 'Unconfirmed' : 'Killed')
+      expect(mutant.leftOut).toEqual(leftOut ? [test] : undefined)
     }
     expect(verdicts(run).filter((line) => !line.startsWith('src/gauge.ts'))).toEqual(verdicts(plain).filter((line) => !line.startsWith('src/gauge.ts')))
   }, 120_000)

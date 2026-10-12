@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inspect, type SessionRecord } from '../src/run.ts'
+import { doubts, inspect, type SessionRecord } from '../src/run.ts'
 
 const file = '/project/a.test.ts'
 const MUTANT_KILLED = 1
@@ -222,5 +222,37 @@ describe('what the runs of whole files settle', () => {
     expect(status.detected.size).toBe(0)
     expect(status.uncopied.has(file)).toBe(true)
     expect(status.plain.has(`0\n${file}`)).toBe(true)
+  })
+})
+
+describe('tests that leave a mutant open', () => {
+  type Tests = Parameters<typeof doubts>[0]['tests']
+  const test = (name: string, covered: number[], pristine = true) =>
+    ({ file, name, pristine, coverage: { sites: 1, covered, cleanup: [], baselineMs: 1, baselineLoops: 0, rss: 0 } }) as unknown as Tests extends Map<string, infer State> ? State : never
+  const label = (state: { name: string }) => state.name
+
+  it('names a test left out for failing by itself for the mutants it reaches, and for all where that is not known', () => {
+    const tests: Tests = new Map([
+      ['t1', test('t1', [0, 2])],
+      ['t2', test('t2', [1])],
+      ['t3', test('t3', [1], false)],
+    ])
+    const reached = doubts({ flaky: new Set(['t1']), tests }, [], label)
+    expect([...reached.leftOutOf]).toEqual([
+      [0, ['t1']],
+      [2, ['t1']],
+    ])
+    expect(reached.everywhere).toEqual([])
+    expect(doubts({ flaky: new Set(['t3']), tests }, [], label).everywhere).toEqual(['t3'])
+  })
+
+  it('names a test that failed a run of its file with a mutant it reaches, and not one that does not reach it', () => {
+    const tests: Tests = new Map([
+      ['t1', test('t1', [0])],
+      ['t2', test('t2', [1])],
+    ])
+    const runs = [whole(0, 'failed', { test: 't1', tests: ['t1', 't2'] }), whole(0, 'passed'), whole(1, 'passed')]
+    const { waveredIn } = doubts({ flaky: new Set(), tests }, runs, label)
+    expect([...waveredIn].map(([mutant, names]) => [mutant, [...names]])).toEqual([[0, ['t1']]])
   })
 })
