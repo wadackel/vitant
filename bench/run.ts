@@ -63,7 +63,14 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
     // process of its own, this one being held by the run.
     const watcher = limitMs === undefined ? undefined : spawn('sh', ['-c', hangReport(limitMs / 1000, path.join(outDir, `${tool}.hang.txt`))], { detached: true, stdio: 'ignore' })
     watcher?.unref()
-    const result = spawnSync(command, args, { cwd, stdio: ['ignore', log, log], timeout: limitMs === undefined ? undefined : limitMs + 120_000, killSignal: 'SIGKILL' })
+    const result = spawnSync(command, args, {
+      cwd,
+      stdio: ['ignore', log, log],
+      timeout: limitMs === undefined ? undefined : limitMs + 120_000,
+      killSignal: 'SIGKILL',
+      // The log then says what each round was made of.
+      env: { ...process.env, VITANT_DEBUG: '1' },
+    })
     if (watcher?.pid) {
       try {
         process.kill(-watcher.pid, 'SIGKILL')

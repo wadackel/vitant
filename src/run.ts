@@ -2226,6 +2226,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const units: { spec: (typeof specs)[number]; workMs: number }[] = []
       let wholeWork = 0
       for (const work of next.workByFile.values()) wholeWork += work.wholeRuns * work.wholeMs
+      /** Per file, the tries its tests have made and those this round gives them. */
+      const tried = new Map<string, number>()
+      const toTry = new Map<string, number>()
+      for (const [id, test] of status.tests) {
+        tried.set(test.file, (tried.get(test.file) ?? 0) + test.judged.size)
+        toTry.set(test.file, (toTry.get(test.file) ?? 0) + (next.plan.tests[id]?.mutants?.length ?? 0))
+      }
       for (const spec of specs) {
         const work = next.workByFile.get(spec.moduleId)
         if (!work) continue
@@ -2259,8 +2266,14 @@ export async function run(options: RunOptions): Promise<RunResult> {
         if (trialing || (work.chunks === 0 && !(spec.moduleId in next.plan.probe))) continue
         // A worker stops at the first test a mutant leaves broken, and what
         // it had taken goes to whichever worker is still on the file. Where
-        // that happened before, more of them start together.
+        // that happened before, more of them start together: as many as the
+        // tries of this round are likely to stop, going by how often those
+        // made so far did. A worker started for a stop that does not come
+        // runs every test of the file for nothing, and with two more for
+        // every file a worker ever stopped in, that was two workers in three
+        // of a round that had a handful of tries left in each of sixty files.
         const taints = status.taints.get(spec.moduleId) ?? 0
+        const likely = (taints * (toTry.get(spec.moduleId) ?? 0)) / Math.max(1, tried.get(spec.moduleId) ?? 0)
         const count =
           next.plan.pristine.includes(spec.moduleId)
             ? 1
@@ -2268,7 +2281,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
               ? Math.min(options.maxWorkers, 1 + taints)
               : serial || next.plan.settling
                 ? 1
-                : Math.max(1, Math.min(work.chunks, Math.ceil(work.workMs / unitMs))) + Math.min(taints, 2)
+                : Math.max(1, Math.min(work.chunks, Math.ceil(work.workMs / unitMs))) + Math.min(Math.round(likely), 2)
         for (let i = 0; i < count; i++) units.push({ spec, workMs: work.workMs / count })
       }
       units.sort((a, b) => b.workMs - a.workMs)
@@ -2308,6 +2321,20 @@ export async function run(options: RunOptions): Promise<RunResult> {
         `round ${rounds + 1}: ${next.workByFile.size} file(s), ${plan.length} worker run(s), ` +
           `~${Math.round(totalWork / 1000)}s of test time on ${options.maxWorkers} workers`,
       )
+      // What the round is made of, for reading a slow run from its log.
+      if (process.env.VITANT_DEBUG) {
+        const kinds: Record<string, number> = {}
+        for (const job of Object.values(next.plan.whole).flat()) {
+          const kind = job.calm ? 'calm' : job.trial !== undefined ? 'trial' : job.control ? 'control' : job.pair ? 'pair' : job.quiet ? 'quiet' : job.exclusive ? 'exclusive' : job.plain ? 'plain' : 'whole'
+          kinds[kind] = (kinds[kind] ?? 0) + 1
+        }
+        const trying = Object.values(next.plan.tests).filter((test) => test.mutants)
+        options.log(
+          `  ${trying.length} test(s) with ${trying.reduce((sum, test) => sum + test.mutants!.length, 0)} tries, ` +
+            `${Object.keys(next.plan.tests).length - trying.length} run again, ${Object.keys(next.plan.probe).length} file(s) measured, ` +
+            `runs of whole files ${JSON.stringify(kinds)}${next.plan.settling ? ', settling' : ''}${next.plan.quiet ? ', one at a time' : ''}`,
+        )
+      }
     }
   } finally {
     // A worker that does not end when asked keeps Vitest waiting, and once
