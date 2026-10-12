@@ -1009,11 +1009,23 @@ function planPhase(
     status.tests.get(id)?.file === settledIn.get(mutant) &&
     status.beside.get(mutant)?.has(id) === true &&
     !status.triedSole.get(mutant)?.has(id)
+  // A mutant a test failed with while its file then passed with it is one
+  // tests say nothing reliable about: every test that had not tried it got
+  // it again, one of them failed with it, its file passed, and so on round
+  // after round, each a worker to every file that reaches the mutant. One
+  // mutant of valibot took thirteen rounds of some 250 tests in 54 files
+  // that way, two fifths of the run. Such a mutant is left to the runs of
+  // whole files, which every file it can change is to pass anyway before it
+  // counts as survived.
+  const spent = new Set<number>()
+  for (const [mutant, entries] of status.evidence) {
+    if (entries.some((entry) => entry.kind === 'lead' && wholeVerdict(status.whole.get(wholeKey(mutant, entry.file))) === 'passed')) spent.add(mutant)
+  }
   // Once, with the file to itself: a test that has done that has said what it can.
   const tries = (id: string, mutant: number) =>
     only.has(mutant)
       ? settling && ((only.get(mutant)!.has(id) && !status.triedSole.get(mutant)?.has(id)) || again(id, mutant))
-      : !settling
+      : !settling && !spent.has(mutant)
   // In a file that runs one process at a time tests do not try mutants
   // one by one: one worker would go through a file that takes seconds once
   // a round for as many rounds as it takes, where a run of the whole file
