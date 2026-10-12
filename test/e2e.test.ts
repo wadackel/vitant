@@ -366,12 +366,16 @@ describe('test files whose runs do not stand each other, or that fail now and th
     expect(killed.size).toBeGreaterThan(5)
     // Whether the test is found out depends on which of its executions the
     // failures fall on, which the machine's speed decides. Where it is, the
-    // one test that detects these mutants was not run with them, and
-    // nothing says they survive; where it is not, it detects them.
-    const leftOut = run.flakyTests.includes(test)
+    // one test that detects these mutants was not run with them, or failed
+    // with them as it fails without, and nothing says they survive; where
+    // it is not, it detects them.
     for (const mutant of run.mutants.filter((mutant) => killed.has(mutant.id))) {
-      expect(mutant.status).toBe(leftOut ? 'Unconfirmed' : 'Killed')
-      expect(mutant.leftOut).toEqual(leftOut ? [test] : undefined)
+      if (mutant.status === 'Killed') {
+        expect([mutant.leftOut, mutant.doubted]).toEqual([undefined, undefined])
+      } else {
+        expect(mutant.status).toBe('Unconfirmed')
+        expect(mutant.leftOut ?? mutant.doubted).toEqual([test])
+      }
     }
     expect(verdicts(run).filter((line) => !line.startsWith('src/gauge.ts'))).toEqual(verdicts(plain).filter((line) => !line.startsWith('src/gauge.ts')))
   }, 120_000)
