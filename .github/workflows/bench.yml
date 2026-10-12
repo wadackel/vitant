@@ -19,6 +19,12 @@ on:
         description: Also run excalidraw math and svelte sources, which take hours on four cores
         type: boolean
         default: false
+      only:
+        description: Targets to run, separated by spaces; all of them when empty
+        default: ''
+      ref:
+        description: Commit of this tool to measure; the one the workflow is started from when empty
+        default: ''
   push:
     branches: [main]
     paths:
@@ -32,12 +38,16 @@ permissions:
 
 # A push ends the run of the push before it, and leaves alone a run started by hand, which is what the README's times are taken from.
 concurrency:
-  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}
+  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}
   cancel-in-progress: true
 
 jobs:
   run:
     name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (${{ matrix.runner }})
+    # Runners differ by half in speed from one job to the next, so a time says
+    # something of a change only beside one of another commit taken on the
+    # same model of processor, which the summary names.
+    if: ${{ !inputs.only || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.bench.target)) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 240
     strategy:
@@ -67,6 +77,8 @@ jobs:
           - { target: vue, scope: pr }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12.4.2
@@ -109,6 +121,8 @@ jobs:
           - { target: svelte, scope: sources }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 12.4.2
