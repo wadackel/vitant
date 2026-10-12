@@ -320,9 +320,11 @@ async function make(): Promise<Truth> {
       fs.writeFileSync(file, written(file, source, entry))
       // A test that fails one run in three by itself is easily missed by
       // the runs above and as easily fails here: a failure the mutant
-      // causes is there in every run, so one that passes settles it.
-      let suite: Suite = 'fail'
-      for (let attempt = 0; attempt < (entry.suite === 'fail' ? 3 : 1) && suite === 'fail'; attempt++) {
+      // causes is there in every run, so one that passes settles it. The
+      // same goes for a run the limit ended: on a Windows runner the suite
+      // ran out of it once with a mutant in code no test reaches.
+      let suite: Suite = entry.suite
+      for (let attempt = 0; attempt < (entry.suite === 'pass' ? 1 : 3) && (attempt === 0 || suite !== 'pass'); attempt++) {
         suite = (await runSuite(root, argsFor(entry.file), limitMs)).suite
       }
       fs.writeFileSync(file, source)

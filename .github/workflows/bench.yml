@@ -25,6 +25,9 @@ on:
       ref:
         description: Commit of this tool to measure; the one the workflow is started from when empty
         default: ''
+      limit:
+        description: Minutes after which a run of this tool is ended as one that hangs
+        default: '150'
   push:
     branches: [main]
     paths:
@@ -87,7 +90,7 @@ jobs:
     name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (${{ matrix.runner }})
     needs: plan
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 240
+    timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
@@ -116,7 +119,9 @@ jobs:
         env:
           TOOLS: ${{ inputs.tools || 'vitant' }}
           RUNS: ${{ inputs.runs || '1' }}
-        run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS" --runs "$RUNS"
+          # The longest run of this tool here, one that starts a worker for every run of a file, took 106 minutes.
+          LIMIT: ${{ inputs.limit || '150' }}
+        run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS" --runs "$RUNS" --limit "$LIMIT"
       - name: Summary
         if: ${{ !cancelled() }}
         run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"

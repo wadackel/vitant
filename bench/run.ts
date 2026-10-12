@@ -1,15 +1,17 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N] [--limit MINUTES]
 //
+// `--limit` ends a run of this tool that goes on for that long, having first
+// written down what its processes were doing (`<tool>.hang.txt`).
 // `vitant-no-clone` is this tool starting a worker for every whole-file run.
 // `vitant-confirm4` is it with `--confirm 4`, held against the scope's report of `vitant`.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -23,12 +25,13 @@ const { values, positionals } = parseArgs({
   options: {
     tool: { type: 'string', default: 'stryker,vitant' },
     runs: { type: 'string', default: '1' },
+    limit: { type: 'string' },
   },
 })
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-confirm4] [--runs N] [--limit MINUTES]')
   process.exit(1)
 }
 
@@ -51,13 +54,41 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
     fs.rmSync(path.join(dir, '.stryker-tmp'), { recursive: true, force: true })
     const startedAt = performance.now()
     const log = fs.openSync(path.join(outDir, `${tool}.log`), 'w')
-    const result = spawnSync(command, args, { cwd, stdio: ['ignore', log, log] })
+    const limitMs = values.limit && tool !== 'stryker' ? Number(values.limit) * 60_000 : undefined
+    // A run that never ends says nothing of why once the job's own limit has
+    // ended it: the processes are looked at while they are still there, by a
+    // process of its own, this one being held by the run.
+    const watcher = limitMs === undefined ? undefined : spawn('sh', ['-c', hangReport(limitMs / 1000, path.join(outDir, `${tool}.hang.txt`))], { detached: true, stdio: 'ignore' })
+    watcher?.unref()
+    const result = spawnSync(command, args, { cwd, stdio: ['ignore', log, log], timeout: limitMs === undefined ? undefined : limitMs + 120_000, killSignal: 'SIGKILL' })
+    if (watcher?.pid) {
+      try {
+        process.kill(-watcher.pid, 'SIGKILL')
+      } catch {}
+    }
+    // What the run had started outlives it where it was ended from outside.
+    if (result.signal) spawnSync('pkill', ['-9', '-f', `${dir}/`])
     fs.closeSync(log)
     timing.seconds.push(Number(((performance.now() - startedAt) / 1000).toFixed(1)))
     timing.exitCodes.push(result.status)
     console.log(`${tool} run ${i + 1}: ${timing.seconds.at(-1)}s (exit ${result.status})`)
   }
   return timing
+}
+
+/** A shell script that waits and then writes down what every Node process is doing. */
+function hangReport(seconds: number, out: string): string {
+  const each =
+    process.platform === 'darwin'
+      ? 'sample "$pid" 1 2>&1 | head -n 120; lsof -p "$pid" 2>/dev/null | awk \'{print $4, $5, $9}\' | grep -vE "dylib|/usr/lib|/System" | head -n 40'
+      : 'cat "/proc/$pid/wchan" 2>/dev/null; echo; grep -E "^(State|Threads|VmRSS)" "/proc/$pid/status"; ls -l "/proc/$pid/fd" 2>/dev/null | tail -n +2 | awk \'{print $NF}\' | sort | uniq -c | sort -rn | head -n 15'
+  return [
+    `sleep ${seconds}`,
+    `exec > '${out}' 2>&1`,
+    'date',
+    'ps -axo pid,ppid,stat,etime,command | grep -E "PID|node" | grep -v grep | cut -c1-260',
+    `for pid in $(pgrep node); do echo "== $pid"; ${each}; done`,
+  ].join('\n')
 }
 
 /** The same mutants for StrykerJS: its `file:start-end` ranges keep a mutant only if it lies inside. */
