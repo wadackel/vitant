@@ -53,10 +53,14 @@ export const targets: Record<string, Target> = {
     commit: '43e1118884e07cebdf1e767038f6e7f697fa27ec',
     // The project links with Plug'n'Play; this tool needs a `node_modules` to
     // put its runner in and to resolve Vitest from. The sources import the
-    // package by its own name, which only Plug'n'Play resolves by itself;
-    // the link goes in after the last Yarn command, so none of them can undo it.
+    // package by its own name, which only Plug'n'Play resolves by itself.
+    // The link for it goes one directory up: the project's config does not
+    // leave `node_modules` out of its test files, and through a link inside
+    // the project every one of them is found a second time, which a run in
+    // a copy of the project, as StrykerJS makes, drops again and one in
+    // place does not.
     install: ['YARN_NODE_LINKER=node-modules corepack yarn install --immutable'],
-    installStryker: `YARN_NODE_LINKER=node-modules corepack yarn add -D ${stryker} && ln -sfn "$PWD" node_modules/es-toolkit`,
+    installStryker: `YARN_NODE_LINKER=node-modules corepack yarn add -D ${stryker} && mkdir -p ../node_modules && ln -sfn "$PWD" ../node_modules/es-toolkit`,
     scopes: {
       array: { mutate: ['src/array/*.ts'] },
       all: { mutate: ['src/**/*.ts'] },
