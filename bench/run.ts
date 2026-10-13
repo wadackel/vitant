@@ -29,12 +29,13 @@ const { values, positionals } = parseArgs({
     tool: { type: 'string', default: 'stryker,vitant' },
     runs: { type: 'string', default: '1' },
     limit: { type: 'string' },
+    records: { type: 'boolean', default: false },
   },
 })
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4] [--runs N] [--limit MINUTES]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4] [--runs N] [--limit MINUTES] [--records]')
   process.exit(1)
 }
 
@@ -207,11 +208,16 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
   // project writes over it, and on a CI runner it is gone with the job.
   const records = path.join(outDir, `${tool}-records`)
   fs.rmSync(records, { recursive: true, force: true })
-  const keep = () => {
-    wrong = true
+  const copy = () => {
     const made = path.join(dir, 'node_modules/.vitant/session/results')
     if (fs.existsSync(made) && !fs.existsSync(records)) fs.cpSync(made, records, { recursive: true })
   }
+  const keep = () => {
+    wrong = true
+    copy()
+  }
+  // A run that is only slow went right by every check here, and why it was slow is in the same place.
+  if (values.records && tool !== 'stryker') copy()
   // The tool exits with 1 when it gave up on a test file.
   if (timing.exitCodes.some((code) => code !== 0)) keep()
   if (!fs.existsSync(report)) continue
