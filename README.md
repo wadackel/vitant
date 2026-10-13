@@ -80,6 +80,8 @@ A copy shares the worker's channel to the main process, and the worker goes on u
 
 macOS makes copies of a process one at a time: sixteen workers copying themselves at once took 54 ms a copy where one alone takes 3 ms, most of it spent waiting inside the kernel. The addon takes a file lock around the call.
 
+macOS also ends a copy in which a class of its own frameworks is set up for the first time, in case another thread was doing that when the copy was made. The first look-up of a host's name in a process is such a moment: every copy of h3's `proxy.test.ts` ended that way, 138 in a run of `utils`, and after two unmutated copies had gone the same way its other 431 runs were made in workers started for them. Workers are started with `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`, which turns the check off: no copy was lost in the next run and 95 runs in place of 526 took a worker of their own. A copy that does wait on a lock another thread held is stopped as one that is stuck, and its run made by a worker started for it.
+
 On Linux V8 marks the memory it allocates, the JavaScript heap included, as not to be given to a child process (`MADV_DONTFORK`), and a copy made without more ado dies on its first instruction. The addon takes the mark off every mapping of the process before each copy. It cannot tell V8's mark from one another library put on memory of its own for a reason, so such memory is copied as well.
 
 #### The addon

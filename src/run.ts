@@ -1931,6 +1931,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
   if (addon) {
     workerArgv.push('--single-threaded', `--require=${paths.preload}`)
     process.env.VITANT_FORK = addon
+    // macOS ends a copy in which a class of its own frameworks is set up
+    // for the first time, lest another thread was at that when the copy was
+    // made: the first look-up of a host's name in a copy does it, and every
+    // copy of a test file that makes one was lost. With the check off such
+    // a copy goes on, and one that does wait on another thread's lock is
+    // stopped as stuck like any other.
+    if (process.platform === 'darwin') process.env.OBJC_DISABLE_INITIALIZE_FORK_SAFETY ??= 'YES'
   } else {
     delete process.env.VITANT_FORK
     if (options.clone) options.log('whole-file runs start a worker each: no addon for this platform (pnpm build:native)')
