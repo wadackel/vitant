@@ -67,6 +67,8 @@ export interface RoundPlan {
    * worker is a copy. Nor is a file such a copy ended over before.
    */
   handed: string[]
+  /** Test files of which the round only makes runs of the whole file: no test of theirs is driven, and none still needs its unmutated run. */
+  wholeOnly: string[]
 }
 
 export interface WholeJob {

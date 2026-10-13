@@ -934,6 +934,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private dropped = false
     /** A copy of this process runs the file; this one imports nothing of it. */
     private away = false
+    /**
+     * The file's runs are all made in other processes, and no test of it is
+     * for this one: loading it would be for nothing, at what one more run of
+     * the file costs.
+     */
+    private idle = false
 
     /**
      * Hands the file to a copy of this process and waits for it. Returns
@@ -988,7 +994,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     async importFile(filepath: string, source: unknown): Promise<unknown> {
-      if (this.away) return
+      if (this.away || this.idle) return
       return super.importFile(filepath, source)
     }
 
@@ -997,6 +1003,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const file = typeof paths[0] === 'string' ? paths[0] : paths[0]?.filepath
       if (cloner && !hosted && !cloned && !watching && plan?.handed.includes(file) && (await this.handOver(file))) return super.onBeforeCollect?.(paths)
       loaded = false
+      this.idle = false
       this.wholeFile = file
       const jobs = plan?.whole[file] ?? []
       // Before anything of the file runs here, loading it included.
@@ -1037,6 +1044,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const job = jobs.find((job) => !job.control && this.open(job) && claim(`whole.${job.id}`))
         if (job) this.begin(job, true)
       }
+      this.idle = !this.whole && file !== undefined && plan?.wholeOnly.includes(file) === true
       watch()
       workerResources = activeResources()
       return super.onBeforeCollect?.(paths)

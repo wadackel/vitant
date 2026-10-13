@@ -1093,6 +1093,7 @@ function planPhase(
     exclusive: [...status.exclusive],
     sole: [],
     handed: [],
+    wholeOnly: [],
     settling: false,
     quiet: false,
     whole: {},
@@ -2338,6 +2339,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // Before Vitest 4 the pool is told once, for all rounds, whether a worker is started for every file.
       handed = new Set(cloning && major >= 4 ? [...unitsOf.keys()].filter((file) => !status.unhanded.has(file) && !next.plan.whole[file]?.some((job) => job.plain)) : [])
       next.plan.handed = [...handed]
+      const driven = new Set(Object.keys(next.plan.tests).map((id) => status.tests.get(id)?.file))
+      next.plan.wholeOnly = [...unitsOf.keys()].filter((file) => !driven.has(file) && !(file in next.plan.probe))
       fs.writeFileSync(paths.plan, JSON.stringify(next.plan))
       const totalWork = units.reduce((sum, unit) => sum + unit.workMs, 0)
       options.log(
