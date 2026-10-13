@@ -239,25 +239,6 @@ async function make(): Promise<Truth> {
     ? Array.from({ length: Math.min(eligible.length, Number(values.sample)) }, (_, index) => eligible[Math.floor(index * step)])
     : eligible
 
-  // What every run is held against: the same command with no mutant, which has to pass.
-  let slowest = 0
-  for (const file of values.related ? new Set(mutants.map((mutant) => mutant.file)) : ['']) {
-    // More than once only where it fails: with a file per function there
-    // are hundreds of these. What fails by itself in the runs below is
-    // looked for where a run and the report disagree.
-    let passed = false
-    for (let attempt = 0; attempt < 5 && !passed; attempt++) {
-      const baseline = await runSuite(root, argsFor(file), 600_000)
-      for (const test of baseline.failed) flaky.add(test)
-      if (baseline.suite === 'pass') passed = true
-      slowest = Math.max(slowest, baseline.ms)
-    }
-    if (!passed) throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant`)
-  }
-  const limitMs = values.timeout ? Number(values.timeout) * 1000 : Math.max(20_000, slowest * 5)
-  console.error(`suite ${(slowest / 1000).toFixed(1)}s unmutated, ${mutants.length} mutants, limit ${Math.round(limitMs / 1000)}s a run`)
-  if (flaky.size > 0) console.error(`fail without a mutant now and then, and are not counted:\n  ${[...flaky].join('\n  ')}`)
-
   const roots = copies(root, Number(values.jobs))
   const originals = new Map<string, string>()
   const restore = () => {
@@ -272,6 +253,37 @@ async function make(): Promise<Truth> {
       process.exit(130)
     })
   }
+
+  // What every run is held against: the same command with no mutant, which
+  // has to pass. Taken with as many suites running as the runs below have
+  // beside them: on a machine with one processor for each, a suite among
+  // four takes five times what it takes alone, and a limit from the one
+  // alone ends every run.
+  const files = values.related ? [...new Set(mutants.map((mutant) => mutant.file))] : ['']
+  const baselines = Array.from({ length: Math.max(files.length, roots.length) }, (_, index) => files[index % files.length])
+  let slowest = 0
+  let taken = 0
+  await Promise.all(
+    roots.map(async (dir) => {
+      while (taken < baselines.length) {
+        const file = baselines[taken++]
+        // More than once only where it fails: with a file per function there
+        // are hundreds of these. What fails by itself in the runs below is
+        // looked for where a run and the report disagree.
+        let passed = false
+        for (let attempt = 0; attempt < 5 && !passed; attempt++) {
+          const baseline = await runSuite(dir, argsFor(file), 600_000)
+          for (const test of baseline.failed) flaky.add(test)
+          if (baseline.suite === 'pass') passed = true
+          slowest = Math.max(slowest, baseline.ms)
+        }
+        if (!passed) throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant`)
+      }
+    }),
+  )
+  const limitMs = values.timeout ? Number(values.timeout) * 1000 : Math.max(20_000, slowest * 5)
+  console.error(`suite ${(slowest / 1000).toFixed(1)}s unmutated, ${mutants.length} mutants, limit ${Math.round(limitMs / 1000)}s a run`)
+  if (flaky.size > 0) console.error(`fail without a mutant now and then, and are not counted:\n  ${[...flaky].join('\n  ')}`)
 
   const entries: TruthEntry[] = new Array(mutants.length)
   let next = 0
