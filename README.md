@@ -197,15 +197,17 @@ In vue, 13 of the 14 mutants not judged fail the suite: code that only runs whil
 |---|---|---|---|---|
 | ufo `all` | 65.4 | 17.7 | 51.9 | 20.4 |
 | zustand `all` | 252.8 | 78.3 | 222.2 | 81.5 |
-| es-toolkit `array` | 344.1 | 124.8 | 313.2 | 160.2 |
-| es-toolkit `pr`: lines the pinned commit changed | 39.1 | 64.8 | 23.3 | 42.1 |
+| es-toolkit `array` | 346.3 | 89.5 | 362.5 | 100.1 |
+| es-toolkit `pr`: lines the pinned commit changed | 39.1 | 30.3 | 25.8 | 24.8 |
 | immer `all` | 692.4 | 549.7 | 521.7 | 362.3 |
 | jotai `vanilla` | 1,996.4 | 460.3 | 1,563.2 | 369.5 |
 | query `core` | 1,580.5 | 443.0 | 1,436.3 | 429.7 |
 | valibot `schemas` | 1,023.9 | 237.9 | 939.8 | 205.5 |
 | xstate `core` | 656.9 | 416.1 | 809.4 | 466.4 |
 
-Against StrykerJS that is, on Linux and on macOS, 4.3 and 4.2 times as fast on jotai, 4.3 and 4.6 on valibot, 3.7 and 2.5 on ufo, 3.6 and 3.3 on query, 3.2 and 2.7 on zustand, 2.8 and 2.0 on es-toolkit `array`, 1.6 and 1.7 on xstate, and 1.3 and 1.4 on immer. On the few changed lines of es-toolkit `pr` it is the slower of the two, 0.6 times as fast on both.
+Against StrykerJS that is, on Linux and on macOS, 4.3 and 4.2 times as fast on jotai, 4.3 and 4.6 on valibot, 3.7 and 2.5 on ufo, 3.6 and 3.3 on query, 3.2 and 2.7 on zustand, 3.9 and 3.6 on es-toolkit `array`, 1.6 and 1.7 on xstate, and 1.3 and 1.4 on immer. On the few changed lines of es-toolkit `pr` it is 1.3 times as fast on Linux and as fast on macOS, where the second of StrykerJS's three runs ended with an error after 6.3 s and the other two took 25.8 and 30.1 s.
+
+The two rows of es-toolkit are of three later runs the same day. In the runs before them the benchmark had put the link that lets the project import itself by name into the project's own `node_modules`, which its config does not leave out of the test files, and this tool, like a plain run there, found every test file twice; StrykerJS runs in a copy of the project, where the files behind the link are not related to what was mutated, and ran each once. With each file found twice, `array` took this tool 124.8 and 160.2 s and `pr` 64.8 and 42.1 s. The same later runs have a process that was copied for every run of a file not load the file itself afterwards.
 
 The scopes StrykerJS does not start on, gives no usable verdicts for or was not run on, this tool alone:
 
