@@ -113,6 +113,8 @@ jobs:
         shell: pwsh
         run: Get-CimInstance Win32_Process -Filter "name='node.exe'" | Select-Object ProcessId, ParentProcessId, CreationDate, UserModeTime, CommandLine | Format-List
       - run: pnpm test:truth
+        # The log of a job that runs out of its own time is not kept; one of a step that does is.
+        timeout-minutes: 75
       # A process a step leaves behind takes the processor from every step after it, and a suite that runs out of its time there reads as a wrong verdict.
       - name: Processes of Node still there
         if: ${{ always() }}
