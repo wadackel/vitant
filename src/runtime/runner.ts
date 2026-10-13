@@ -229,6 +229,25 @@ function writeState(mutant: number, value: number): void {
   fs.writeSync(stateFd, stateByte, 0, 1, mutant)
 }
 
+/**
+ * A file's run failed with the mutant in this round. What settles that
+ * failure ends the search, so the mutant's other files wait for it: Effect's
+ * `Option` had two mutants go on through 240 more test files in the round
+ * in which one had failed, a tenth of all the time its runs of whole files
+ * took. The mark goes with the round, and a failure that comes to nothing
+ * leaves those files as open as they were.
+ */
+const failedMark = (mutant: number): string => path.join(paths.claims, `failed.${mutant}`)
+
+function markFailed(mutant: number): void {
+  if (mutant < 0) return
+  try {
+    fs.closeSync(fs.openSync(failedMark(mutant), 'w'))
+  } catch {
+    // The runs it would have spared are made.
+  }
+}
+
 let tryingFd: number | undefined
 const tryingMutant = new Int32Array(1)
 /**
@@ -1054,7 +1073,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (job.control || job.trial !== undefined) return true
       const state = readState(job.mutant)
       // A run asked for by name is made whatever a test has since written of the mutant.
-      return job.confirm === true || job.quiet === true || state === MUTANT_PENDING || state === MUTANT_STALLED
+      if (job.confirm === true || job.quiet === true) return true
+      return (state === MUTANT_PENDING || state === MUTANT_STALLED) && !fs.existsSync(failedMark(job.mutant))
     }
 
     /**
@@ -1699,6 +1719,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         cloner!.done()
         return cloner!.exit(0)
       }
+      if (this.wholeFailure) markFailed(this.whole!.mutant)
       emit({
         type: 'whole',
         file: this.wholeFile,
@@ -1750,6 +1771,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           emit({ type: 'pair', file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', met: this.pairMet, test: this.wholeTest })
         }
         for (const file of this.whole.pair || this.whole.calm ? [] : files) {
+          if (this.wholeFailure) markFailed(this.whole.mutant)
           emit({
             type: 'whole',
             file: file.file.filepath,
