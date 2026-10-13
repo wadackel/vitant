@@ -273,6 +273,8 @@ interface StallRecord {
   type: 'stall'
   id: string
   mutant: number
+  /** The test's first try in a worker that had skipped the tests before it: says nothing of the mutant. */
+  cold?: boolean
 }
 
 /** Outcome of running a whole file with a mutant always on, see `RoundPlan.whole`. */
@@ -498,6 +500,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
    */
   const blocked = new Map<number, Set<string>>()
   const stalls: { mutant: number; test: string }[] = []
+  /** Tests a worker stalled in where that says nothing of the mutant, see `StallRecord.cold`. */
+  const cold = new Set<string>()
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
   const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean }[] = []
@@ -571,7 +575,10 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       }
     }
     // In a run of a whole file the record names no test, and the run's own record follows.
-    if (record.type === 'stall' && record.id !== '') stalls.push({ mutant: record.mutant, test: record.id })
+    if (record.type === 'stall' && record.id !== '') {
+      if (record.cold) cold.add(record.id)
+      else stalls.push({ mutant: record.mutant, test: record.id })
+    }
     if (record.type === 'calm') {
       calms.set(record.file, (calms.get(record.file) ?? 0) + 1)
       if (record.verdict !== 'passed') {
@@ -679,6 +686,10 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   for (const { mutant, test } of stalls) {
     const file = tests.get(test)?.file
     if (file) blocked.set(mutant, (blocked.get(mutant) ?? new Set()).add(file))
+  }
+  for (const test of cold) {
+    const file = tests.get(test)?.file
+    if (file) replay.add(file)
   }
   const uncopied = new Set<string>()
   for (const [key, verdict] of controls) if (verdict === 'failed') uncopied.add(key.split('\n')[1])

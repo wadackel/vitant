@@ -298,14 +298,22 @@ for (;;) {
     // record and the state must name the same mutant, and only one that is
     // still running.
     if (!overdue && (beat[0] !== started || mutant[0] !== stalled || beat[1] === 0)) continue
-    fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
+    // The limit comes from a run of the test after the tests before it. A
+    // worker that skipped those has the test do first what they had done,
+    // loading what the file's first test loads once for all for one, and
+    // on a slow machine that alone is over the limit, with every mutant in
+    // turn: the mutant stays as it is and the file's tests are replayed.
+    const cold = mutant[1] === 2
+    fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, cold, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
     // In a whole-file run the stall is the verdict. Either way it must not
     // replace what another worker has already found out.
     const current = new Uint8Array(1)
     fs.readSync(fd, current, 0, 1, stalled)
-    if (current[0] === ${MUTANT_PENDING} || current[0] === ${MUTANT_STALLED}) {
+    if (!cold && (current[0] === ${MUTANT_PENDING} || current[0] === ${MUTANT_STALLED})) {
       fs.writeSync(fd, new Uint8Array([mutant[1] ? ${MUTANT_TIMEOUT} : ${MUTANT_STALLED}]), 0, 1, stalled)
     }
+    // A worker that is gone with a mutant on is taken to have died of it.
+    if (cold) fs.writeFileSync(workerData.tryingPath, new Uint8Array(new Int32Array([-1]).buffer))
     process.kill(process.pid, 'SIGKILL')
   }
 }
@@ -313,7 +321,7 @@ for (;;) {
 const shared = new SharedArrayBuffer(24 + 256)
 /** [0] process CPU time at the last heartbeat, [1] how much more it may use, 0 when no mutant is active. */
 const beat = new Float64Array(shared, 0, 2)
-/** [0] the active mutant, [1] 1 in a whole-file run. */
+/** [0] the active mutant, [1] 1 in a whole-file run, 2 in a test's first try of a mutant in a worker that skipped the tests before it. */
 const beatMutant = new Int32Array(shared, 16, 2)
 const beatTest = new Uint8Array(shared, 24, 256)
 /** When a run of a whole file has to be over, by the clock; 0 outside one. */
@@ -348,6 +356,7 @@ function watch(): void {
       resident: residentLimit.buffer,
       statePath: paths.state,
       resultsPath: path.join(paths.results, `${process.pid}.jsonl`),
+      tryingPath: path.join(paths.trying, String(process.pid)),
     },
   }).unref()
 }
@@ -1448,7 +1457,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (run.attempt === 'mutant') {
         heartbeat()
         beatMutant[0] = run.mutant
-        beatMutant[1] = 0
+        beatMutant[1] = run.mode === 'planned' && run.attempts === 1 && !replays(test.file.filepath) ? 2 : 0
         beatTest.fill(0)
         beatTest.set(new TextEncoder().encode(test.id).subarray(0, 255))
         // CPU time does not stretch on a busy machine the way wall time does,
