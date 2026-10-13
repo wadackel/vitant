@@ -1138,11 +1138,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // This process waits without touching the channel to the main
       // process, which the copy uses in its place. A copy that keeps to its
       // heartbeat and never ends, awaiting what a mutant keeps from
-      // happening where no test's time limit applies, is given up on after
-      // several times what the file may take.
+      // happening where no test's time limit applies, is given up on at what
+      // ends a run in a worker started for it, which is where it goes from
+      // here: waiting longer for it only puts that run off.
       const limit = hardLimitMs({ baselineMs: job.fileMs })
       const copiedAt = preciseNow()
-      const ended = cloner!.supervise(pid, STUCK_MS, limit * 3 + 30_000, job.control || job.calm ? 0 : residentLimitOf(job))
+      const ended = cloner!.supervise(pid, STUCK_MS, limit + 30_000, job.control || job.calm ? 0 : residentLimitOf(job))
       if (job.trial !== undefined) {
         if (ended !== cloner!.Ended.Done) untold(job, this.wholeFile!)
       } else if (job.calm) {
