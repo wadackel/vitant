@@ -14,6 +14,8 @@ function reportPath(name: string): string {
   return path.join(dir, `${name}.json`)
 }
 let result: RunResult
+/** What that run and its workers wrote. */
+let output = ''
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -36,7 +38,16 @@ describe('running the fixture project', () => {
     )
     expect(cli.status, cli.stderr).toBe(0)
     result = JSON.parse(fs.readFileSync(report, 'utf8'))
+    output = cli.stdout + cli.stderr
   }, 180_000)
+
+  // `trust.test.ts` reads what the system trusts, the first time in a copy
+  // of a worker; macOS ends such a copy unless its check is off, and says
+  // so. The run is then made by a worker started for it and the verdicts
+  // are the same, so only the message shows it.
+  it('loses no copy of a worker to what macOS checks in one', () => {
+    expect(output).not.toContain('when fork() was called')
+  })
 
   // Hosted CI machines have three or four cores; what holds a worker while it waits for another shows there.
   it('gives every mutant the same verdict with two workers, and gives up on no file', () => {
@@ -234,7 +245,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(25)
+    expect(second.reused).toBe(26)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 180_000)
@@ -254,7 +265,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(24)
+    expect(after.reused).toBe(25)
     expect(after.result.counts).toEqual(before.counts)
   }, 180_000)
 
@@ -266,7 +277,7 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(24)
+    expect(after.reused).toBe(25)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 180_000)
