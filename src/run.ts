@@ -758,7 +758,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   // with one mutant has shown that it can; whether the runs were in each
   // other's way or it waits on the clock cannot be told from that. Left in
   // the runs, since a mutant may have made it so, what it fails counts only
-  // where it had failed trying the mutant and passed without. A run that
+  // where it had failed trying the mutant and passed without, and there
+  // only with a failure made with nothing else running: a run of the file
+  // next to others fails by chance more often than a try in a worker that
+  // has the file to itself, and the leads of other mutants, which is what
+  // finds a test out that fails by chance, come from the tries alone. A run that
   // ends at a limit, with its worker, or with no test to name is the same
   // for a file where such a run passed another time, or failed with no
   // mutant on.
@@ -833,9 +837,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const named = record.test ?? record.tests?.[0]
     const failing = record.tests ?? (record.test === undefined ? [] : [record.test])
     // A worker the mutant had blocked under a test and a run of the file a limit ended say the same thing.
-    const vouched =
-      failing.some((test) => witnesses.get(record.mutant)?.has(test)) ||
-      (record.verdict === 'timeout' && blocked.get(record.mutant)?.has(record.file) === true)
+    const witnessed = failing.filter((test) => witnesses.get(record.mutant)?.has(test))
+    const stalled = record.verdict === 'timeout' && blocked.get(record.mutant)?.has(record.file) === true
+    const vouched = witnessed.length > 0 || stalled
     if (record.verdict === 'passed') entry.passed++
     else if (named && flaky.has(named)) continue
     // Nor does a failure count in a file that fails that way with no test to name.
@@ -858,7 +862,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     note(record.mutant, { kind: record.died ? 'died' : record.verdict, quiet: record.quiet || undefined, file: record.file, test: record.test ?? record.tests?.[0], by: record.by })
     if (record.died) continue
     if (record.by && !record.alone) entry.beside++
-    if (vouched) entry.repeated++
+    if (stalled || witnessed.some((test) => !shaky.has(test))) entry.repeated++
   }
   // Several workers may share a file, and one that reached its end says
   // nothing about a test another had taken and died on.
