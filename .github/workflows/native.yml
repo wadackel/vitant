@@ -107,7 +107,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      # A process a step leaves behind takes the processor from every step after it, and a suite that runs out of its time there reads as a wrong verdict.
+      - name: Processes of Node still there
+        if: ${{ always() }}
+        shell: pwsh
+        run: Get-CimInstance Win32_Process -Filter "name='node.exe'" | Select-Object ProcessId, ParentProcessId, CreationDate, UserModeTime, CommandLine | Format-List
       - run: pnpm test:truth
+      # A process a step leaves behind takes the processor from every step after it, and a suite that runs out of its time there reads as a wrong verdict.
+      - name: Processes of Node still there
+        if: ${{ always() }}
+        shell: pwsh
+        run: Get-CimInstance Win32_Process -Filter "name='node.exe'" | Select-Object ProcessId, ParentProcessId, CreationDate, UserModeTime, CommandLine | Format-List
       - run: pnpm test:packed
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ failure() }}
