@@ -126,7 +126,7 @@ node bench/run.ts excalidraw pr       # mutate only the lines the pinned commit 
 
 Results are written to `bench/results/<target>-<scope>/`: `summary.json` has the wall-clock times and `compare.txt` how the verdicts line up. StrykerJS runs with `coverageAnalysis: perTest`, `ignoreStatic: true` and no type checker, which is its fastest configuration.
 
-Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as often as times are shown. The times of this tool were taken before a loop in a whole-file run had to keep the process busy for a second to count as endless; that rule adds about a second of one core for every such mutant, which on this machine took es-toolkit `array` from 24 s to 34 s and hono `router` from 35 s to 40 s.
+The times that are kept up to date are those under "On hosted CI runners" below. The tables before it are of one machine at the time each target was added, and say what a rule cost or gained there. Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as often as times are shown. The times of this tool were taken before a loop in a whole-file run had to keep the process busy for a second to count as endless; that rule adds about a second of one core for every such mutant, which on this machine took es-toolkit `array` from 24 s to 34 s and hono `router` from 35 s to 40 s.
 
 | Target and scope | Mutants | StrykerJS | This tool | Without copies |
 |---|---|---|---|---|
@@ -191,7 +191,41 @@ In vue, 13 of the 14 mutants not judged fail the suite: code that only runs whil
 
 ### On hosted CI runners
 
-`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners. One run each, in seconds, from the run of 6 October 2026; every report of this tool agreed with the stored ground truth on both. With a third or a quarter of the cores the times are five to nine times those above, for both tools.
+`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners, and these are the times that are kept up to date. In seconds, the median of three runs, from the runs of 13 October 2026; every report of this tool agreed with the stored ground truth on both. StrykerJS and this tool ran one after the other in the same job, so a row compares the two on one machine. Between rows it does not: a job gets whichever processor is free (an EPYC 7763, 9V45 or 9V74 or a Xeon 8573C on Linux), and the same scope takes visibly longer on one than on another.
+
+| Target and scope | Linux: StrykerJS | This tool | macOS: StrykerJS | This tool |
+|---|---|---|---|---|
+| ufo `all` | 65.4 | 17.7 | 51.9 | 20.4 |
+| zustand `all` | 252.8 | 78.3 | 222.2 | 81.5 |
+| es-toolkit `array` | 344.1 | 124.8 | 313.2 | 160.2 |
+| es-toolkit `pr`: lines the pinned commit changed | 39.1 | 64.8 | 23.3 | 42.1 |
+| immer `all` | 692.4 | 549.7 | 521.7 | 362.3 |
+| jotai `vanilla` | 1,996.4 | 460.3 | 1,563.2 | 369.5 |
+| query `core` | 1,580.5 | 443.0 | 1,436.3 | 429.7 |
+| valibot `schemas` | 1,023.9 | 237.9 | 939.8 | 205.5 |
+| xstate `core` | 656.9 | 416.1 | 809.4 | 466.4 |
+
+Against StrykerJS that is, on Linux and on macOS, 4.3 and 4.2 times as fast on jotai, 4.3 and 4.6 on valibot, 3.7 and 2.5 on ufo, 3.6 and 3.3 on query, 3.2 and 2.7 on zustand, 2.8 and 2.0 on es-toolkit `array`, 1.6 and 1.7 on xstate, and 1.3 and 1.4 on immer. On the few changed lines of es-toolkit `pr` it is the slower of the two, 0.6 times as fast on both.
+
+The scopes StrykerJS does not start on, gives no usable verdicts for or was not run on, this tool alone:
+
+| Target and scope | Linux | macOS |
+|---|---|---|
+| vue `pr`: lines the pinned commit changed | 39.8 | 39.1 |
+| pacer `timing` | 46.1 | 43.1 |
+| pinia `pinia` | 71.1 | 69.7 |
+| hono `router` | 211.0 | 199.8 |
+| shiki `transformers` | 203.8 | 500.0 |
+| hono `utils` | 423.9 | 412.2 |
+| vue `reactivity` | 574.0 | 422.6 |
+| excalidraw `pr` | 870.8 | 1,767.6 |
+| solid `reactive` | 1,097.1 | 1,171.1 |
+| h3 `utils` | 1,184.7 | 1,336.4 |
+| Effect `data` | 2,305.3 | 2,270.2 |
+
+In the last of its three runs, hono `router` on Linux had 21 mutants reported as unconfirmed and h3 `utils` on macOS 13, none of them wrong: a test was found to fail by chance in that run, hono's check of the time it logged and h3's body over the limit sent to a port, and a mutant such a test reaches is not called survived on the strength of the rest (Limits, tests that fail now and then).
+
+An earlier run, of 6 October 2026 and one run each, also had this tool starting a worker for every whole-file run:
 
 | Target and scope | Linux: StrykerJS | This tool | Without copies | macOS: StrykerJS | This tool | Without copies |
 |---|---|---|---|---|---|---|
