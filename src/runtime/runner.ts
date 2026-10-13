@@ -971,8 +971,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (ended === RECYCLED && copies < MAX_COPIES) continue
         if (ended !== 0 && ended !== RECYCLED) {
           // A copy can end over what a worker started for the file would not
-          // meet: on macOS the first use of some system frameworks ends a
-          // process that was copied. One that a mutant took down says which.
+          // meet, a thread it does not have for one. One that a mutant
+          // took down says which.
           if (!(triedBy(pid) >= 0)) emit({ type: 'unhanded', file })
           // However it ended, it may have done so in the middle of a message
           // to the main process, and no message of this process after that

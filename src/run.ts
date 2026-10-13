@@ -1935,8 +1935,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // for the first time, lest another thread was at that when the copy was
     // made: the first look-up of a host's name in a copy does it, and every
     // copy of a test file that makes one was lost. With the check off such
-    // a copy goes on, and one that does wait on another thread's lock is
-    // stopped as stuck like any other.
+    // a copy goes on. What it guarded against, a thread of the worker being
+    // at such a class when the copy is made, needs a look-up under way in a
+    // worker that is copied before it has run anything or once it holds
+    // nothing open.
     if (process.platform === 'darwin') process.env.OBJC_DISABLE_INITIALIZE_FORK_SAFETY ??= 'YES'
   } else {
     delete process.env.VITANT_FORK
