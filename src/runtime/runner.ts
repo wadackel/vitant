@@ -1654,6 +1654,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
               attempts: 1,
               copied: true,
               sole: !plan || plan.sole.includes(test.file.filepath) || plan.exclusive.includes(test.file.filepath),
+              overran: failed && /^Test timed out in \d+ms/.test(firstError(test) ?? ''),
               killed: failed ? [mutant] : [],
               survived: failed ? [] : [mutant],
             })
@@ -1981,6 +1982,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       runtime.b.fill(0)
       runtime.t = false
       runtime.l = Infinity
+      // Which limit one mutant tripped is not the next one's.
+      if (run.attempt === 'mutant') run.timeoutCause = undefined
     }
 
     private finishActive(): void {

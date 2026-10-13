@@ -135,6 +135,30 @@ describe('what the runs of whole files settle', () => {
     expect(inspect([...chance, ...runs, both, both]).detected.get(1)).toBe(MUTANT_KILLED)
   })
 
+  it('wants a run made alone for what a witness fails that failed and passed a run of its file with one mutant', () => {
+    const chance = [whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })]
+    const failure = whole(1, 'failed', { test: 't2', alone: true })
+    expect(inspect([lead(1, 't2'), failure]).detected.get(1)).toBe(MUTANT_KILLED)
+    const status = inspect([...chance, lead(1, 't2'), failure])
+    expect(status.detected.has(1)).toBe(false)
+    expect(status.whole.get(`1\n${file}`)?.failed).toBe(1)
+    expect(inspect([...chance, lead(1, 't2'), failure, whole(1, 'failed', { test: 't2', alone: true, quiet: true })]).detected.get(1)).toBe(MUTANT_KILLED)
+  })
+
+  it('wants a run made alone for what a witness fails whose try ran out of the time a test is given', () => {
+    const slow = (cause: string) => ({ ...lead(0, 't1'), killed: [], timedOut: [0], timeoutCauses: [cause] }) as unknown as SessionRecord
+    const copied = { ...lead(0, 't1'), copied: true, overran: true } as unknown as SessionRecord
+    const apart = { type: 'apart', file, test: 't1', verdict: 'passed' } as SessionRecord
+    const failure = whole(0, 'timeout', { test: 't1' })
+    expect(inspect([slow('loop'), failure]).detected.get(0)).toBe(MUTANT_TIMEOUT)
+    for (const records of [[slow('test timeout')], [copied, apart]]) {
+      const status = inspect([...records, failure])
+      expect(status.detected.has(0)).toBe(false)
+      expect(status.whole.get(`0\n${file}`)?.timedOut).toBe(1)
+      expect(inspect([...records, failure, whole(0, 'timeout', { test: 't1', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_TIMEOUT)
+    }
+  })
+
   it('does not count runs a limit ended in a file where such a run passed another time', () => {
     // The limit ends whichever test is running, so the test named says nothing here.
     const chance = [whole(0, 'timeout', { test: 't3' }), whole(0, 'passed', { alone: true, quiet: true })]

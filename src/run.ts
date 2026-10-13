@@ -238,6 +238,8 @@ interface TestRecord {
   timedOut: number[]
   /** Which limit each entry of `timedOut` tripped. */
   timeoutCauses?: string[]
+  /** The one run a copy gave the test ended at Vitest's limit for a test. */
+  overran?: boolean
   survived: number[]
   /** Mutants the test failed with and then failed without: a lead, like a failure the test did not repeat without the mutant. */
   suspected?: number[]
@@ -504,7 +506,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const cold = new Set<string>()
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
-  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean }[] = []
+  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean; slow?: boolean }[] = []
   /** Tests that failed in a run with no mutant on and nothing else running. */
   const restive = new Set<string>()
   /** Files such a run failed in with no test to name. */
@@ -625,9 +627,17 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       tests.set(record.id, test)
     }
     for (const mutant of record.survived) test.judged.add(mutant)
+    const slow = new Set(record.timedOut.filter((_, index) => record.timeoutCauses?.[index] === 'test timeout'))
     for (const mutant of [...record.killed, ...record.timedOut]) {
       test.judged.add(mutant)
-      leads.push({ mutant, file: record.file, test: record.id, passedAgain: record.sole === true, copied: record.copied })
+      leads.push({
+        mutant,
+        file: record.file,
+        test: record.id,
+        passedAgain: record.sole === true,
+        copied: record.copied,
+        slow: record.overran === true || slow.has(mutant),
+      })
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
     }
     if (record.sole) {
@@ -807,6 +817,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   // nothing else running. A lead can also come to nothing because the
   // mutant was switched on in the middle of a worker's life, and then a
   // test loses this for no fault of its own, at the price of those runs.
+  // Running out of the time a test is given is the failure a busy machine
+  // hands out most freely, and it hands it to the run of the file as readily
+  // as to the try: what such a witness fails is seen again with nothing else
+  // running, as with a witness that failed and passed a run of its file.
+  const overrun = new Map<number, Set<string>>()
   const passedWith = new Set<string>()
   for (const record of settled) if (record.verdict === 'passed') passedWith.add(wholeKey(record.mutant, record.file))
   const refuted = new Set<string>()
@@ -816,7 +831,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   // of a worker, where one of the mutants it is given is one its file is
   // known to pass with, so that failing by chance still shows.
   for (const { mutant, file, test, undone } of leads) if (!undone && passedWith.has(wholeKey(mutant, file))) refuted.add(test)
-  for (const { mutant, file, test, passedAgain, copied } of leads) {
+  for (const { mutant, file, test, passedAgain, copied, slow } of leads) {
     if (flaky.has(test)) continue
     // What a copy does to the test is not the mutant's doing: without a copy
     // in which the test passed with no mutant on, its failing in one is no lead.
@@ -825,7 +840,10 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const files = suspects.get(mutant) ?? new Set()
     files.add(file)
     suspects.set(mutant, files)
-    if (passedAgain && !refuted.has(test)) witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
+    if (passedAgain && !refuted.has(test)) {
+      witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
+      if (slow) overrun.set(mutant, (overrun.get(mutant) ?? new Set()).add(test))
+    }
   }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
@@ -862,7 +880,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     note(record.mutant, { kind: record.died ? 'died' : record.verdict, quiet: record.quiet || undefined, file: record.file, test: record.test ?? record.tests?.[0], by: record.by })
     if (record.died) continue
     if (record.by && !record.alone) entry.beside++
-    if (stalled || witnessed.some((test) => !shaky.has(test))) entry.repeated++
+    if (stalled || witnessed.some((test) => !shaky.has(test) && !overrun.get(record.mutant)?.has(test))) entry.repeated++
   }
   // Several workers may share a file, and one that reached its end says
   // nothing about a test another had taken and died on.
