@@ -215,7 +215,7 @@ The scopes StrykerJS does not start on, gives no usable verdicts for or was not 
 | pacer `timing` | 46.1 | 43.1 |
 | pinia `pinia` | 71.1 | 69.7 |
 | hono `router` | 211.0 | 199.8 |
-| shiki `transformers` | 203.8 | 500.0 |
+| shiki `transformers` | 203.8 | 372.7 |
 | hono `utils` | 423.9 | 412.2 |
 | vue `reactivity` | 574.0 | 422.6 |
 | excalidraw `pr` | 870.8 | 1,767.6 |
@@ -224,6 +224,8 @@ The scopes StrykerJS does not start on, gives no usable verdicts for or was not 
 | Effect `data` | 2,305.3 | 2,270.2 |
 
 In the last of its three runs, hono `router` on Linux had 21 mutants reported as unconfirmed and h3 `utils` on macOS 13, none of them wrong: a test was found to fail by chance in that run, hono's check of the time it logged and h3's body over the limit sent to a port, and a mutant such a test reaches is not called survived on the strength of the rest (Limits, tests that fail now and then).
+
+The time of shiki on macOS is of three later runs the same day, made with the rule for a worker stopped in a test's first try (How it works, 7): 11 rounds, where the three before it took 32 and 500.0 s. Those later runs on Linux were given a slower processor than the first three, an EPYC 7763 for an EPYC 9V45, and took 389.8 s in the 11 rounds the first three had taken as well; their first round, which has no mutant in it, took 10.7 s for 6.6 s.
 
 An earlier run, of 6 October 2026 and one run each, also had this tool starting a worker for every whole-file run:
 
