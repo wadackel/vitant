@@ -346,7 +346,7 @@ describe('test files whose runs do not stand each other, or that fail now and th
 
   it('runs a file one process at a time once its runs have failed each other, and blames no mutant for it', () => {
     plain = runClash('clash')
-    expect(plain.exclusiveFiles).toEqual(['test/slot.test.ts'])
+    expect(plain.exclusiveFiles, JSON.stringify({ flaky: plain.flakyTests, counts: plain.counts, rounds: plain.rounds, wholeRuns: plain.wholeRuns })).toEqual(['test/slot.test.ts'])
     // The test that takes the slot reaches none of the code; whatever it fails says nothing of a mutant.
     const blamed = plain.mutants.filter((mutant) => mutant.evidence?.some((entry) => entry.kind !== 'lead' && entry.test === 'has the slot to itself'))
     expect(blamed.map((mutant) => mutant.replacement)).toEqual([])
