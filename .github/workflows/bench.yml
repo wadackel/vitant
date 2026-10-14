@@ -16,7 +16,7 @@ on:
         description: Times each tool is run; the README takes the middle one of three
         default: '1'
       math:
-        description: Also run excalidraw math and svelte sources, which take hours on four cores
+        description: Also run excalidraw math, which takes over an hour on four cores
         type: boolean
         default: false
       only:
@@ -158,8 +158,9 @@ jobs:
       fail-fast: false
       matrix:
         bench:
+          # svelte sources is not here: the two test files it runs one process at a
+          # time were not through after the 350 minutes a job is given.
           - { target: excalidraw, scope: math }
-          - { target: svelte, scope: sources }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
