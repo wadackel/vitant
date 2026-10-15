@@ -1883,8 +1883,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // where Node resolves that to the project's own copy.
   const sessionDir = path.join(options.root, 'node_modules/.vitant/session')
   const paths = sessionPaths(sessionDir)
-  const major = Number(vitestVersion.split('.')[0])
+  const [major, minor, patch] = vitestVersion.split('.').map((part) => Number.parseInt(part, 10))
   if (major < 3) throw new Error(`Vitest ${vitestVersion} is not supported; 3.0 or later is needed`)
+  // The pool of Vitest 4 before 4.1.9 gives a worker that has ended to the
+  // next file it could share one with, and waits for that file for good. A
+  // worker that hands its files to copies ends when a copy is stopped in a
+  // loop, so with more such files than workers a round of svelte never ended.
+  const reusesEnded = major === 4 && (minor < 1 || (minor === 1 && patch < 9))
   const config = writeSession(sessionDir, generated, options, major, vitestPackage)
   process.env.VITANT_SESSION = sessionDir
   // `globalSetup` files load in this process and may import instrumented code.
@@ -2107,7 +2112,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
               config.execArgv = copying ? [...own, ...workerArgv] : own
               // A worker that hands each file to a copy stays as it started;
               // any other has to be started for its file.
-              config.isolate = !hands
+              config.isolate = !hands || reusesEnded
             }
           }
           await vitest.runTestSpecifications(part, true)
