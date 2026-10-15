@@ -906,12 +906,29 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const unsure = new Set<string>()
   for (const test of tests.values()) if (test.coverage && !test.pristine && !test.failed) unsure.add(test.file)
   const pairWanted = new Set<string>()
+  // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
+  const askable = (file: string) => {
+    const pair = pairs.get(file)
+    return !exclusive.has(file) && (!pair || (pair.met < 2 && pair.asked < 2))
+  }
   for (const [key, entry] of whole) {
     const file = key.split('\n')[1]
-    if (entry.repeated > 0 || entry.passed > 0 || entry.beside === 0 || exclusive.has(file)) continue
-    const pair = pairs.get(file)
-    // Two tries at getting two runs to start together; a file that cannot be asked is left as it is.
-    if (!pair || (pair.met < 2 && pair.asked < 2)) pairWanted.add(file)
+    if (entry.repeated > 0 || entry.passed > 0 || entry.beside === 0) continue
+    if (askable(file)) pairWanted.add(file)
+  }
+  // A test that reaches none of the mutated code failed next to other runs
+  // of its file, with a mutant it had never failed trying: nothing of the
+  // mutant was in its way, so the first suspect is the file's runs getting
+  // in each other's way. The run of a mutant the file goes on to detect is
+  // left out above, and a worker that runs every mutant without a lead
+  // before the others arrive leaves no other run to show it in.
+  const triedAndFailed = new Map<number, Set<string>>()
+  for (const { mutant, test } of leads) triedAndFailed.set(mutant, (triedAndFailed.get(mutant) ?? new Set()).add(test))
+  for (const record of counted) {
+    if (record.verdict === 'passed' || record.alone || !record.by || !askable(record.file)) continue
+    const failing = record.tests ?? (record.test === undefined ? [] : [record.test])
+    const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
+    if (failing.some(bystander)) pairWanted.add(record.file)
   }
   return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
