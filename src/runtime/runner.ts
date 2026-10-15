@@ -248,6 +248,23 @@ function markFailed(mutant: number): void {
   }
 }
 
+/**
+ * A mutant left the test it was tried with failing without it. The copy that
+ * goes on with the file starts the work the one before handed back over
+ * again, and the mutant is still pending there: in solid one test tried the
+ * same mutant 50 times in a row, a copy each, in three rounds. What it does
+ * is left to runs of whole files either way.
+ */
+const taintedMark = (testId: string, mutant: number): string => path.join(paths.claims, `tainted.${testId}.${mutant}`)
+
+function markTainted(testId: string, mutant: number): void {
+  try {
+    fs.closeSync(fs.openSync(taintedMark(testId, mutant), 'w'))
+  } catch {
+    // The copy that goes on tries it again.
+  }
+}
+
 let tryingFd: number | undefined
 const tryingMutant = new Int32Array(1)
 /**
@@ -1517,7 +1534,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       for (;;) {
         while (run.next < run.sliceEnd) {
           const candidate = run.queue[run.next++]
-          if (readState(candidate) === MUTANT_PENDING) return candidate
+          if (readState(candidate) === MUTANT_PENDING && !fs.existsSync(taintedMark(this.active!.test.id, candidate))) return candidate
         }
         if (run.mode !== 'planned') return -1
         const index = claimChunk(this.active!.test.id, run.planned!, run.chunkIndex + 1)
@@ -1958,11 +1975,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // broke something rather than the test being unable to re-run.
           run.unverified.push(run.mutant)
           run.suspected.push(run.mutant)
+          markTainted(test.id, run.mutant)
           run.attempt = 'mutant'
         } else if (failed && replayed) {
           run.nonRepeatable = true
           run.unverified.push(run.mutant)
           run.suspected.push(run.mutant)
+          markTainted(test.id, run.mutant)
           run.attempt = 'mutant'
         } else if (failed) {
           // The mutant stays pending: in this worker the test may fail only
