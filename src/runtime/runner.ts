@@ -1911,10 +1911,14 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // main process then decides which test tries each mutant first.
           run.pristine = !this.attempted && !this.upset
           const measuring = plan?.pristine.includes(test.file.filepath)
-          // A file has one worker in the first round, so what its tests try
+          // A file that is measured has one worker, so what its tests try
           // there runs one after another while other workers may be idle;
-          // past a point the rest is better left to the rounds that share it out.
-          if (!measuring && (plan || run.baselineMs < config.cheapMs)) run.queue = run.covered
+          // past a point the rest is better left to the rounds that share it
+          // out. In a later round as in the first: a worker that a mutant
+          // left a test broken in is replaced by one that runs every test
+          // before that one again, which in svelte was 33 workers one after
+          // another on a file of 2,700 tests, twenty seconds each.
+          if (!measuring && run.baselineMs < config.cheapMs) run.queue = run.covered
           run.sliceEnd = run.queue.length
         }
         run.attempt = 'mutant'
