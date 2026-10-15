@@ -348,8 +348,12 @@ describe('test files whose runs do not stand each other, or that fail now and th
     const report = reportPath(name)
     const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', clash, '--report', report], {
       encoding: 'utf8',
-      env: { ...process.env, ...env },
+      env: { ...process.env, VITANT_DEBUG: '1', ...env },
     })
+    // Which runs of a file meet depends on the machine; what each run did and
+    // when is kept beside the report, as the next run of the fixture overwrites it.
+    fs.writeFileSync(report.replace(/\.json$/, '.log'), cli.stdout)
+    fs.cpSync(path.join(clash, 'node_modules/.vitant/session/results'), report.replace(/\.json$/, '-records'), { recursive: true })
     expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
     return JSON.parse(fs.readFileSync(report, 'utf8'))
   }
