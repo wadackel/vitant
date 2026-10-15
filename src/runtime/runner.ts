@@ -357,6 +357,8 @@ let cloned = false
  * it stays what a worker is before its first file, for the next.
  */
 let hosted = false
+/** Whether this copy goes on with a file that a copy before it ended itself in. */
+let succeeding = false
 /** What Vitest put in the place of `process.exit` when the worker started; it takes it back after the first file. */
 let exitGuard: typeof process.exit | undefined
 /**
@@ -978,7 +980,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // round after this one finds its work not done.
           return process.kill(process.pid, 'SIGKILL')
         }
-        if (pid === 0) break
+        if (pid === 0) {
+          succeeding = copies > 1
+          break
+        }
         const ended = cloner!.wait(pid)
         // A copy that a mutant left unfit for the tests that follow, or
         // that holds too much, ends itself with what it had taken handed
@@ -1914,11 +1919,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // A file that is measured has one worker, so what its tests try
           // there runs one after another while other workers may be idle;
           // past a point the rest is better left to the rounds that share it
-          // out. In a later round as in the first: a worker that a mutant
-          // left a test broken in is replaced by one that runs every test
-          // before that one again, which in svelte was 33 workers one after
-          // another on a file of 2,700 tests, twenty seconds each.
-          if (!measuring && run.baselineMs < config.cheapMs) run.queue = run.covered
+          // out. In a later round as in the first, and all of it once a
+          // mutant has left a test broken or a copy has held too much: the
+          // copy that goes on runs every test before its first one again,
+          // and trying on would make that one more time for every such
+          // mutant. In svelte that was 50 copies one after another on a file
+          // of 2,700 tests, twenty seconds each.
+          if (!measuring && !succeeding && run.baselineMs < config.cheapMs) run.queue = run.covered
           run.sliceEnd = run.queue.length
         }
         run.attempt = 'mutant'
