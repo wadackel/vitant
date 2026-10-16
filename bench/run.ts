@@ -1,7 +1,7 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4] [--runs N] [--limit MINUTES]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led] [--runs N] [--limit MINUTES]
 //
 // `--limit` ends a run of this tool that goes on for that long, having first
 // written down what its processes were doing (`<tool>.hang.txt`).
@@ -9,7 +9,7 @@
 // `vitant-base` is the tool as another checkout has it, named by VITANT_BASE:
 // two commits are compared on one machine, CI runners differing by a third
 // from one job to the next.
-// `vitant-confirm4` is it with `--confirm 4`, held against the scope's report of `vitant`.
+// `vitant-confirm4` and `vitant-led` are it with `--confirm 4` and with `--led`, held against the scope's report of `vitant`.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
@@ -35,7 +35,7 @@ const { values, positionals } = parseArgs({
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4] [--runs N] [--limit MINUTES] [--records]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led] [--runs N] [--limit MINUTES] [--records]')
   process.exit(1)
 }
 
@@ -181,7 +181,7 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4', 'vitant-led']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
   const toolRoot = tool === 'vitant-base' ? process.env.VITANT_BASE : repoRoot
@@ -192,6 +192,7 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
   const args = [path.join(toolRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if (tool === 'vitant-confirm4') args.push('--confirm', '4')
+  if (tool === 'vitant-led') args.push('--led')
   if ('changed' in scope) args.push('--changed', scope.changed)
   else for (const glob of scope.mutate) args.push('--mutate', glob)
   // What the last run of the scope said, to hold this one against. Two runs
@@ -231,8 +232,9 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
     mutants: Reported[]
   }
   reports[tool] = { counts, wholeRuns, work, quiet: quietRuns.failed + quietRuns.passed, rounds, abandonedFiles: abandonedFiles.length }
-  if (tool === 'vitant-confirm4') {
+  if (tool === 'vitant-confirm4' || tool === 'vitant-led') {
     // A limit leaves runs out and guesses nothing: a mutant is unconfirmed or as the run without the limit has it.
+    // A led mutant is held against the same run, by what that run has it as.
     if (!fs.existsSync(vitantReport)) {
       console.log(`${tool}: no report of a run without the limit to compare with`)
       continue
@@ -242,13 +244,13 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
     const differing = mutants.filter((mutant) => {
       const was = full.get(keyOf(mutant))
       if (was === undefined) return false
-      if (mutant.status === 'Unconfirmed') {
+      if (mutant.status === 'Unconfirmed' || mutant.status === 'Led') {
         open[kind(was)] = (open[kind(was)] ?? 0) + 1
         return kind(was) !== 'detected' && was !== 'Survived'
       }
       return kind(was) !== kind(mutant.status)
     })
-    console.log(`${tool}: unconfirmed, by what the run without the limit has: ${JSON.stringify(open)}; ${differing.length} mutant(s) differ otherwise`)
+    console.log(`${tool}: ${tool === 'vitant-led' ? 'led' : 'unconfirmed'}, by what the run without the limit has: ${JSON.stringify(open)}; ${differing.length} mutant(s) differ otherwise`)
     for (const mutant of differing.slice(0, 20)) {
       console.log(`  ${mutant.file}:${mutant.location.start.line}:${mutant.location.start.column} ${mutant.mutator}: ${full.get(keyOf(mutant))} without the limit, ${mutant.status} with it`)
     }

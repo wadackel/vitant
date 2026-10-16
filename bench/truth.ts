@@ -351,7 +351,7 @@ async function make(): Promise<Truth> {
 
 function check(truth: Truth): boolean {
   const byKey = new Map(report.mutants.map((mutant) => [keyOf(describe(mutant)), mutant]))
-  const tally = { agree: 0, explained: 0, 'not judged': 0, 'not judged that fail the suite': 0, 'not in the report': 0 }
+  const tally = { agree: 0, explained: 0, 'not judged': 0, 'not judged that fail the suite': 0, led: 0, 'led that pass the suite': 0, 'not in the report': 0 }
   const wrong: string[] = []
   for (const entry of truth.mutants) {
     const mutant = byKey.get(keyOf(entry))
@@ -363,6 +363,11 @@ function check(truth: Truth): boolean {
     // a verdict, and so is one that a test left out of the runs reaches.
     if (mutant.status === 'Static' || mutant.status === 'Unconfirmed') {
       tally[entry.suite === 'pass' ? 'not judged' : 'not judged that fail the suite']++
+      continue
+    }
+    // With `--led`, a lead taken at its word; one the suite passes with is what the option costs.
+    if (mutant.status === 'Led') {
+      tally[entry.suite === 'pass' ? 'led that pass the suite' : 'led']++
       continue
     }
     if (mutant.status === 'Pending') {

@@ -1,6 +1,6 @@
 # vitant
 
-A proof of concept of a mutation testing tool for TypeScript projects that use Vitest. It has one job: to say for every mutant what the project's own test suite would say if the mutant were in the source for real, and to get there faster than running the suite once per mutant. No verdict is a guess: the one option that does less work, `--confirm`, reports what it left out under a status of its own.
+A proof of concept of a mutation testing tool for TypeScript projects that use Vitest. It has one job: to say for every mutant what the project's own test suite would say if the mutant were in the source for real, and to get there faster than running the suite once per mutant. No verdict is a guess: the two options that do less work, `--confirm` and `--led`, report what they left out under statuses of their own.
 
 It works only with Vitest 3.0 or later, and has been run against 3.0, 3.2, 4.1 and 5.0.
 
@@ -22,7 +22,7 @@ node src/cli.ts --root ../my-app --changed origin/main
 node src/cli.ts --root ../my-app --changed origin/main --incremental
 ```
 
-Positional arguments are passed to Vitest as test file filters. `--report` writes every mutant with its status as JSON. `--no-clone` starts a worker for every whole-file run instead of copying one (see How it works). `--static` also runs the mutants in code that only runs while a module loads. `--confirm <n>` stops running a mutant once it has passed the `n` test files nearest to it (see Tuning).
+Positional arguments are passed to Vitest as test file filters. `--report` writes every mutant with its status as JSON. `--no-clone` starts a worker for every whole-file run instead of copying one (see How it works). `--static` also runs the mutants in code that only runs while a module loads. `--confirm <n>` stops running a mutant once it has passed the `n` test files nearest to it, and `--led` leaves a mutant a test failed with while trying it at that (see Tuning).
 
 "Fresh worker" below means a worker process in which nothing of the project has run, or a copy of one.
 
@@ -32,6 +32,7 @@ Positional arguments are passed to Vitest as test file filters. `--report` write
 | Timeout | The same, with the file running into a loop or a hang instead of failing. Counted as detected. |
 | Survived | Every test file the mutant can change anything in passed, in a fresh worker, with the mutant on from before the file was imported. |
 | Unconfirmed | Every test file that was run with the mutant passed, and something that reaches it was not run: a test left out of every run for failing with no mutant on, which the report names, or, with `--confirm <n>`, the test files beyond the `n` nearest. Or a file failed with the mutant in a test that reaches it and passed in another run: the mutant has made that test a matter of chance. Or all that failed with the mutant was a test that had failed and passed with another, which is named. Counted as survived in the score. |
+| Led | Only with `--led`: a test failed with the mutant while trying it in a worker and passed again without it, and no run of a whole file was made to confirm it. The report names the tests. Counted as survived in the score. |
 | NoCoverage | No test runs the mutated code. |
 | Static | The code only runs while a module loads, and no test or hook reaches it. Not run unless `--static` is given, and then judged like any other. |
 | Pending | The run gave up on a test file before the mutant was settled. |
@@ -309,8 +310,9 @@ Whether a detected mutant is called Killed or Timeout can differ between runs: a
 | `--recycle-heap-mb` | half the machine's memory divided by the workers, at most 1,536 | A worker hands over once its live heap passes this, or its resident size passes 1.5 times this. Lower uses less memory and costs more restarts. |
 | `--changed <ref>` | | Only mutants whose code lies entirely on lines changed since `ref`. |
 | `--confirm <n>` | every test file that reaches the mutant | A mutant that has passed the `n` test files nearest to it is run against no more, and is reported as Unconfirmed where more reach it. |
+| `--led` | off | A mutant a test failed with while trying it is not run whole, and is reported as Led. |
 
-`--confirm` is the one option that gives up part of the answer for time. A mutant no test detects is the costly kind: it has to pass every test file whose tests reach it, and in a project whose tests all go through the same code that is every file for most mutants. The test files are taken nearest first: two by how many of the source file's mutants their tests reach, two by how large a part those are of everything their tests reach, then the rest by the first measure. With a limit the run stops there, and where two files are as near as each other the path decides and not how long they took, so that which mutants are left open does not depend on how long anything took; it does depend on what the tests were seen to reach, which differs between runs where a test reaches code in some runs only. A file in which a test failed or stopped answering while trying the mutant is run whatever the limit. Nothing is concluded from the runs not made: such a mutant is Unconfirmed with the number of files it passed and the number left, never Survived, and the score counts it as survived, so that the score with the option is at most the score without.
+`--confirm` gives up part of the answer for time on the mutants that survive. A mutant no test detects is the costly kind: it has to pass every test file whose tests reach it, and in a project whose tests all go through the same code that is every file for most mutants. The test files are taken nearest first: two by how many of the source file's mutants their tests reach, two by how large a part those are of everything their tests reach, then the rest by the first measure. With a limit the run stops there, and where two files are as near as each other the path decides and not how long they took, so that which mutants are left open does not depend on how long anything took; it does depend on what the tests were seen to reach, which differs between runs where a test reaches code in some runs only. A file in which a test failed or stopped answering while trying the mutant is run whatever the limit. Nothing is concluded from the runs not made: such a mutant is Unconfirmed with the number of files it passed and the number left, never Survived, and the score counts it as survived, so that the score with the option is at most the score without.
 
 What `--confirm 4` leaves out, against a run without it of the same scope:
 
@@ -330,6 +332,17 @@ In seconds, on the Linux runners with both runs in one job and so on one machine
 Every other mutant has the status of the run without the limit, but for one of h3 whose test passes or fails with it by chance (two runs of six fail, written into the source) and two there that a test reaches in some runs only. Where few test files reach a mutant the option saves nothing, and it never saves anything on a mutant that is detected.
 
 A run without the option says what it would have left out for 1, 2, 4 and 8 files, going by where on each mutant's list of nearest files its runs fell: the share of the time spent on whole-file runs made past that place, and how many mutants a file past it detected. The second is an upper bound, as a nearer file that was not run might have detected the mutant too. On jotai `vanilla` it gave 47% and at most one mutant for `--confirm 4`, and the run with the option spent 56% less on whole-file runs and left no detected mutant open.
+
+`--led` gives up part of the answer on the mutants that are detected. Nearly every detected mutant was first failed by a test while trying it in a worker, and what is then left is a run of the file whose test it is, made only to confirm what that test showed: cheap for each mutant, but there are thousands. With the option such a mutant is left at that and reported as Led, with the tests that failed with it and whether one of them did so with no other run of its file under way. A lead whose test failed again without the mutant, or whose test fails by chance, is no Led: those mutants are run as without the option, and so is every mutant no test failed with, so that Survived means what it does without it. The score counts a led mutant as survived, which on the four scopes below left it between 0.2% and 10%, and the run says what it would be at most with every led mutant detected. The option is for a list of what survives. Which mutants end led and which killed depends on whether a run of the file was already planned when the lead came in, so it differs between runs; which survive does not.
+
+| Scope | Without | With `--led` | Led | Of those, the suite passes with |
+|---|---|---|---|---|
+| jotai `vanilla` | 81 s | 51 s | 838 | 0 |
+| hono `router` | 45 s | 40 s | 955 | 0 |
+| solid `reactive` | 688 s | 508 s | 866 | 1 |
+| h3 `utils` | 566 s | 304 s | 3,213 | 0 |
+
+One run each, one after the other on a 12-core machine. The score with every led mutant counted as detected was within half a point of the score without the option on all four. Two of h3's led mutants were reported as survived without the option: mutants of `useSession` that make a test a matter of chance, which the suite fails with written in (Limits, tests that fail now and then). A wrong Led is a lead that a run of the whole file does not repeat, of the kinds listed under Deciding: the test fails because of what the mutant, switched on in the middle of a worker's life, did to it, or by chance.
 
 Things that turned out to matter, each measured:
 

@@ -31,6 +31,7 @@ function reason(mutant: MutantResult): string | undefined {
   if (mutant.wavered) return `unconfirmed: failed in one run of their file with it and not in another, ${mutant.wavered.join('; ')}`
   if (mutant.doubted) return `unconfirmed: failed only in what fails by chance, ${mutant.doubted.join('; ')}`
   if (mutant.leftOut) return `unconfirmed: left out of every run for failing by themselves, ${mutant.leftOut.join('; ')}`
+  if (mutant.led) return `led: failed ${mutant.led.tests.join('; ')} while trying it, no run of a whole file made (--led)`
   if (mutant.confirmed) {
     const { passed, open } = mutant.confirmed
     return `unconfirmed: passed ${passed} of the ${passed + open} test files that reach it, the rest not run (--confirm)`
@@ -59,7 +60,7 @@ export function toElements(result: RunResult, root: string, version: string): El
       replacement: mutant.replacement,
       // The format counts columns from one.
       location: { start: { line: start.line, column: start.column + 1 }, end: { line: end.line, column: end.column + 1 } },
-      status: mutant.status === 'Static' ? 'Ignored' : mutant.status === 'Unconfirmed' ? 'Survived' : mutant.status,
+      status: mutant.status === 'Static' ? 'Ignored' : mutant.status === 'Unconfirmed' || mutant.status === 'Led' ? 'Survived' : mutant.status,
       statusReason: reason(mutant),
       static: mutant.static,
     })

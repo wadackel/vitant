@@ -328,6 +328,28 @@ describe('with a limit on the test files a mutant is run against', () => {
   }, 180_000)
 })
 
+describe('with leads taken at their word', () => {
+  it('reports a mutant a test failed with as led, and no other verdict differently', () => {
+    const report = reportPath('led')
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--led', '--report', report])
+    expect(cli.status, cli.stderr).toBe(0)
+    const led: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(led.counts.Led).toBeGreaterThan(0)
+    expect(led.wholeRuns.started + led.wholeRuns['copied before load'] + led.wholeRuns['copied after load']).toBeLessThan(
+      result.wholeRuns.started + result.wholeRuns['copied before load'] + result.wholeRuns['copied after load'],
+    )
+    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
+    for (const mutant of led.mutants) {
+      if (mutant.status !== 'Led') expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${kind(result.mutants[mutant.id].status)}`)
+      else {
+        expect(mutant.led!.tests.length).toBeGreaterThan(0)
+        expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
+      }
+    }
+    expect(cli.stdout).toMatch(/--led: \d+ mutant\(s\) failed a test while trying it/)
+  }, 180_000)
+})
+
 describe('a mutant that keeps a test file from ever finishing to load', () => {
   it('is a timeout, and the run ends', () => {
     const report = reportPath('stuck')

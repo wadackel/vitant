@@ -25,6 +25,8 @@ for each one whether the suite detects it.
   --static                also run mutants in code that only runs while a module loads
   --confirm <n>           let a mutant go once it has passed the n test files nearest to it, and report it
                           as unconfirmed, not as survived, where others reach it (default: all of them)
+  --led                   leave a mutant a test failed with while trying it at that, with no run of its
+                          test file to confirm it, and report it as led, not as killed
   --no-related            run every test file, not only those that import a mutated file
   --no-clone              start a worker for every whole-file run instead of copying one
   --max-workers <n>       workers at once (default: the number of processors)
@@ -61,6 +63,7 @@ const { values, positionals } = (() => {
         'no-clone': { type: 'boolean', default: false },
         static: { type: 'boolean', default: false },
         confirm: { type: 'string' },
+        led: { type: 'boolean', default: false },
         report: { type: 'string' },
         elements: { type: 'string' },
       },
@@ -116,6 +119,7 @@ const result = await run({
   incremental: values.incremental,
   clone: !values['no-clone'],
   static: values.static,
+  led: values.led,
   confirm,
   // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
   maxWorkers: Number(values['max-workers'] ?? os.availableParallelism()),
@@ -125,7 +129,7 @@ const result = await run({
 const { counts } = result
 const detected = counts.Killed + counts.Timeout
 // Unconfirmed counts as survived: a score that is to be relied on must not rest on runs that were not made.
-const covered = detected + counts.Survived + counts.Unconfirmed
+const covered = detected + counts.Survived + counts.Unconfirmed + counts.Led
 const percent = (part: number, whole: number) =>
   whole === 0 ? 'n/a' : `${((part / whole) * 100).toFixed(2)}%`
 
@@ -149,6 +153,7 @@ const order: MutantStatus[] = [
   'Timeout',
   'Survived',
   ...(confirm === Infinity && counts.Unconfirmed === 0 ? [] : (['Unconfirmed'] as const)),
+  ...(values.led ? (['Led'] as const) : []),
   'NoCoverage',
   'Static',
   'Pending',
@@ -157,6 +162,13 @@ console.log(order.map((status) => `${status} ${counts[status]}`).join('  '))
 if (confirm !== Infinity) {
   console.log(
     `--confirm ${confirm}: ${counts.Unconfirmed} mutant(s) passed the test files nearest to them and were not run against the rest; they count as survived in the score`,
+  )
+}
+if (values.led) {
+  const sole = result.mutants.filter((mutant) => mutant.led?.sole).length
+  console.log(
+    `--led: ${counts.Led} mutant(s) failed a test while trying it and no run of a whole file confirmed it (${sole} with no other run of the test's file under way); ` +
+      `they count as survived in the score, which with every one of them detected would be ${percent(detected + counts.Led, covered + counts.NoCoverage)} at most`,
   )
 }
 console.log(

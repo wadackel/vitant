@@ -40,6 +40,7 @@ export type MutantStatus =
   | 'Killed'
   | 'Survived'
   | 'Unconfirmed'
+  | 'Led'
   | 'Timeout'
   | 'NoCoverage'
   | 'Static'
@@ -69,6 +70,12 @@ export interface MutantResult {
   wavered?: string[]
   /** For an unconfirmed mutant, the tests and test files that failed with it and fail by chance: with another mutant, or with none, they failed one run and passed another. */
   doubted?: string[]
+  /**
+   * For a led mutant, the tests that failed with it while trying it in a
+   * worker and passed again without it, and whether one of them did so with
+   * no other run of its file under way.
+   */
+  led?: { tests: string[]; sole: boolean }
   /**
    * For a detected mutant, the runs of whole files that say so and the tests
    * that led to them: what to read when the suite disagrees with the verdict.
@@ -200,6 +207,8 @@ export interface RunOptions extends GenerateOptions {
   static: boolean
   /** How many of the test files that reach a mutant it has to pass to be let go, the nearest first; all of them when infinite. */
   confirm: number
+  /** Leave a mutant a test failed with while trying it at that, reported as led, with no run of a whole file to confirm it. */
+  led: boolean
   log: (message: string) => void
 }
 
@@ -515,7 +524,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const cold = new Set<string>()
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
-  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean; slow?: boolean }[] = []
+  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean; failedAgain?: boolean; slow?: boolean }[] = []
   /** Tests that failed in a run with no mutant on and nothing else running. */
   const restive = new Set<string>()
   /** Files such a run failed in with no test to name. */
@@ -657,7 +666,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     // A copy that did not get to say what the test did left a record so that the test is not asked again, and no more.
     for (const mutant of record.copied ? [] : (record.suspected ?? [])) {
       // `undone`: the test failed again without the mutant because it cannot be run a second time in a worker at all.
-      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false, undone: record.nonRepeatable && !record.copied })
+      // `failedAgain`: what such a lead shows is how the mutant left the worker, which `--led` does not take at its word.
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false, undone: record.nonRepeatable && !record.copied, failedAgain: true })
     }
     for (const mutant of record.unverified) {
       test.judged.add(mutant)
@@ -840,7 +850,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   // of a worker, where one of the mutants it is given is one its file is
   // known to pass with, so that failing by chance still shows.
   for (const { mutant, file, test, undone } of leads) if (!undone && passedWith.has(wholeKey(mutant, file))) refuted.add(test)
-  for (const { mutant, file, test, passedAgain, copied, slow } of leads) {
+  /** Per mutant, the tests whose failing with it, and passing again without it, a run made with `led` takes at its word. */
+  const led = new Map<number, { tests: Set<string>; sole: boolean }>()
+  for (const { mutant, file, test, passedAgain, copied, slow, failedAgain } of leads) {
     if (flaky.has(test)) continue
     // What a copy does to the test is not the mutant's doing: without a copy
     // in which the test passed with no mutant on, its failing in one is no lead.
@@ -849,6 +861,12 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const files = suspects.get(mutant) ?? new Set()
     files.add(file)
     suspects.set(mutant, files)
+    if (!failedAgain && !refuted.has(test)) {
+      const entry = led.get(mutant) ?? { tests: new Set(), sole: false }
+      entry.tests.add(test)
+      entry.sole ||= passedAgain
+      led.set(mutant, entry)
+    }
     if (passedAgain && !refuted.has(test)) {
       witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
       if (slow) overrun.set(mutant, (overrun.get(mutant) ?? new Set()).add(test))
@@ -939,7 +957,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -983,6 +1001,12 @@ let judgeStatic = false
  * that passed their four nearest files failed a later one.
  */
 let confirmFiles = Infinity
+/**
+ * Whether a mutant a test failed with while trying it, and passed again
+ * without, is left at that: no run of a whole file confirms it, and it is
+ * reported as led, never as killed.
+ */
+let takeLeads = false
 const unconfirmed = new Map<number, { passed: number; open: number }>()
 /** Without such a limit, each mutant's files in the order a limit would take them. */
 const nearestFiles = new Map<number, string[]>()
@@ -1276,6 +1300,10 @@ function planPhase(
   // settles nothing the first does not.
   const planned = new Map<string, WholeJob>()
   const wholeJob = (mutant: number, file: string, confirm: boolean, quiet = false) => {
+    // Only while the lead is all there is: a mutant whose runs of a file failed
+    // without settling anything is pending again, and the run that settles it
+    // is what keeps it from being called survived.
+    if (takeLeads && status.led.has(mutant) && (state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT)) return
     const already = planned.get(wholeKey(mutant, file))
     if (already) {
       already.confirm ||= confirm
@@ -1904,6 +1932,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0 }
   judgeStatic = options.static
   confirmFiles = options.confirm
+  takeLeads = options.led
   unconfirmed.clear()
   nearestFiles.clear()
   const generated = generate(options)
@@ -2570,6 +2599,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     Killed: 0,
     Survived: 0,
     Unconfirmed: 0,
+    Led: 0,
     Timeout: 0,
     NoCoverage: 0,
     Static: 0,
@@ -2618,7 +2648,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // A file that fails with no mutant on, nothing else running and no test to name leaves no way to tell what a mutant does to it.
   for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const pending = abandonedFiles.length > 0
-  const { detected, doubted: doubtedIn, tests: known } = status
+  const { detected, doubted: doubtedIn, tests: known, led: ledBy } = status
   const proof = (mutant: number): Evidence[] =>
     (status.evidence.get(mutant) ?? []).map((entry) => ({
       ...entry,
@@ -2639,6 +2669,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending) status = 'Pending'
+    else if (takeLeads && (state[mutant.id] === MUTANT_KILLED || state[mutant.id] === MUTANT_TIMEOUT)) status = ledBy.has(mutant.id) ? 'Led' : 'Pending'
     else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
@@ -2657,6 +2688,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       leftOut: status === 'Unconfirmed' && leftOut.length > 0 ? leftOut : undefined,
       wavered: status === 'Unconfirmed' && wavered.length > 0 ? wavered : undefined,
       doubted: status === 'Unconfirmed' && doubted.length > 0 ? doubted : undefined,
+      led: status === 'Led' ? { tests: [...ledBy.get(mutant.id)!.tests].map((id) => (known.get(id) ? label(known.get(id)!) : id)), sole: ledBy.get(mutant.id)!.sole } : undefined,
       evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,
     }
   })
