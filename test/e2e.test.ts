@@ -321,6 +321,10 @@ describe('with a limit on the test files a mutant is run against', () => {
       if (mutant.status !== 'Unconfirmed') expect(`${mutant.id} ${mutant.status}`).toBe(`${mutant.id} ${result.mutants[mutant.id].status}`)
       else expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
     }
+    // What the run without the limit said the limit would leave out is an upper bound on what it did.
+    const lost = limited.mutants.filter((m) => m.status === 'Unconfirmed' && result.mutants[m.id].status !== 'Survived').length
+    expect(result.nearest!.detected.slice(1).reduce((sum, count) => sum + count, 0)).toBeGreaterThanOrEqual(lost)
+    expect(limited.nearest).toBeUndefined()
   }, 180_000)
 })
 

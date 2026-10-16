@@ -159,6 +159,15 @@ export interface RunResult {
     /** Worker processes Vitest started. */
     workers: number
   }
+  /**
+   * Without a limit on the files a mutant is run against, what `--confirm`
+   * would have left out, by place on each mutant's list of nearest files,
+   * the first at 0: how many mutants a file there detected, and how long the
+   * runs there took. Files a test failed or stopped in with the mutant are
+   * not counted, as a limit runs them all the same. A mutant counts where it
+   * was detected, though a nearer file that was not run might have done so.
+   */
+  nearest?: { detected: number[]; ms: number[] }
   unplaced: number
   skippedFiles: string[]
   vitestVersion: string
@@ -975,6 +984,8 @@ let judgeStatic = false
  */
 let confirmFiles = Infinity
 const unconfirmed = new Map<number, { passed: number; open: number }>()
+/** Without such a limit, each mutant's files in the order a limit would take them. */
+const nearestFiles = new Map<number, string[]>()
 
 type Planned = {
   plan: RoundPlan
@@ -1384,9 +1395,9 @@ function planPhase(
       const all = status.exercised.get(file)?.size ?? 0
       return all === 0 ? 0 : familiarity(file, source) / all
     }
-    const nearest = (files: string[], source: number): string[] => {
+    const nearest = (files: string[], source: number, byPath = confirmFiles !== Infinity): string[] => {
       const tie = (a: string, b: string) =>
-        confirmFiles === Infinity ? (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0) : a < b ? -1 : a > b ? 1 : 0
+        byPath ? (a < b ? -1 : a > b ? 1 : 0) : (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0)
       const broad = [...files].sort((a, b) => familiarity(b, source) - familiarity(a, source) || tie(a, b))
       const narrow = [...files].sort((a, b) => share(b, source) - share(a, source) || tie(a, b))
       const taken = new Set<string>()
@@ -1413,6 +1424,7 @@ function planPhase(
       for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) targets.add(file)
       const source = sourceOf[mutant]
       const ranked = nearest([...targets], source)
+      if (confirmFiles === Infinity) nearestFiles.set(mutant, nearest([...targets], source, true))
       // A file in which a test stopped answering with the mutant is a lead like a
       // failure there, and no planner path but this one would run it.
       const within = new Set([...ranked.slice(0, confirmFiles), ...(status.blocked.get(mutant) ?? [])])
@@ -1893,6 +1905,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   judgeStatic = options.static
   confirmFiles = options.confirm
   unconfirmed.clear()
+  nearestFiles.clear()
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
   options.log(
@@ -2577,6 +2590,31 @@ export async function run(options: RunOptions): Promise<RunResult> {
   work.trialCpuMs = Math.round(work.trialCpuMs)
   work.wholeMs.passed = Math.round(work.wholeMs.passed)
   work.wholeMs.detected = Math.round(work.wholeMs.detected)
+  let nearest: RunResult['nearest']
+  if (confirmFiles === Infinity) {
+    const places = Math.max(0, ...[...nearestFiles.values()].map((files) => files.length))
+    nearest = { detected: new Array<number>(places).fill(0), ms: new Array<number>(places).fill(0) }
+    const exempt = (mutant: number, file: string) =>
+      status.suspects.get(mutant)?.has(file) === true || status.blocked.get(mutant)?.has(file) === true
+    const place = (mutant: number, file: string) => (exempt(mutant, file) ? -1 : (nearestFiles.get(mutant)?.indexOf(file) ?? -1))
+    for (const record of records) {
+      if (record.type !== 'whole' || !record.by) continue
+      const at = place(record.mutant, record.file)
+      if (at >= 0) nearest.ms[at] += record.ms ?? 0
+    }
+    const detectedAt = new Map<number, number>()
+    for (const [key, entry] of status.whole) {
+      const verdict = wholeVerdict(entry)
+      if (verdict !== 'failed' && verdict !== 'timeout') continue
+      const [id, file] = key.split('\n')
+      const mutant = Number(id)
+      const at = place(mutant, file)
+      // One file a limit runs all the same is enough.
+      detectedAt.set(mutant, Math.min(detectedAt.get(mutant) ?? Infinity, at < 0 ? -1 : at))
+    }
+    for (const at of detectedAt.values()) if (at >= 0) nearest.detected[at]++
+    nearest.ms = nearest.ms.map(Math.round)
+  }
   // A file that fails with no mutant on, nothing else running and no test to name leaves no way to tell what a mutant does to it.
   for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const pending = abandonedFiles.length > 0
@@ -2648,6 +2686,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     rounds,
     wholeRuns,
     work,
+    nearest,
     unplaced: generated.unplaced,
     skippedFiles: generated.skipped,
     vitestVersion,

@@ -329,6 +329,8 @@ In seconds, on the Linux runners with both runs in one job and so on one machine
 
 Every other mutant has the status of the run without the limit, but for one of h3 whose test passes or fails with it by chance (two runs of six fail, written into the source) and two there that a test reaches in some runs only. Where few test files reach a mutant the option saves nothing, and it never saves anything on a mutant that is detected.
 
+A run without the option says what it would have left out for 1, 2, 4 and 8 files, going by where on each mutant's list of nearest files its runs fell: the share of the time spent on whole-file runs made past that place, and how many mutants a file past it detected. The second is an upper bound, as a nearer file that was not run might have detected the mutant too. On jotai `vanilla` it gave 47% and at most one mutant for `--confirm 4`, and the run with the option spent 56% less on whole-file runs and left no detected mutant open.
+
 Things that turned out to matter, each measured:
 
 - **The pool of Vitest 3 only starts a worker while it has fewer workers than queued files**, so with a few long runs in flight the last, short ones waited although most of the allowed workers were idle. Asking it to keep the full number alive took excalidraw `math` from about 189 s to about 173 s at the time.

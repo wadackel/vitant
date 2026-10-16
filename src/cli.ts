@@ -177,6 +177,19 @@ console.log(
       (lost > 0 ? `; ${lost} copies ended without a verdict and were run again` : ''),
   )
 }
+if (result.nearest) {
+  const { detected: found, ms } = result.nearest
+  const whole = result.work.wholeMs.passed + result.work.wholeMs.detected
+  const past = (list: number[], limit: number) => list.slice(limit).reduce((sum, value) => sum + value, 0)
+  const limits = [1, 2, 4, 8].filter((limit) => past(ms, limit) > 0)
+  if (limits.length > 0) console.log('what --confirm would have left out of this run:')
+  for (const limit of limits) {
+    console.log(
+      `  --confirm ${limit}: ${percent(past(ms, limit), whole)} of the time spent on whole-file runs, ` +
+        `and up to ${past(found, limit)} mutant(s) detected here would be unconfirmed`,
+    )
+  }
+}
 if (counts.Static > 0) {
   console.log(`${counts.Static} mutant(s) only run while a module loads and were not run; --static runs them`)
 }
