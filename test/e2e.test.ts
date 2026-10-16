@@ -13,6 +13,28 @@ function reportPath(name: string): string {
   fs.mkdirSync(dir, { recursive: true })
   return path.join(dir, `${name}.json`)
 }
+/**
+ * Runs the tool. A test waiting in `spawnSync` is out of reach of Vitest's
+ * time limit, and a run that never ended held a CI job until it was
+ * cancelled, with nothing to show what it was doing. Ended here, it leaves
+ * what it printed and what its workers wrote under build/test-reports.
+ */
+function tool(args: string[], options: { env?: NodeJS.ProcessEnv; timeout?: number } = {}) {
+  const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), ...args], {
+    encoding: 'utf8',
+    timeout: options.timeout ?? 600_000,
+    env: options.env,
+  })
+  if (cli.error) {
+    const project = args[args.indexOf('--root') + 1]
+    const kept = reportPath(`ended-${path.basename(project)}-${Date.now()}`).replace(/\.json$/, '')
+    fs.writeFileSync(`${kept}.log`, `${cli.error}\n${cli.stdout}\n${cli.stderr}`)
+    const records = path.join(project, 'node_modules/.vitant/session/results')
+    if (fs.existsSync(records)) fs.cpSync(records, `${kept}-records`, { recursive: true })
+  }
+  return cli
+}
+
 let result: RunResult
 /** What that run and its workers wrote. */
 let output = ''
@@ -31,11 +53,7 @@ function statusOf(file: string, line: number, replacement: string): string {
 describe('running the fixture project', () => {
   beforeAll(() => {
     const report = reportPath('basic')
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--report', report],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     result = JSON.parse(fs.readFileSync(report, 'utf8'))
     output = cli.stdout + cli.stderr
@@ -52,11 +70,7 @@ describe('running the fixture project', () => {
   // Hosted CI machines have three or four cores; what holds a worker while it waits for another shows there.
   it('gives every mutant the same verdict with two workers, and gives up on no file', () => {
     const report = reportPath('two-workers')
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--max-workers', '2', '--report', report],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--max-workers', '2', '--report', report])
     expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
     const few: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(few.abandonedFiles).toEqual([])
@@ -67,11 +81,7 @@ describe('running the fixture project', () => {
 
   it('gives every mutant the same verdict with a worker started per whole-file run', () => {
     const report = reportPath('no-clone')
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--no-clone', '--report', report],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--no-clone', '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     const plain: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     const verdicts = (run: RunResult) =>
@@ -221,11 +231,7 @@ describe('reusing an earlier run', () => {
   const copy = path.join(root, 'fixtures', `.tmp-${process.pid}`)
   const report = path.join(copy, 'report.json')
   const runCopy = () => {
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', copy, '--incremental', '--report', report],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', copy, '--incremental', '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     const reused = /(\d+) of \d+ test file\(s\) reused/.exec(cli.stderr)
     return { reused: Number(reused?.[1]), result: JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult }
@@ -286,11 +292,7 @@ describe('reusing an earlier run', () => {
 describe('with mutants in code that only runs while a module loads run too', () => {
   it('judges them, and every other mutant as before', () => {
     const report = reportPath('static')
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--static', '--report', report],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--static', '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     const judged: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(judged.counts.Static).toBe(0)
@@ -306,11 +308,7 @@ describe('with mutants in code that only runs while a module loads run too', () 
 describe('with a limit on the test files a mutant is run against', () => {
   it('reports a mutant with files left as unconfirmed, and no other verdict differently', () => {
     const report = reportPath('confirm')
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--confirm', '1', '--report', report],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--confirm', '1', '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     const limited: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     // Only the hook of the farther file fails with `reset` emptied; the nearest file passes.
@@ -329,11 +327,7 @@ describe('with a limit on the test files a mutant is run against', () => {
 describe('a mutant that keeps a test file from ever finishing to load', () => {
   it('is a timeout, and the run ends', () => {
     const report = reportPath('stuck')
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/stuck'), '--report', report],
-      { encoding: 'utf8', timeout: 110_000 },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/stuck'), '--report', report], { timeout: 110_000 })
     expect(cli.status, cli.stderr).toBe(0)
     const stuck: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(stuck.mutants.map((mutant) => mutant.status)).toEqual(['Timeout'])
@@ -346,10 +340,7 @@ describe('test files whose runs do not stand each other, or that fail now and th
     run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
   const runClash = (name: string, env: Record<string, string> = {}): RunResult => {
     const report = reportPath(name)
-    const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', clash, '--report', report], {
-      encoding: 'utf8',
-      env: { ...process.env, VITANT_DEBUG: '1', ...env },
-    })
+    const cli = tool(['--root', clash, '--report', report], { env: { ...process.env, VITANT_DEBUG: '1', ...env } })
     // Which runs of a file meet depends on the machine; what each run did and
     // when is kept beside the report, as the next run of the fixture overwrites it.
     fs.writeFileSync(report.replace(/\.json$/, '.log'), cli.stdout)
@@ -408,11 +399,7 @@ describe('test files whose runs do not stand each other, or that fail now and th
 
 describe('a run in which no test runs', () => {
   it('says so and fails, where every mutant would read as not covered', () => {
-    const cli = spawnSync(
-      process.execPath,
-      [path.join(root, 'src/cli.ts'), '--root', path.join(root, 'fixtures/basic'), '--mutate', 'src/math.ts', 'no-such-test-file'],
-      { encoding: 'utf8' },
-    )
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--mutate', 'src/math.ts', 'no-such-test-file'])
     expect(cli.stdout).toContain('no test ran')
     expect(cli.status).toBe(1)
   }, 180_000)
@@ -449,7 +436,7 @@ describe('tests that leave a file under version control changed', () => {
     git('add', '.')
     expect(git('commit', '-q', '-m', 'as committed').status).toBe(0)
 
-    const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', project], { encoding: 'utf8' })
+    const cli = tool(['--root', project])
     expect(cli.stdout).toContain('1 file(s) under version control differ from before the run')
     expect(cli.stdout).toContain('data.txt')
     expect(cli.status).toBe(1)
@@ -475,7 +462,7 @@ describe('a project that has Vitest check types with its tests', () => {
       "import { expect, it } from 'vitest'\nimport { add } from '../src/add'\nit('adds', () => {\n  expect(add(1, 2)).toBe(3)\n})\n",
     )
     const report = reportPath('typed')
-    const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), '--root', project, '--report', report], { encoding: 'utf8' })
+    const cli = tool(['--root', project, '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     expect(cli.stdout).toContain('check types along with its tests')
     const typed = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
