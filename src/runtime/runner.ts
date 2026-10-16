@@ -961,6 +961,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeTests: string[] = []
     /** The witnesses of the job that have not run yet, see `wholeSettled`. */
     private wholeWaits = new Set<string>()
+    /** Tests of the run that Vitest's own time limit ended. */
+    private wholeOverran = 0
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     /** How the process making the whole-file run came to be. */
     private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
@@ -1220,6 +1222,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.whole = job
       this.wholeTests = []
       this.wholeWaits = new Set(job.witnesses)
+      this.wholeOverran = 0
       this.wholeStartedAt = preciseNow()
       // A mutant that is only to be on for one test comes on at that test.
       runtime.a = job.control || job.trial !== undefined ? NO_MUTANT : job.mutant
@@ -1694,10 +1697,16 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (test.result?.state === 'fail') {
         if (!this.wholeFailure) this.wholeTest = test.id
         this.wholeTests.push(test.id)
-        const limit = runtime.t || /^Test timed out in \d+ms/.test(firstError(test) ?? '')
-        this.wholeFailure ??= limit ? 'timeout' : 'failed'
-        // After a failure the tests that follow may wait for what will not come, each to its limit.
-        if (limit) this.wholeWaits.clear()
+        const overran = /^Test timed out in \d+ms/.test(firstError(test) ?? '')
+        this.wholeFailure ??= runtime.t || overran ? 'timeout' : 'failed'
+        if (overran) this.wholeOverran++
+        // A plain run goes on past a test that ran out of Vitest's time, and
+        // without the witness after it that failure waits for a run made with
+        // nothing else running, one at a time: in jotai fifty mutants that
+        // way, five seconds each. A plain run never gets past a loop this
+        // runner ended, and once a second test has waited out its time the
+        // tests that follow may each do the same.
+        if (runtime.t || this.wholeOverran >= 2) this.wholeWaits.clear()
       }
       // Nobody waits for the rest of a copy's run.
       if (cloned && this.wholeSettled()) await this.leave()
@@ -1710,12 +1719,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * so the run does not end at it while such a test is still to come: it
      * goes on as a plain run would, which does not stop at a failure either,
      * and that test failing too is worth more than the same failure once
-     * more. A limit that ended a test ends the run.
+     * more. A loop this runner ended, or a second test that ran out of its
+     * time, ends the run.
      */
     private wholeSettled(): boolean {
       if (!this.wholeFailure) return false
       // A run made with nothing else running counts by itself, whichever test fails in it.
-      if (this.wholeFailure === 'timeout' || this.wholeWaits.size === 0 || this.whole!.quiet) return true
+      if (this.wholeWaits.size === 0 || this.whole!.quiet) return true
       return this.wholeTests.some((id) => this.whole!.witnesses?.includes(id))
     }
 

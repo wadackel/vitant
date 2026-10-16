@@ -1260,7 +1260,16 @@ function planPhase(
   }
   /** Runs that are to be made with nothing else running, which is a round of their own. */
   const quietJobs: [number, string][] = []
+  // A mutant a file failed with comes back both as one that file is to run
+  // and as one the test that failed named, and a second run next to the first
+  // settles nothing the first does not.
+  const planned = new Map<string, WholeJob>()
   const wholeJob = (mutant: number, file: string, confirm: boolean, quiet = false) => {
+    const already = planned.get(wholeKey(mutant, file))
+    if (already) {
+      already.confirm ||= confirm
+      return
+    }
     const entry = status.whole.get(wholeKey(mutant, file))
     // Unless a test of the file has given a lead that no run so far knew of: a run that goes on to it comes first.
     const unknown =
@@ -1307,6 +1316,7 @@ function planPhase(
         state[mutant] === MUTANT_TIMEOUT,
     })
     const job = plan.whole[file].at(-1)!
+    planned.set(wholeKey(mutant, file), job)
     const by = early ? 'copied before load' : 'copied after load'
     if (cloning && !job.plain && status.lost.has(file) && !status.controls.has(`${by}\n${file}`) && !controlled.has(`${by}\n${file}`)) {
       controlled.add(`${by}\n${file}`)
