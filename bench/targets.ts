@@ -202,7 +202,7 @@ export const targets: Record<string, Target> = {
   },
   // Vitest 5, no isolation between test files, and tests that run the
   // bundler itself: the packages have to be built before any test passes.
-  // Not a target the tool can judge, see Limits in the README: tests rewrite
+  // Not a target the tool can judge, see docs/limits.md: tests rewrite
   // fixtures under version control, and runs of one file side by side leave
   // them broken. `git checkout -- packages` before and after a run.
   vite: {

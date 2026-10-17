@@ -98,7 +98,7 @@
     {"file":"src/utils/buffer.ts","start":[91,6],"end":[91,16],"mutator":"LogicalOperator","replacement":"!sa && !sb","suite":"pass"},
     {"file":"src/utils/buffer.ts","start":[113,67],"end":[113,90],"mutator":"MethodExpression","replacement":"mediaType.toUpperCase()","suite":"pass"},
     {"file":"src/utils/color.ts","start":[19,4],"end":[19,38],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},
-    {"file":"src/utils/color.ts","start":[19,29],"end":[19,38],"mutator":"StringLiteral","replacement":"\"\"","suite":"fail","note":"A test builds the source file with esbuild and checks the output; mutants are not in the files on disk (README, Limits)."},
+    {"file":"src/utils/color.ts","start":[19,29],"end":[19,38],"mutator":"StringLiteral","replacement":"\"\"","suite":"fail","note":"A test builds the source file with esbuild and checks the output; mutants are not in the files on disk (docs/limits.md)."},
     {"file":"src/utils/color.ts","start":[21,8],"end":[21,29],"mutator":"ConditionalExpression","replacement":"true","suite":"pass"},
     {"file":"src/utils/color.ts","start":[23,24],"end":[23,36],"mutator":"OptionalChaining","replacement":"process.env","suite":"pass"},
     {"file":"src/utils/color.ts","start":[40,20],"end":[40,40],"mutator":"StringLiteral","replacement":"\"\"","suite":"pass"},

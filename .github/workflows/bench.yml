@@ -3,7 +3,7 @@
 # bench/truth, and how long it takes there. A push runs this tool alone;
 # StrykerJS and the tool without copies of a worker take several times as
 # long and run when the workflow is started by hand, which is also where the
-# times in the README come from.
+# times in docs/benchmark.md come from.
 name: bench
 
 on:
@@ -13,7 +13,7 @@ on:
         description: Tools to run, as bench/run.ts takes them
         default: stryker,vitant-no-clone,vitant
       runs:
-        description: Times each tool is run; the README takes the middle one of three
+        description: Times each tool is run; docs/benchmark.md takes the middle one of three
         default: '1'
       math:
         description: Also run excalidraw math, which takes over an hour on four cores
@@ -46,7 +46,7 @@ on:
 permissions:
   contents: read
 
-# A push ends the run of the push before it, and leaves alone a run started by hand, which is what the README's times are taken from.
+# A push ends the run of the push before it, and leaves alone a run started by hand, which is what the times in docs/benchmark.md are taken from.
 concurrency:
   group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}
   cancel-in-progress: true
