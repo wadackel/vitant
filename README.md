@@ -25,7 +25,7 @@ Mutation testing for Vitest. Every verdict is what your own test suite would giv
 ## Quick start
 
 > [!NOTE]
-> vitant is not on npm yet. Until it is, clone this repository and run it from the sources: see [Development](#development).
+> vitant is not on npm yet. Until it is, clone this repository and run it from the sources: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```sh
 npm install -D vitant
@@ -144,27 +144,9 @@ On the eight whole-directory scopes that is 1.3 to 4.6 times as fast. The scopes
 
 The full list, with what each one cost on a real project: [docs/limits.md](docs/limits.md).
 
-## Development
+## Contributing
 
-Node 24 runs the TypeScript sources directly.
-
-```sh
-pnpm install
-pnpm build:native   # optional: the addon that copies a worker process instead of starting one; macOS and Linux, Rust 1.85 or later
-node src/cli.ts --root ../my-app --mutate 'src/**/*.ts' --report report.json
-
-pnpm test           # unit tests and an end-to-end run against fixtures/basic
-pnpm test:truth     # every verdict on fixtures/basic against the suite run with the mutant written in
-pnpm test:packed    # the tool packed, installed into a copy of the fixture and run from there
-pnpm typecheck
-```
-
-The layout of the sources is in [AGENTS.md](AGENTS.md). The record behind the design:
-
-- [docs/design.md](docs/design.md): how a verdict is reached, what makes a fresh process cheap, and what each rule cost
-- [docs/benchmark.md](docs/benchmark.md): the targets, the times, and how the verdicts are checked against the suite
-- [docs/decisions.md](docs/decisions.md): ideas that were built, measured, and dropped, with their numbers
-- [docs/limits.md](docs/limits.md): what cannot be judged, and why
+Node 24 runs the TypeScript sources directly. How to run the tool from a clone, which checks a change has to pass, and where the record behind the design lives are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
