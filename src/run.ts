@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url'
 import {
   type Cache,
   type CachedFile,
+  bindingKeys,
   cachePath,
   fingerprint,
   hashFile,
@@ -20,6 +21,7 @@ import {
 } from './cache.ts'
 import { type Generated, generate, type GenerateOptions } from './mutate/generate.ts'
 import { RUNTIME_GLOBAL } from './mutate/instrument.ts'
+import { placeReads, reexports, type WatchedModule } from './mutate/reads.ts'
 import { addonTarget } from './platform.ts'
 import {
   createRuntime,
@@ -73,9 +75,13 @@ export interface MutantResult {
   /**
    * For a led mutant, the tests that failed with it while trying it in a
    * worker and passed again without it, and whether one of them did so with
-   * no other run of its file under way.
+   * no other run of its file under way, and whether every one of them ran
+   * out of the time Vitest gives a test, the failure a busy machine hands out
+   * most freely, which without the option settles nothing by itself.
    */
   led?: { tests: string[]; sole: boolean }
+  /** With `--led`, for an unconfirmed mutant: the test file a run failed with it next to other runs, which no run made with nothing else running was made to confirm. */
+  besideOnly?: string
   /**
    * For a detected mutant, the runs of whole files that say so and the tests
    * that led to them: what to read when the suite disagrees with the verdict.
@@ -117,11 +123,11 @@ export interface RunResult {
   flakyTests: string[]
   /**
    * Test files of the suite that were not run, by what kept them out: a
-   * Vitest project the runner could not be put into, or the type checker,
-   * which is where type tests run. A mutant reported as survived survived
+   * Vitest project the runner could not be put into, the type checker,
+   * which is where type tests run, or a browser, where this runner is not. A mutant reported as survived survived
    * the rest of the suite, and these might have detected it.
    */
-  leftOut: { projects: Record<string, number>; typeTests: number; typeCheck?: boolean }
+  leftOut: { projects: Record<string, number>; typeTests: number; browserTests: number; typeCheck?: boolean }
   /**
    * The runs made with nothing else running, by how they went. One that
    * passed is a mutant that had failed its file twice in a row and would
@@ -209,6 +215,8 @@ export interface RunOptions extends GenerateOptions {
   confirm: number
   /** Leave a mutant a test failed with while trying it at that, reported as led, with no run of a whole file to confirm it. */
   led: boolean
+  /** Make the runs that are to be made with nothing else running one at a time on the machine, not only one per test file. */
+  strict: boolean
   log: (message: string) => void
 }
 
@@ -284,6 +292,8 @@ interface FileRecord {
   ignored?: number
   /** Every test of the file ran in this worker, so each reported its coverage. */
   complete: boolean
+  /** From taking the file on to the end of its run, loading it and its hooks included. */
+  wallMs?: number
   /** Project files the worker loaded, reported with a complete pass. */
   modules?: string[]
 }
@@ -295,6 +305,10 @@ interface StallRecord {
   mutant: number
   /** The test's first try in a worker that had skipped the tests before it: says nothing of the mutant. */
   cold?: boolean
+  /** In a run of a whole file, which the main process writes the run's own record for. */
+  whole?: boolean
+  /** What ran out: time on the processor, memory, or time by the clock. */
+  by?: 'cpu' | 'memory' | 'clock'
 }
 
 /** Outcome of running a whole file with a mutant always on, see `RoundPlan.whole`. */
@@ -339,6 +353,8 @@ interface WholeState {
   passed: number
   /** Failures that are not counted: of a test, or of a kind in a file, that fails by chance. */
   doubted: number
+  /** Of those, the ones in runs made with nothing else running. */
+  quietDoubted: number
 }
 
 const wholeKey = (mutant: number, file: string) => `${mutant}\n${file}`
@@ -360,6 +376,10 @@ function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | '
   // Nothing but failures that say nothing: another run would add one more
   // of them or pass by the same chance, so the file is left at that.
   if (state.doubted > 0 && state.failed + state.timedOut + state.died === 0) return 'doubted'
+  // So is a failure whose run made with nothing else running failed only in
+  // such a test: one more such run would say the same, and the run that is
+  // wanted would be planned for ever.
+  if (state.repeated === 0 && state.quiet === 0 && state.quietDoubted > 0) return 'doubted'
   // A worker can die of something other than the mutant, and nothing a
   // test saw says otherwise: that counts when it has happened twice.
   const settled =
@@ -487,6 +507,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const replay = new Set<string>()
   const retried = new Set<string>()
   const finished = new Map<string, string[][]>()
+  /** Per test file, the shortest complete run of it, from taking it on to its end. */
+  const fileWall = new Map<string, number>()
   /** Per file, how often a worker gave up while going through it for coverage. */
   const taints = new Map<string, number>()
   /** Per test file, the mutants that would have changed a value while it loaded. */
@@ -497,6 +519,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const plain = new Set<string>()
   /** Per test file, the sites whose code ran outside its tests in an unmutated run. */
   const staticSites = new Map<string, Set<number>>()
+  /** Per test file, the sites the hooks that run once it has loaded reached. */
+  const hookSites = new Map<string, Set<number>>()
   const whole = new Map<string, WholeState>()
   /** Sites some test reaches. */
   const reached = new Set<number>()
@@ -524,7 +548,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const cold = new Set<string>()
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
-  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; undone?: boolean; failedAgain?: boolean; slow?: boolean }[] = []
+  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; failedAgain?: boolean; slow?: boolean }[] = []
   /** Tests that failed in a run with no mutant on and nothing else running. */
   const restive = new Set<string>()
   /** Files such a run failed in with no test to name. */
@@ -560,6 +584,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   for (const record of records) {
     if (record.type === 'file' && record.complete) {
       finished.set(record.file, [...(finished.get(record.file) ?? []), record.tests])
+      if (record.wallMs !== undefined) fileWall.set(record.file, Math.min(fileWall.get(record.file) ?? Infinity, record.wallMs))
     }
     // A round that only gives failed tests their second run tries no mutant
     // in their file either, and goes through those tests alone: what the
@@ -595,7 +620,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       }
     }
     // In a run of a whole file the record names no test, and the run's own record follows.
-    if (record.type === 'stall' && record.id !== '') {
+    if (record.type === 'stall' && record.id !== '' && !record.whole) {
       if (record.cold) cold.add(record.id)
       else stalls.push({ mutant: record.mutant, test: record.id })
     }
@@ -615,6 +640,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     }
     if (record.type === 'file') {
       for (const site of record.hookSites ?? []) reached.add(site)
+      const hooks = hookSites.get(record.file) ?? new Set()
+      for (const site of record.hookSites ?? []) hooks.add(site)
+      hookSites.set(record.file, hooks)
       const set = staticMutants.get(record.file) ?? new Set()
       for (const mutant of [...(record.staticMutants ?? []), ...(record.hookMutants ?? [])]) set.add(mutant)
       staticMutants.set(record.file, set)
@@ -645,7 +673,6 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       tests.set(record.id, test)
     }
     for (const mutant of record.survived) test.judged.add(mutant)
-    const slow = new Set(record.timedOut.filter((_, index) => record.timeoutCauses?.[index] === 'test timeout'))
     for (const mutant of [...record.killed, ...record.timedOut]) {
       test.judged.add(mutant)
       leads.push({
@@ -654,7 +681,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         test: record.id,
         passedAgain: record.sole === true,
         copied: record.copied,
-        slow: record.overran === true || slow.has(mutant),
+        slow: record.overran === true,
       })
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
     }
@@ -665,9 +692,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     }
     // A copy that did not get to say what the test did left a record so that the test is not asked again, and no more.
     for (const mutant of record.copied ? [] : (record.suspected ?? [])) {
-      // `undone`: the test failed again without the mutant because it cannot be run a second time in a worker at all.
       // `failedAgain`: what such a lead shows is how the mutant left the worker, which `--led` does not take at its word.
-      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false, undone: record.nonRepeatable && !record.copied, failedAgain: true })
+      leads.push({ mutant, file: record.file, test: record.id, passedAgain: false, failedAgain: true })
     }
     for (const mutant of record.unverified) {
       test.judged.add(mutant)
@@ -687,18 +713,26 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       }
       test.retry = false
       // What a test reached in a worker no mutant had been tried in is what
-      // it reaches; a later run in one that had tried some may have met
-      // what they left behind, and says nothing against it.
+      // it reaches, and a run in one that had tried some says nothing
+      // against it. Nor does a pass against another run: a test that races
+      // a timer reaches what the machine's load lets it, and in rea a pass
+      // made beside twelve other runs missed a branch the first round had
+      // reached, which left a mutant there with no file to pass.
+      const covered = new Set([...(test.coverage?.covered ?? []), ...record.covered])
+      const cleanup = [...new Set([...(test.coverage?.cleanup ?? []), ...record.cleanup])].filter((mutant) => !covered.has(mutant))
       if (!test.pristine || record.pristine) {
         test.pristine = record.pristine ?? false
         test.coverage = {
           sites: record.sites.length,
-          covered: record.covered,
-          cleanup: record.cleanup,
+          covered: [...covered],
+          cleanup,
           baselineMs: record.baselineMs,
           baselineLoops: record.baselineLoops,
           rss: record.rss ?? 0,
         }
+      } else if (test.coverage) {
+        test.coverage.covered = [...covered]
+        test.coverage.cleanup = cleanup
       }
     } else if (record.baseline === 'fail') {
       test.retry = record.baselineRetry
@@ -844,12 +878,14 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const passedWith = new Set<string>()
   for (const record of settled) if (record.verdict === 'passed') passedWith.add(wholeKey(record.mutant, record.file))
   const refuted = new Set<string>()
-  // A test that cannot be run a second time in a worker fails its second
-  // run with whatever mutant was on for it, by construction and not by
-  // chance: that says nothing against what it does on its one run in a copy
-  // of a worker, where one of the mutants it is given is one its file is
-  // known to pass with, so that failing by chance still shows.
-  for (const { mutant, file, test, undone } of leads) if (!undone && passedWith.has(wholeKey(mutant, file))) refuted.add(test)
+  // Only a lead whose test passed again without the mutant is held against
+  // it. Failing again says how the mutant left the worker, not that the test
+  // fails by chance: in rea 40 of 46 tests lost this that way alone, and
+  // 220 of 426 runs made with nothing else running were for failures those
+  // tests had shown, every one confirmed.
+  // A test that does fail by chance passes again far more often than it
+  // fails twice in a row, and is found out by those leads.
+  for (const { mutant, file, test, failedAgain } of leads) if (!failedAgain && passedWith.has(wholeKey(mutant, file))) refuted.add(test)
   /** Per mutant, the tests whose failing with it, and passing again without it, a run made with `led` takes at its word. */
   const led = new Map<number, { tests: Set<string>; sole: boolean }>()
   for (const { mutant, file, test, passedAgain, copied, slow, failedAgain } of leads) {
@@ -874,7 +910,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
-    const entry = whole.get(key) ?? { runs: 0, repeated: 0, beside: 0, quiet: 0, knowing: 0, died: 0, failed: 0, timedOut: 0, passed: 0, doubted: 0 }
+    const entry = whole.get(key) ?? { runs: 0, repeated: 0, beside: 0, quiet: 0, knowing: 0, died: 0, failed: 0, timedOut: 0, passed: 0, doubted: 0, quietDoubted: 0 }
     whole.set(key, entry)
     entry.runs++
     if (uncopied.has(record.file) && record.by && record.by !== 'started') plain.add(key)
@@ -895,6 +931,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         ((record.verdict === 'timeout' || record.died || failing.length === 0) && shakyFiles.has(record.file)))
     ) {
       entry.doubted++
+      if (record.quiet) entry.quietDoubted++
       doubted.set(record.mutant, (doubted.get(record.mutant) ?? new Set()).add(failing.find((test) => shaky.has(test)) ?? record.file))
       continue
     } else if (record.died) entry.died++
@@ -957,7 +994,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1002,14 +1039,29 @@ let judgeStatic = false
  */
 let confirmFiles = Infinity
 /**
+ * Per mutant in a binding only reading it can make anything of, the sites
+ * that record reads of what it changes (see `Watched`). Such a mutant runs
+ * in every file that loads its module, and can change nothing in one that
+ * reads none of them.
+ */
+let watchedReads: readonly (readonly number[] | undefined)[] = []
+/** See `RunOptions.strict`. */
+let strictQuiet = false
+/** Per such mutant, the same sites where its bindings can be made again, see `Mutant.again`. */
+let watchedAgain: readonly (number[] | undefined)[] = []
+/**
  * Whether a mutant a test failed with while trying it, and passed again
  * without, is left at that: no run of a whole file confirms it, and it is
  * reported as led, never as killed.
  */
 let takeLeads = false
 const unconfirmed = new Map<number, { passed: number; open: number }>()
+/** With `--led`, the mutants whose failure next to other runs was left at that, with the file. */
+const besideOnly = new Map<number, string>()
 /** Without such a limit, each mutant's files in the order a limit would take them. */
 const nearestFiles = new Map<number, string[]>()
+/** The work counted for a pass through a file that tries nothing, as if it took this long. */
+const PASS_MS = 5000
 
 type Planned = {
   plan: RoundPlan
@@ -1024,7 +1076,12 @@ type Planned = {
  * the file with nothing else running.
  */
 function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
+  besideOnly.clear()
   const usual = planPhase(...given, false)
+  // With `--led` what these rounds settle is left at that, unconfirmed: the
+  // tries made with a file to itself one after another were a quarter of a
+  // run of rea's `ExecFileOutput.ts`.
+  if (takeLeads) return usual
   return usual.workByFile.size > 0 ? usual : planPhase(...given, true)
 }
 
@@ -1054,7 +1111,7 @@ function planPhase(
     testsMs.set(test.file, (testsMs.get(test.file) ?? 0) + (test.coverage?.baselineMs ?? 0))
   }
   const unsettled = [...status.whole]
-    .filter(([, entry]) => entry.passed === 0 && entry.repeated === 0 && entry.quiet === 0 && entry.failed + entry.timedOut + entry.died > 0)
+    .filter(([, entry]) => entry.passed === 0 && entry.repeated === 0 && entry.quiet === 0 && entry.quietDoubted === 0 && entry.failed + entry.timedOut + entry.died > 0)
     .map(([key]) => ({ mutant: Number(key.split('\n')[0]), file: key.split('\n')[1] }))
     .sort((a, b) => (testsMs.get(a.file) ?? 0) - (testsMs.get(b.file) ?? 0))
   const settledIn = new Map<number, string>()
@@ -1154,7 +1211,26 @@ function planPhase(
   // Where a failure is to be settled the tests that failed are few and any
   // of them may be the witness: one a round would take as many rounds as
   // there are, which is what a run on three cores ran out of.
-  const lists = picks.size > 0 && !settling ? picks : remaining
+  // A mutant whose first try is over goes on to the rest at once rather than
+  // wait for the first tries others still have to make: in rea those were a
+  // few tries a round left over from workers a mutant had stopped, and five
+  // rounds of 27 s to 92 s each went to them while every other mutant waited.
+  let lists = remaining
+  // With `--led` nothing waits on the first tries at all: a mutant a test
+  // kills is skipped by the others as they come to it, and what the first
+  // tries were to spare is tries, where waiting cost rounds that each ended
+  // on one slow try.
+  if (picks.size > 0 && !settling && takeLeads) {
+    lists = new Map(remaining)
+    for (const [id, mutants] of picks) lists.set(id, [...new Set([...mutants, ...(remaining.get(id) ?? [])])])
+  } else if (picks.size > 0 && !settling) {
+    const first = new Set([...picks.values()].flat())
+    lists = new Map(picks)
+    for (const [id, left] of remaining) {
+      const rest = left.filter((mutant) => !first.has(mutant))
+      if (rest.length > 0) lists.set(id, [...new Set([...(lists.get(id) ?? []), ...rest])])
+    }
+  }
 
   let jobs = 0
   const plan: RoundPlan = {
@@ -1163,6 +1239,7 @@ function planPhase(
     tests: {},
     probe: {},
     pristine: [],
+    measure: [],
     ignore: [],
     exclusive: [...status.exclusive],
     sole: [],
@@ -1208,7 +1285,7 @@ function planPhase(
   for (const file of files) {
     if (status.completeFiles.has(file)) continue
     plan.probe[file] = [...status.tests].filter(([, test]) => test.file === file && test.coverage).map(([id]) => id)
-    addWork(file, 5000, 1)
+    addWork(file, PASS_MS, 1)
   }
   // What is still pending once nothing else is left to try has survived
   // every test with the mutant on for that test only, in a worker that had
@@ -1222,8 +1299,12 @@ function planPhase(
   // Which files a mutant can change is read from what the tests' unmutated
   // runs saw. A run made after mutants had been tried in the same worker may
   // have seen what one of them left behind, so such a file is measured again
-  // first, with no mutant tried.
-  if (workByFile.size === 0) {
+  // first, with no mutant tried. One worker of the file makes the pass and
+  // tries nothing, beside those trying in the same round: made once nothing
+  // else was left, it was a round of its own, 33 s of rea's
+  // `ExecFileOutput.ts`. Not where a test reruns unmutated, nor in a round of
+  // runs made alone.
+  if (!settling) {
     const toLeaveOut = new Map<string, number>()
     for (const [id, test] of status.tests) {
       if (test.failed || status.flaky.has(id)) toLeaveOut.set(test.file, (toLeaveOut.get(test.file) ?? 0) + 1)
@@ -1234,10 +1315,11 @@ function planPhase(
       // after it, and the next one leaves it out. A test that this still
       // gives no run to count leaves its file one that any mutant may change.
       const spent = (status.measured.get(test.file) ?? 0) >= 2 && (toLeaveOut.get(test.file) ?? 0) <= (status.leftOut.get(test.file) ?? 0)
-      if (!test.coverage || test.pristine || test.failed || spent || test.file in plan.probe) continue
+      if (!test.coverage || test.pristine || test.failed || spent || test.file in plan.probe || retrying.has(test.file)) continue
       plan.probe[test.file] = []
       plan.pristine.push(test.file)
-      addWork(test.file, 5000, 1)
+      plan.measure.push(test.file)
+      addWork(test.file, PASS_MS, 1)
     }
   }
   const failing = new Map<string, string[]>()
@@ -1250,6 +1332,11 @@ function planPhase(
     fileRss.set(test.file, Math.max(fileRss.get(test.file) ?? 0, test.coverage?.rss ?? 0))
     if (test.failed || status.flaky.has(id)) failing.set(test.file, [...(failing.get(test.file) ?? []), id])
   }
+  // What a run of a file may take is gone by its tests alone only where
+  // loading it and its hooks take no time: with a `beforeAll` of 16 s and a
+  // test of a millisecond, every run of a mutant the suite passes ran into
+  // the limit and was reported as a timeout.
+  for (const [file, wallMs] of status.fileWall) fileMs.set(file, Math.max(fileMs.get(file) ?? 0, wallMs))
   plan.ignore = [...failing.values()].flat()
   const controlled = new Set<string>()
   const shown = new Set<string>()
@@ -1314,7 +1401,10 @@ function planPhase(
     const unknown =
       entry?.knowing === 0 && [...(status.witnesses.get(mutant) ?? [])].some((id) => status.tests.get(id)?.file === file)
     if (!quiet && !unknown && entry && entry.passed === 0 && entry.repeated === 0 && entry.failed + entry.timedOut + entry.died > 0) {
-      quietJobs.push([mutant, file])
+      // With `--led` the run made with nothing else running is left out like the run a lead would get: in rea's
+      // `ReverseEngineeringService.ts` it was a round of its own for two mutants that a run had stopped hanging.
+      if (takeLeads) besideOnly.set(mutant, file)
+      else quietJobs.push([mutant, file])
       return
     }
     // The runs of a file that is run one process at a time stand in one
@@ -1323,10 +1413,22 @@ function planPhase(
     // of them waited five seconds each for a test that was to be left out.
     if (status.exclusive.has(file) && (plan.whole[file]?.length ?? 0) >= 24) return
     const hung = entry !== undefined && entry.timedOut + entry.died > 0
+    // A binding the file reads in its tests alone can be made again in a copy
+    // made after it loaded, where its value was made with the mutant off. Not
+    // for a file that reads none: that run is what shows the module loads.
+    const again = watchedAgain[mutant]
+    const loadedReads = status.staticSites.get(file)
+    const remade =
+      again !== undefined &&
+      loadedReads !== undefined &&
+      !status.sharing.has(file) &&
+      !again.some((site) => loadedReads.has(site)) &&
+      again.some((site) => status.exercised.get(file)?.has(site) || status.hookSites.get(file)?.has(site))
     const early =
-      status.sharing.has(file) ||
-      !status.staticSites.has(file) ||
-      status.staticSites.get(file)!.has(siteOf[mutant])
+      !remade &&
+      (status.sharing.has(file) ||
+        !status.staticSites.has(file) ||
+        status.staticSites.get(file)!.has(siteOf[mutant]))
     ;(plan.whole[file] ??= []).push({
       id: jobs++,
       mutant,
@@ -1344,6 +1446,7 @@ function planPhase(
       site: siteOf[mutant],
       // Until an unmutated run of the file has said what runs while it loads, anything may.
       early,
+      again: remade ? again : undefined,
       // A copy that runs into a limit holds up the copies due after it for
       // as long as that takes, a second or more where a loop does not end;
       // started for the run, the workers of such mutants wait side by side.
@@ -1448,8 +1551,19 @@ function planPhase(
       // Code no test reaches is reported as such and not run.
       if (state[mutant] !== MUTANT_PENDING && state[mutant] !== MUTANT_STALLED) continue
       if (!status.reached.has(siteOf[mutant]) && !judgeStatic && unsure.size === 0) continue
-      const targets = new Set([...(covering.get(mutant) ?? []), ...unsure])
-      for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) targets.add(file)
+      const loaders = new Set(covering.get(mutant))
+      for (const [file, mutants] of status.staticMutants) if (mutants.has(mutant)) loaders.add(file)
+      const reads = watchedReads[mutant]
+      const readsIn = (file: string) =>
+        reads!.some((site) => status.staticSites.get(file)?.has(site) || status.exercised.get(file)?.has(site) || status.hookSites.get(file)?.has(site))
+      const targets = new Set([...(reads ? [...loaders].filter(readsIn) : loaders), ...unsure])
+      // One file that loads the module all the same: that the initializer
+      // can neither throw nor do anything else is the instrumenter's reading
+      // of it, and a run that loads it is what shows a reading that is wrong.
+      if (reads && targets.size === 0 && loaders.size > 0) {
+        const cheapest = [...loaders].sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0) || (a < b ? -1 : 1))
+        targets.add(cheapest.find((file) => status.whole.has(wholeKey(mutant, file))) ?? cheapest[0])
+      }
       const source = sourceOf[mutant]
       const ranked = nearest([...targets], source)
       if (confirmFiles === Infinity) nearestFiles.set(mutant, nearest([...targets], source, true))
@@ -1536,6 +1650,11 @@ function planPhase(
       plan.whole[file] = mixed
     }
     plan.quiet = Object.keys(plan.whole).length > 0
+    // What two files can do to each other in a plain run they do here too,
+    // and a busy machine is what the runs that pass with no mutant on are
+    // there to show: those of a file whose runs have failed each other wait
+    // for the machine to themselves, every other file goes beside them.
+    plan.together = strictQuiet ? [] : Object.keys(plan.whole).filter((file) => !status.exclusive.has(file))
     if (plan.quiet) return { plan, workByFile }
   }
   for (const file of workers < 2 ? [] : status.pairWanted) {
@@ -1629,7 +1748,8 @@ function restore(
         type: 'file',
         file,
         tests: Object.keys(cached.tests),
-        staticSites: sites(cached.staticSites),
+        // A binding that was not one of the kind then counts as read.
+        staticSites: [...sites(cached.staticSites), ...[...bindingKeys(generated, root)].filter(([, key]) => cached.reads.includes(key) || !cache.watched.includes(key)).map(([site]) => site)],
         hookSites: sites(cached.hookSites),
         staticMutants: ids(cached.staticMutants ?? []),
         complete: true,
@@ -1792,7 +1912,10 @@ export function doubts(
   // told from its failures, so such a mutant has not survived the suite.
   const leftOutOf = new Map<number, string[]>()
   const everywhere: string[] = []
-  for (const id of status.flaky) {
+  // So is one whose unmutated run failed after it had passed once: it is
+  // left out of the runs of its file all the same.
+  const failed = [...status.tests].flatMap(([id, test]) => (test.failed ? [id] : []))
+  for (const id of new Set([...status.flaky, ...failed])) {
     const test = status.tests.get(id)
     if (!test?.coverage) continue
     // Measured in a worker that mutants had been tried in, what the test reaches is not known.
@@ -1851,11 +1974,22 @@ function lineMap(file: string, source: string) {
  * this process busy until the run ends, while every worker waits on it for
  * its modules. Workers here end themselves on purpose, for their memory or
  * because a mutant blocks them, so what is sent to one that is gone is dropped.
+ *
+ * Returns what resolves once every worker started so far has exited.
  */
-function dropSendsToDeadWorkers(): void {
+function watchWorkers(): () => Promise<void> {
+  const live = new Set<childProcess.ChildProcess>()
+  let idle: (() => void)[] = []
   const fork = childProcess.fork
   childProcess.fork = ((...args: Parameters<typeof fork>) => {
     const child = fork(...args)
+    live.add(child)
+    child.once('exit', () => {
+      live.delete(child)
+      if (live.size > 0) return
+      for (const resolve of idle) resolve()
+      idle = []
+    })
     const send = child.send
     child.send = ((...sendArgs: unknown[]) => {
       if (!child.connected) return false
@@ -1869,6 +2003,7 @@ function dropSendsToDeadWorkers(): void {
     return child
   }) as typeof fork
   syncBuiltinESMExports()
+  return () => (live.size === 0 ? Promise.resolve() : new Promise((resolve) => idle.push(resolve)))
 }
 
 /**
@@ -1929,14 +2064,19 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
   let treeWarned = false
-  const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0 }
+  const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0, browserTests: 0 }
   judgeStatic = options.static
   confirmFiles = options.confirm
   takeLeads = options.led
+  strictQuiet = options.strict
+  watchedReads = []
   unconfirmed.clear()
   nearestFiles.clear()
+  besideOnly.clear()
   const generated = generate(options)
   const generateMs = performance.now() - startedAt
+  watchedReads = generated.mutants.map((mutant) => mutant.reads)
+  watchedAgain = generated.mutants.map((mutant) => mutant.again)
   options.log(
     `${generated.mutants.length} mutants in ${generated.files.size} files (${Math.round(generateMs)} ms)`,
   )
@@ -1975,7 +2115,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const hints = options.incremental ? hintKeys(generated, options.root) : []
   const earlierKillers = options.incremental ? loadKillers(options.root) : {}
 
-  dropSendsToDeadWorkers()
+  const workersExited = watchWorkers()
   // Every run of a file starts a process that compiles Vitest, the test
   // environment and the dependencies again; where files are small that is
   // most of what a run costs.
@@ -1988,8 +2128,17 @@ export async function run(options: RunOptions): Promise<RunResult> {
     config(config: { test?: Record<string, unknown> & { projects?: unknown[] } }) {
       // What the project starts its workers with stays: tests can depend
       // on it, `--expose-gc` for one.
+      // Vitest keys the module cache it keeps on disk by the source on disk
+      // and the environment, not by what `load` below returns, so a run with
+      // another set of mutated files would be served the last run's switches
+      // and site numbers, or the file with none. Within a run the module
+      // graph in memory still transforms each file once.
+      const uncached = (test: Record<string, unknown>): Record<string, unknown> =>
+        major >= 5
+          ? { ...test, fsModuleCache: false }
+          : { ...test, experimental: { ...(test.experimental as object | undefined), fsModuleCache: false } }
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
-        if (major >= 4) return { ...test, execArgv: [...((test.execArgv as string[]) ?? []), ...workerArgv] }
+        if (major >= 4) return uncached({ ...test, execArgv: [...((test.execArgv as string[]) ?? []), ...workerArgv] })
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
         const forks = { ...pools.forks, isolate: true, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
         return { ...test, poolOptions: { ...pools, forks } }
@@ -1997,7 +2146,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const project of config.test?.projects ?? []) {
         if (typeof project !== 'object' || project === null) continue
         const inline = project as { plugins?: unknown[]; test?: Record<string, unknown> }
-        inline.plugins = [...(inline.plugins ?? []), instrumentPlugin]
+        inline.plugins = [...(inline.plugins ?? []), instrumentPlugin, readsPlugin()]
         inline.test = { ...withArgv(inline.test), runner: paths.runner }
       }
       // The project may have Vitest check types with its tests, which
@@ -2018,6 +2167,66 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const entry = generated.files.get(path.normalize(id.split('?')[0]))
       return entry && { code: entry.code, map: lineMap(id, entry.source) }
     },
+  }
+  const watchedModules = new Map<string, WatchedModule>()
+  for (const [file, entry] of generated.files) {
+    if (entry.bindings.size > 0) watchedModules.set(file, { exports: new Map([...entry.exports].map(([name, site]) => [name, [site]])), all: [...entry.bindings.values()] })
+  }
+  const everyRead = [...generated.readSites]
+  type Resolve = (source: string, importer: string) => Promise<{ id: string } | null>
+  const normalized = (id: string) => path.normalize(id.split('?')[0])
+  // On the code as the other plugins leave it: one of them can add an import
+  // (of names it provides by itself) or turn one into a call, as Vitest does
+  // with the imports of a file that mocks a module. One for each project, which
+  // resolves a specifier its own way, as each environment of one can.
+  const readsPlugin = () => {
+    /**
+     * Per environment and module, what it gives with what it passes on, read
+     * from its source on disk. Only what is done is kept: two modules being
+     * read at once could otherwise each wait for the other.
+     */
+    const given = new Map<string, (WatchedModule & { aliased: Set<string> }) | undefined>()
+    const watchedAt = async (file: string, resolve: Resolve, environment: string, chain: ReadonlySet<string> = new Set()): Promise<(WatchedModule & { aliased: Set<string> }) | undefined> => {
+      const key = `${environment}\0${file}`
+      if (given.has(key)) return given.get(key)
+      const own = watchedModules.get(file)
+      // A chain of re-exports that comes back to a module on it: what it passes on is not known.
+      if (chain.has(file)) return { exports: new Map(own?.exports), all: everyRead, opaque: true, aliased: new Set() }
+      if (file.includes('/node_modules/') || !/\.(m|c)?[jt]sx?$/.test(file) || !fs.existsSync(file)) return own && { ...own, aliased: new Set<string>() }
+      const next = new Set([...chain, file])
+      const found = await reexports(fs.readFileSync(file, 'utf8'), file, own, async (specifier) => {
+        const resolved = await resolve(specifier, file)
+        return resolved ? normalized(resolved.id) : undefined
+      }, (target) => watchedAt(target, resolve, environment, next))
+      // What depends on a cycle depends on where the chain came in: not kept.
+      if (!found?.opaque || chain.size === 0) given.set(key, found)
+      return found
+    }
+    return {
+      name: 'vitant:reads',
+      enforce: 'post' as const,
+      async transform(this: { resolve: Resolve; environment?: { name: string } }, code: string, id: string, options?: { ssr?: boolean }) {
+        const [file, query = ''] = id.split('?')
+        // A module that is not a dependency and not a style sheet can be code
+        // that reads a binding, a virtual one or one of a kind of its own.
+        if (watchedModules.size === 0 || file.includes('/node_modules/')) return undefined
+        if (/\.(css|scss|sass|less|styl|stylus|pcss|postcss|sss)$/.test(file) || /(^|&)(type=style|lang\.(css|scss|sass|less|styl))\b/.test(query)) return undefined
+        const environment = this.environment?.name ?? (options?.ssr ? 'ssr' : 'client')
+        const resolve: Resolve = (source, importer) => this.resolve(source, importer)
+        const placed = await placeReads(code, file, {
+          own: generated.files.get(path.normalize(file))?.bindings,
+          checked: generated.files.get(path.normalize(file))?.checked,
+          resolve: async (specifier) => {
+            const resolved = await this.resolve(specifier, id)
+            return resolved ? normalized(resolved.id) : undefined
+          },
+          watched: (target) => watchedAt(target, resolve, environment),
+          aliased: (await watchedAt(normalized(file), resolve, environment))?.aliased,
+          everything: everyRead,
+        })
+        return placed === undefined ? undefined : { code: placed, map: lineMap(id, code) }
+      },
+    }
   }
   const vitestStartedAt = performance.now()
   const addon = options.clone ? cloneAddon() : undefined
@@ -2040,6 +2249,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
     delete process.env.VITANT_FORK
     if (options.clone) options.log('whole-file runs start a worker each: no addon for this platform (pnpm build:native)')
   }
+  // `createVitest` does not set what the CLI's `startVitest` sets before it,
+  // and a project whose config or code branches on these fails its baselines
+  // under the tool while the suite passes: actual skips a cache database only
+  // under NODE_ENV=test, formbricks validates its environment schema.
+  process.env.TEST = 'true'
+  process.env.VITEST = 'true'
+  process.env.NODE_ENV ??= 'test'
   const vitest = await createVitest(
     'test',
     {
@@ -2065,7 +2281,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       ...(options.related ? { related: [...generated.files.keys()] } : {}),
     },
     {
-      plugins: [instrumentPlugin],
+      plugins: [instrumentPlugin, readsPlugin()],
     },
   )
 
@@ -2133,6 +2349,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
         leftOut.typeTests++
         return false
       }
+      // Vitest picks the browser whatever pool it is given, and the page never loads this runner.
+      if (spec.pool === 'browser') {
+        leftOut.browserTests++
+        return false
+      }
       // Vitest hands the runner's path back with separators of its own choosing.
       const runner = spec.project.config.runner
       const usable = runner !== undefined && path.relative(runner, paths.runner) === '' && instrumented(spec.project) && !taken.has(spec.moduleId)
@@ -2149,6 +2370,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const size = (spec: { moduleId: string }) => fs.statSync(spec.moduleId).size
     let plan = specs.filter((spec) => !reused.has(spec.moduleId)).sort((a, b) => size(b) - size(a))
     let oneAtATime = false
+    /** Of a round of runs made one at a time, the files whose runs go beside other files' runs, see `RoundPlan.together`. */
+    let together = new Set<string>()
     const siteOf = generated.mutants.map((mutant) => mutant.site)
     const sources = [...generated.files.keys()]
     const sourceOf = generated.mutants.map((mutant) => sources.indexOf(mutant.file))
@@ -2157,8 +2380,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
     let copying = false
     /** The test files of the round in flight that go to workers which hand them to copies, see `RoundPlan.handed`. */
     let handed = new Set<string>()
+    /** How many runs of the round in flight stand first for pairs, see `WholeJob.pair`. */
+    let leading = 0
     /** The whole-file runs of the round in flight, with how many records each pair had before it. */
     let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
+    let plannedAt = 0
     let stalled = 0
     // Round one runs every test once, unmutated, and lets only fast tests try
     // their mutants. Later rounds follow a plan: first each mutant in the one
@@ -2168,8 +2394,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
         fs.rmSync(paths.claims, { recursive: true, force: true })
         fs.mkdirSync(paths.claims)
         const roundStartedAt = performance.now()
-        const launch = async (part: typeof plan, hands: boolean) => {
+        const launch = async (part: typeof plan) => {
           if (part.length === 0) return
+          const hands = part.every((spec) => handed.has(spec.moduleId))
           // Only workers that are to be copied need V8 to keep to one thread,
           // which slows down the tests they run themselves: those of the
           // first round, a worker to every file, are not. Before Vitest 4 the
@@ -2199,17 +2426,29 @@ export async function run(options: RunOptions): Promise<RunResult> {
           // cores was long enough for a test that checks the clock to fail
           // in the first of them.
           if (oneAtATime) {
+            const beside = plan.filter((spec) => together.has(spec.moduleId))
+            if (beside.length > 0) await launch(beside)
             const failedCalm = () => readRecords().filter((record) => record.type === 'calm' && record.verdict !== 'passed').length
             const before = failedCalm()
-            for (const spec of plan) {
-              await launch([spec], handed.has(spec.moduleId))
+            for (const spec of plan.filter((spec) => !together.has(spec.moduleId))) {
+              await launch([spec])
               // A test found to fail by itself is left out of what follows, which is planned anew.
               if (failedCalm() > before) break
             }
           }
-          else {
-            await launch(plan.filter((spec) => handed.has(spec.moduleId)), true)
-            await launch(plan.filter((spec) => !handed.has(spec.moduleId)), false)
+          else if (reusesEnded || handed.size === 0) {
+            // Where both parts take the same config they go in one call, the
+            // files with a run in a worker started for it first: such a run is
+            // where a copy did not get through or a mutant blocked or looped, the
+            // long ones, and in two calls they waited for the copies to be through.
+            // Pairs stay first, each half waiting for the other in a worker of its own.
+            const rest = plan.slice(leading)
+            await launch([...plan.slice(0, leading), ...rest.filter((spec) => !handed.has(spec.moduleId)), ...rest.filter((spec) => handed.has(spec.moduleId))])
+          } else {
+            // The pool shares the workers that hand their files over and starts
+            // every other for its file, and one call takes one `isolate` for a project.
+            await launch(plan.filter((spec) => handed.has(spec.moduleId)))
+            await launch(plan.filter((spec) => !handed.has(spec.moduleId)))
           }
         } finally {
           clearInterval(sweeping)
@@ -2251,8 +2490,18 @@ export async function run(options: RunOptions): Promise<RunResult> {
           (job.plain || !status.plain.has(wholeKey(job.mutant, job.file))) &&
           fs.existsSync(path.join(paths.claims, `whole.${job.id}`)),
       )
+      // A stop on time on the processor or on memory names the test it came
+      // in, as a loop this runner ended in the test would: a lead its test
+      // gave for the same mutant then vouches for it, where 28 of es-toolkit's
+      // went to runs made one at a time. One by the clock names none, as a
+      // busy machine can make one of a wait that only got longer.
+      const stops = readRecords().filter((record): record is StallRecord & { at: number } => record.type === 'stall' && record.whole === true && record.at >= plannedAt)
+      const stoppedIn = (mutant: number, file: string) => {
+        const stop = stops.findLast((record) => record.mutant === mutant && status.tests.get(record.id)?.file === file)
+        return stop && stop.by !== 'clock' && stop.id !== '' ? { test: stop.id, tests: [stop.id] } : {}
+      }
       const lines = [
-        ...stopped.map(({ mutant, file, alone, quiet, knew }) => ({ type: 'whole', file, mutant, verdict: 'timeout', alone, quiet, knew, by: 'started' })),
+        ...stopped.map(({ mutant, file, alone, quiet, knew }) => ({ type: 'whole', file, mutant, verdict: 'timeout', ...stoppedIn(mutant, file), alone, quiet, knew, by: 'started' })),
         ...silent.map(({ mutant, file, plain, alone, quiet, knew }) =>
           plain
             ? { type: 'whole', file, mutant, verdict: 'failed', died: true, alone, quiet, knew, by: 'started' }
@@ -2288,6 +2537,18 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // the failure, or the test that failed turned out to fail by chance,
       // in which case the run it ended never got to the tests after it.
       for (let mutant = 0; mutant < state.length; mutant++) {
+        // With `--led` a lead is all that is asked for, also one that came to
+        // count only after its mutant had gone back: a test's one run in a
+        // copy counts once a copy with no mutant has passed it, and five
+        // mutants of rea's `ExecFileOutput.ts` led that way went on to be run
+        // whole, with nothing else running at the end.
+        if (takeLeads && status.led.has(mutant) && !status.detected.has(mutant)) {
+          if (state[mutant] === MUTANT_PENDING || state[mutant] === MUTANT_STALLED) {
+            state[mutant] = MUTANT_KILLED
+            writeStateByte(paths.state, mutant, MUTANT_KILLED)
+          }
+          continue
+        }
         if ((state[mutant] !== MUTANT_KILLED && state[mutant] !== MUTANT_TIMEOUT) || status.detected.has(mutant)) continue
         // A failure that settles nothing is not waited on: the test that
         // failed is given the mutant to try, which is what could settle it.
@@ -2322,6 +2583,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         const lines = pairing.map(([file]) => JSON.stringify({ type: 'pairing', file, at: Date.now() }))
         fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
       }
+      plannedAt = Date.now()
       planned = Object.entries(next.plan.whole).flatMap(([file, jobs]) =>
         jobs.filter((job) => !job.control && job.trial === undefined).map(({ id, mutant, plain, exclusive, quiet, witnesses }) => ({
           id,
@@ -2403,14 +2665,33 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // of a round that had a handful of tries left in each of sixty files.
         const taints = status.taints.get(spec.moduleId) ?? 0
         const likely = (taints * (toTry.get(spec.moduleId) ?? 0)) / Math.max(1, tried.get(spec.moduleId) ?? 0)
+        // With `--led`, whose tries all come in one round, twice the file's share: a worker cannot move to
+        // another file, and rea's `ReverseEngineeringService.ts` went from 188 s to 149 s. Without the
+        // option the extra workers cost more than they spared, immer 75 s against 82 s.
+        // A pass one worker makes is a chunk of its own, the rest the file's tries.
+        let measured = next.plan.measure.includes(spec.moduleId) ? 1 : 0
+        const chunks = work.chunks - measured
+        const tries = Math.max(1, Math.min(chunks, (takeLeads ? 2 : 1) * Math.ceil((work.workMs - measured * PASS_MS) / unitMs))) + Math.min(Math.round(likely), 2)
+        // Tries one worker would make with the file to itself, which counts
+        // for what they find, would have the pass beside them: it waits.
+        if (measured > 0 && chunks > 0 && tries === 1 && wholeUnits + alone === 0) {
+          measured = 0
+          delete next.plan.probe[spec.moduleId]
+          next.plan.pristine = next.plan.pristine.filter((file) => file !== spec.moduleId)
+          next.plan.measure = next.plan.measure.filter((file) => file !== spec.moduleId)
+        }
         const count =
-          next.plan.pristine.includes(spec.moduleId)
+          measured > 0
+            ? measured + (chunks > 0 ? tries : 0)
+            : next.plan.pristine.includes(spec.moduleId)
             ? 1
             : spec.moduleId in next.plan.probe
-              ? Math.min(options.maxWorkers, 1 + taints)
+              ? // A file whose tests still need their unmutated run has tries to make all the same: in rea three
+                // workers had `ExecFileOutput.test.ts`, and one of them went through ten tries of 20 s each.
+                Math.min(options.maxWorkers, Math.max(1 + taints, work.chunks > 0 ? tries : 0))
               : serial || next.plan.settling
                 ? 1
-                : Math.max(1, Math.min(work.chunks, Math.ceil(work.workMs / unitMs))) + Math.min(Math.round(likely), 2)
+                : tries
         for (let i = 0; i < count; i++) units.push({ spec, workMs: work.workMs / count })
       }
       units.sort((a, b) => b.workMs - a.workMs)
@@ -2420,10 +2701,16 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // turn only once every other test has tried the same mutants, so a
       // mutant only they can kill is run by all of them.
       if (roundWork / options.maxWorkers > options.budgetMs) {
+        // Not a file with more than a worker's share of the round: it ends
+        // the round wherever its units stand, the later the later they
+        // start, and in rea those of `ExecFileOutput.test.ts` began a minute
+        // into a round of fifty shorter ones.
+        const share = roundWork / options.maxWorkers
+        const heavy = units.filter((unit) => next.workByFile.get(unit.spec.moduleId)!.workMs > share)
         const seed = (index: number) => Math.sin((index + 1) * 12.9898 + rounds * 78.233) * 43758.5453
-        const keyed = units.map((unit, index) => ({ unit, key: seed(index) - Math.floor(seed(index)) }))
+        const keyed = units.filter((unit) => !heavy.includes(unit)).map((unit, index) => ({ unit, key: seed(index) - Math.floor(seed(index)) }))
         keyed.sort((a, b) => a.key - b.key)
-        units.splice(0, units.length, ...keyed.map((entry) => entry.unit))
+        units.splice(0, units.length, ...heavy, ...keyed.map((entry) => entry.unit))
       }
       // The two runs of a pair go first and next to each other: with the
       // first halves of several pairs holding every worker, each would wait
@@ -2436,8 +2723,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
         }
       }
       units.unshift(...paired.flatMap((spec) => [{ spec, workMs: 0 }, { spec, workMs: 0 }]))
+      leading = paired.length * 2
       plan = units.map((unit) => unit.spec)
       oneAtATime = next.plan.quiet
+      together = new Set(next.plan.together)
       const unitsOf = new Map<string, number>()
       for (const spec of plan) unitsOf.set(spec.moduleId, (unitsOf.get(spec.moduleId) ?? 0) + 1)
       next.plan.sole = [...unitsOf].flatMap(([file, count]) => (count === 1 ? [file] : []))
@@ -2473,7 +2762,21 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // no word and no report. The wait gets a limit of its own, which is
     // also what keeps the process alive until it is over.
     let limit: NodeJS.Timeout | undefined
-    await Promise.race([vitest.close(), new Promise((resolve) => (limit = setTimeout(resolve, 15_000)))])
+    // A global setup's teardown runs in close before the wait on the
+    // workers, and may take seconds to stop a server or a database: it is
+    // not cut short, and close gets the full limit.
+    const tearsDown = [vitest.config, ...(vitest.projects ?? []).map((project: { config: typeof vitest.config }) => project.config)].some(
+      (config) => [config.globalSetup ?? []].flat().length > 0,
+    )
+    await Promise.race([
+      vitest.close(),
+      new Promise((resolve) => (limit = setTimeout(resolve, 15_000))),
+      // Vitest 4 waits for a worker it stops to exit unless its `exitCode`
+      // is set, which it never is for one that died of a signal, so after a
+      // worker that ended itself close does not end. Once every worker is
+      // gone, what close has left takes milliseconds.
+      ...(tearsDown ? [] : [workersExited().then(() => new Promise((resolve) => setTimeout(resolve, 500).unref()))]),
+    ])
     clearTimeout(limit)
   }
   const vitestMs = performance.now() - vitestStartedAt
@@ -2488,7 +2791,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const hookSites = new Set<number>()
   const finishedFiles = new Set<string>()
   const coveringSites = new Map<string, number[]>()
-  const cleanSites = new Set<string>()
   /** Per test, the mutants it detected, split by verdict. */
   const detections = new Map<string, { killed: Set<number>; timedOut: Set<number> }>()
   const detectionsOf = (id: string) => {
@@ -2506,11 +2808,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const site of record.hookSites ?? []) hookSites.add(site)
       if (record.complete && record.modules) passes.set(record.file, record)
     } else if (record.type === 'test') {
-      // From the run `inspect` goes by: one in a worker no mutant had been tried in, once there is one.
-      if (record.mode === 'probe' && record.baseline === 'pass' && (!cleanSites.has(record.id) || record.pristine)) {
-        coveringSites.set(record.id, record.sites)
-        if (record.pristine) cleanSites.add(record.id)
-      }
+      // As `inspect` has it: whatever any unmutated run of the test reached.
+      if (record.mode === 'probe' && record.baseline === 'pass') coveringSites.set(record.id, [...new Set([...(coveringSites.get(record.id) ?? []), ...record.sites])])
       for (const mutant of record.killed) {
         killedBy[mutant]++
         detectionsOf(record.id).killed.add(mutant)
@@ -2536,7 +2835,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   if (options.incremental && abandonedFiles.length === 0) {
     const siteKey = (site: number) => keys[generated.siteMutants[site]]
     const toKeys = (mutants: Iterable<number>) => [...mutants].map((mutant) => keys[mutant])
-    const next: Cache = { fingerprint: print, mutants: {}, files: {} }
+    const readKeys = bindingKeys(generated, options.root)
+    const next: Cache = { fingerprint: print, mutants: {}, files: {}, watched: [...readKeys.values()] }
     generated.mutants.forEach((mutant, id) => {
       ;(next.mutants[relative(options.root, mutant.file)] ??= []).push(keys[id])
     })
@@ -2546,11 +2846,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const snapshot = path.join(path.dirname(file), '__snapshots__', `${path.basename(file)}.snap`)
       const entry: CachedFile = {
         deps: {},
-        staticSites: pass.staticSites.map(siteKey),
-        hookSites: (pass.hookSites ?? []).map(siteKey),
+        // A read site has no mutant to be keyed by; see `restore`.
+        staticSites: pass.staticSites.filter((site) => !generated.readSites.has(site)).map(siteKey),
+        hookSites: (pass.hookSites ?? []).filter((site) => !generated.readSites.has(site)).map(siteKey),
         staticMutants: toKeys(status.staticMutants.get(file) ?? []),
         whole: {},
         tests: {},
+        reads: [...readKeys].filter(([site]) => status.staticSites.get(file)?.has(site) || status.hookSites.get(file)?.has(site) || status.exercised.get(file)?.has(site)).map(([, key]) => key),
       }
       for (const [key, entryState] of status.whole) {
         const [mutant, wholeFile] = key.split('\n')
@@ -2572,7 +2874,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         baselineMs: test.coverage?.baselineMs ?? 0,
         baselineLoops: test.coverage?.baselineLoops ?? 0,
         nonRepeatable: test.done && !test.failed && test.coverage !== undefined,
-        sites: (coveringSites.get(id) ?? []).map(siteKey),
+        sites: (coveringSites.get(id) ?? []).filter((site) => !generated.readSites.has(site)).map(siteKey),
         covered: toKeys(test.coverage?.covered ?? []),
         cleanup: toKeys(test.coverage?.cleanup ?? []),
         killed: toKeys(killed),
@@ -2670,7 +2972,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending) status = 'Pending'
     else if (takeLeads && (state[mutant.id] === MUTANT_KILLED || state[mutant.id] === MUTANT_TIMEOUT)) status = ledBy.has(mutant.id) ? 'Led' : 'Pending'
-    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
+    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || besideOnly.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
     return {
@@ -2688,6 +2990,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       leftOut: status === 'Unconfirmed' && leftOut.length > 0 ? leftOut : undefined,
       wavered: status === 'Unconfirmed' && wavered.length > 0 ? wavered : undefined,
       doubted: status === 'Unconfirmed' && doubted.length > 0 ? doubted : undefined,
+      besideOnly: status === 'Unconfirmed' && besideOnly.has(mutant.id) ? relative(options.root, besideOnly.get(mutant.id)!) : undefined,
       led: status === 'Led' ? { tests: [...ledBy.get(mutant.id)!.tests].map((id) => (known.get(id) ? label(known.get(id)!) : id)), sole: ledBy.get(mutant.id)!.sole } : undefined,
       evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,
     }

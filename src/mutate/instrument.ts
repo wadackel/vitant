@@ -1,4 +1,5 @@
 import { parseSync } from 'oxc-parser'
+import { bindingAt, slices, watchedBindings } from './bindings.ts'
 import { convertsOperands, isPlainName, isPlainRead, mutationsOf, type NodeMutation } from './mutators.ts'
 import { type Node, walk } from './walk.ts'
 
@@ -25,12 +26,31 @@ export interface Mutant {
    * value. An untracked mutant counts as changing behaviour wherever it runs.
    */
   tracked: boolean
+  /**
+   * For a mutant in a binding that only reading it can make anything of
+   * (see `Watched`), the sites that record reads of the bindings it changes.
+   */
+  reads?: number[]
+  /**
+   * The same sites, in the order of the declarations, where the bindings can
+   * be made again with the mutant on once the module has loaded: a run that
+   * reads none of them while the file loads can then be a copy made after it.
+   */
+  again?: number[]
 }
 
 export interface InstrumentResult {
   code: string
   mutants: Mutant[]
   siteCount: number
+  /** Sites with no mutants that record reads of a watched binding, numbered after the others. */
+  readSites: number
+  /** Per watched binding with a read site, by its name in the module. */
+  bindings: Map<string, number>
+  /** The same, by the names other modules import them by. */
+  exports: Map<string, number>
+  /** Those of them whose initializers are what they are only while the built-ins they call are (`Watched.builtins`). */
+  checked: Set<string>
   /** Mutations that had no position where a runtime switch could be placed. */
   unplaced: number
 }
@@ -628,7 +648,7 @@ export function instrument(
     // A loop guard has to wrap a block site that covers the same range.
     .sort((a, b) => a.start - b.start || b.end - a.end || Number(b.kind === 'loop') - 1)
   if (ordered.every((site) => site.mutations.length === 0)) {
-    return { code: source, mutants: [], siteCount: 0, unplaced }
+    return { code: source, mutants: [], siteCount: 0, readSites: 0, bindings: new Map(), exports: new Map(), checked: new Set(), unplaced }
   }
 
   const roots: Site[] = []
@@ -664,6 +684,38 @@ export function instrument(
   const tracked = new Set<number>()
   for (const root of roots) planProbes(root, tracked)
   for (const mutant of mutants) mutant.tracked = tracked.has(mutant.id)
+
+  const watched = watchedBindings(parsed.program)
+  const sliceOf = slices(watched)
+  const bindings = new Map<string, number>()
+  const exports = new Map<string, number>()
+  const readSite = (name: string): number => {
+    let site = bindings.get(name)
+    if (site === undefined) {
+      site = options.siteBase + siteCount + bindings.size
+      bindings.set(name, site)
+      for (const as of watched.get(name)!.exportedAs) exports.set(as, site)
+    }
+    return site
+  }
+  for (const mutant of mutants) {
+    const binding = bindingAt(watched, mutant.start, mutant.end)
+    if (!binding) continue
+    const slice = [...sliceOf.get(binding.name)!].sort((a, b) => watched.get(a)!.init[0] - watched.get(b)!.init[0])
+    mutant.reads = slice.map(readSite)
+    // Made again from the bindings it reads as they are then: those of the
+    // slice are made again first, and any other has to be one nothing can
+    // have changed since the module loaded, a primitive. An object a test
+    // or the module itself had changed would give another value.
+    const unchanged = (name: string) => slice.includes(name) || watched.get(name)?.primitive === true
+    if (slice.every((name) => watched.get(name)!.again !== undefined && watched.get(name)!.reads.every(unchanged))) mutant.again = slice.map(readSite)
+  }
+  /** Bindings that are to be made again, by name; their `const` becomes a `let` of the same length. */
+  const remade = new Set(mutants.flatMap((mutant) => (mutant.again ? [...sliceOf.get(bindingAt(watched, mutant.start, mutant.end)!.name)!] : [])))
+  for (const name of remade) {
+    const at = watched.get(name)!.again!
+    source = `${source.slice(0, at)}let  ${source.slice(at + 5)}`
+  }
 
   // Probes are function declarations so they exist before any module code
   // runs, including code reached through an import cycle.
@@ -914,7 +966,17 @@ export function instrument(
   }
 
   const body = renderRange(0, source.length, roots)
-  const code = `${body}\nvar __vitant_t;\n${probes.length ? `${probes.join('\n')}\n${probeHelpers}\n` : ''}`
+  // Called in a copy made after the module loaded, with the mutant on: the
+  // value is then what the module would have made with it on from the start.
+  // Built-ins replaced since the module loaded would make another one.
+  const within = (list: Site[], from: number, to: number): Site[] =>
+    list.flatMap((site) => (site.start >= from && site.end <= to ? [site] : site.end > from && site.start < to ? within(site.children, from, to) : []))
+  const again = [...remade].map((name, index) => {
+    const [from, to] = watched.get(name)!.init
+    // One for every time the module is loaded, as `vi.resetModules` can make it.
+    return `function __vitant_r${index}(){if(!${G}.k())throw 0;${name}=(${renderRange(from, to, within(roots, from, to))})}(${G}.e[${bindings.get(name)}]??=[]).push(__vitant_r${index});`
+  })
+  const code = `${body}\nvar __vitant_t;\n${again.length ? `${again.join('')}\n` : ''}${probes.length ? `${probes.join('\n')}\n${probeHelpers}\n` : ''}`
   // A construct the placement gets wrong must not take the run down with
   // it, or pass for code no test reaches: the file is left out and named.
   // The check includes what a parser alone lets through, a name declared
@@ -925,6 +987,10 @@ export function instrument(
     code,
     mutants,
     siteCount,
+    readSites: bindings.size,
+    bindings,
+    exports,
+    checked: new Set([...bindings.keys()].filter((name) => watched.get(name)!.builtins)),
     unplaced,
   }
 }

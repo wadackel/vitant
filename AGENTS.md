@@ -4,12 +4,12 @@ Guidance for coding agents working in this repository. `README.md` is for users.
 
 ## What this is
 
-vitant is a mutation testing tool for projects that use Vitest, run as a standalone CLI. It has one job: to say for every mutant what the project's own test suite would say if the mutant were in the source for real.
+vitant is a mutation testing tool for projects that use Vitest, run as a standalone CLI. Built for Vitest alone, it is to be faster than StrykerJS and at least as accurate: for every mutant it says what the project's own test suite would say if the mutant were in the source for real. The default is for bringing it into a project as it is, fast enough to run all the time; `--strict` is for holding a project to the plain suite's word on every detection, as a new project can be held to TypeScript's `strict` from the start.
 
 ## Priorities
 
-1. **Verdicts are correct.** A verdict (Killed, Timeout, Survived) must equal what the plain suite does with the mutant written into the source. No change is worth a verdict that may be wrong. An option may leave work out for time, as `--confirm` does, only if it is off by default, concludes nothing from the runs it did not make, and reports every mutant it left open under a status of its own; where it stops must not depend on how long anything took.
-2. **Then speed.** The yardstick is StrykerJS on the benchmark targets.
+1. **Verdicts are correct, and never less so than StrykerJS's.** A verdict (Killed, Timeout, Survived) must equal what the plain suite does with the mutant written into the source. Survived always rests on every test file the mutant can change passing with it. A detection rests on two failures, one of them in a run that confirms it; by default that run may go beside other test files' runs, one run of its own file at a time, which leaves a chance that two files that never meet in the suite fail each other there, and `--strict` makes it alone on the machine. Nothing else may let a verdict differ from the plain suite: no other change is worth a verdict that may be wrong. An option may leave work out for time, as `--confirm` does, only if it is off by default, concludes nothing from the runs it did not make, and reports every mutant it left open under a status of its own; where it stops must not depend on how long anything took.
+2. **Then speed: faster than StrykerJS on every benchmark target, in the default mode.**
 3. **No tuning to the benchmark.** A rule that only helps the projects under `bench/` is not an improvement.
 
 When a shortcut looks safe, assume it is not until it has been checked against ground truth. Every shortcut that was trusted without that check turned out wrong on some real project; [Deciding](docs/design.md#deciding) lists them.

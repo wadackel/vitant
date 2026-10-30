@@ -31,6 +31,8 @@ struct Beat {
     cpu_ms: AtomicU64,
     /// How much more it may use before the next one; 0 while no limit is set.
     limit_ms: AtomicU64,
+    /// How long by the clock a stretch must also last before it is ended; 0 for no such floor.
+    floor_ms: AtomicU64,
     beats: AtomicU64,
     /// 1 once the copy has written its verdict.
     done: AtomicU64,
@@ -40,6 +42,7 @@ impl Beat {
     fn clear(&self) {
         self.cpu_ms.store(0f64.to_bits(), Ordering::Relaxed);
         self.limit_ms.store(0f64.to_bits(), Ordering::Relaxed);
+        self.floor_ms.store(0f64.to_bits(), Ordering::Relaxed);
         self.beats.store(0, Ordering::Relaxed);
         self.done.store(0, Ordering::Relaxed);
     }
@@ -209,13 +212,14 @@ pub fn pid() -> i32 {
     unsafe { libc::getpid() }
 }
 
-/// In a copy: its CPU time so far and how much more it may use before it
-/// says so again.
+/// In a copy: its CPU time so far, how much more it may use before it says
+/// so again, and how long by the clock that stretch must at least last.
 #[napi]
-pub fn heartbeat(cpu_ms: f64, limit_ms: f64) -> Result<()> {
+pub fn heartbeat(cpu_ms: f64, limit_ms: f64, floor_ms: f64) -> Result<()> {
     let shared = beat()?;
     shared.cpu_ms.store(cpu_ms.to_bits(), Ordering::Relaxed);
     shared.limit_ms.store(limit_ms.to_bits(), Ordering::Relaxed);
+    shared.floor_ms.store(floor_ms.to_bits(), Ordering::Relaxed);
     shared.beats.fetch_add(1, Ordering::Relaxed);
     Ok(())
 }
@@ -236,10 +240,10 @@ pub enum Ended {
     /// for holding more memory than it may: it blocks, or it would take the
     /// machine with it, either of which is a verdict.
     Blocked,
-    /// Without a verdict. It ended on its own; or it sat without using CPU
-    /// time or returning to its event loop, as one waiting for a thread it
-    /// does not have would; or it went on past `ceiling_ms`. The last two
-    /// were stopped.
+    /// Without a verdict. It ended on its own, as it does once it is over
+    /// its time by the clock; or it sat without using CPU time or returning
+    /// to its event loop, as one waiting for a thread it does not have
+    /// would, and was stopped.
     Lost,
 }
 
@@ -247,7 +251,7 @@ pub enum Ended {
 /// message on a channel both share has to reach the copy. The copy has no
 /// thread to watch it, so the watching is done here.
 #[napi]
-pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) -> Result<Ended> {
+pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> {
     // Zero and below name groups of processes to `waitpid` and `kill`.
     if pid <= 0 {
         return Err(Error::from_reason(format!("not a process id: {pid}")));
@@ -257,6 +261,9 @@ pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) 
     let mut beats = 0;
     let mut beat_at = started;
     let mut beat_cpu = 0.0;
+    // When a heartbeat was first seen here, which is after it was made: the
+    // stretch since reads as shorter than it is, and is ended later.
+    let mut beat_seen = started;
     let mut checked = started;
     loop {
         let mut status = 0;
@@ -273,10 +280,6 @@ pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) 
             continue;
         }
         checked = Instant::now();
-        if started.elapsed().as_secs_f64() * 1000.0 > ceiling_ms {
-            stop(pid);
-            return Ok(Ended::Lost);
-        }
         // A copy can take a gigabyte a second, and as many copies as there
         // are workers do so at once when mutants next to each other in the
         // source all do: the limits on time come after the machine is out
@@ -285,12 +288,17 @@ pub fn supervise(pid: i32, stuck_ms: f64, ceiling_ms: f64, resident_limit: f64) 
             stop(pid);
             return Ok(Ended::Blocked);
         }
-        // Without its CPU time the copy cannot be judged; the ceiling ends it.
+        // Without its CPU time the copy cannot be judged here; it ends itself by the clock.
         let Some(cpu) = cpu_ms(pid) else { continue };
         let at_beat = f64::from_bits(shared.cpu_ms.load(Ordering::Relaxed));
         let limit = f64::from_bits(shared.limit_ms.load(Ordering::Relaxed));
+        let floor = f64::from_bits(shared.floor_ms.load(Ordering::Relaxed));
         let count = shared.beats.load(Ordering::Relaxed);
-        if limit > 0.0 && cpu - at_beat > limit {
+        if count != beats {
+            beat_seen = Instant::now();
+        }
+        let lasted = floor == 0.0 || beat_seen.elapsed().as_secs_f64() * 1000.0 > floor;
+        if limit > 0.0 && cpu - at_beat > limit && lasted {
             stop(pid);
             return Ok(Ended::Blocked);
         }

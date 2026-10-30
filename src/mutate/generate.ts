@@ -8,6 +8,12 @@ export interface MutatedFile {
   source: string
   code: string
   mutants: Mutant[]
+  /** Read sites of its watched bindings, by their names in the file. */
+  bindings: Map<string, number>
+  /** The same, by the names other modules import them by. */
+  exports: Map<string, number>
+  /** Those whose initializers call built-ins, see `Watched.builtins`. */
+  checked: Set<string>
 }
 
 export interface Generated {
@@ -15,6 +21,8 @@ export interface Generated {
   mutants: (Mutant & { file: string })[]
   /** Id of the first mutant of each site, plus one trailing total. */
   siteMutants: Uint32Array
+  /** Sites that record reads of a watched binding; they have no mutants. */
+  readSites: Set<number>
   /** Per mutant, 1 when the unmutated run records whether it changes a value. */
   tracked: Uint8Array
   unplaced: number
@@ -47,6 +55,7 @@ export function generate(options: GenerateOptions): Generated {
   const mutants: Generated['mutants'] = []
   const firstMutants: number[] = []
   const skipped: string[] = []
+  const readSites = new Set<number>()
   let unplaced = 0
 
   const sources = new Map<string, string>()
@@ -77,7 +86,11 @@ export function generate(options: GenerateOptions): Generated {
       }
       mutants.push({ ...mutant, file })
     }
-    files.set(file, { file, source, code: result.code, mutants: result.mutants })
+    for (let index = 0; index < result.readSites; index++) {
+      readSites.add(firstMutants.length)
+      firstMutants.push(mutants.length)
+    }
+    files.set(file, { file, source, code: result.code, mutants: result.mutants, bindings: result.bindings, exports: result.exports, checked: result.checked })
   }
 
   firstMutants.push(mutants.length)
@@ -85,6 +98,7 @@ export function generate(options: GenerateOptions): Generated {
     files,
     mutants,
     siteMutants: Uint32Array.from(firstMutants),
+    readSites,
     tracked: Uint8Array.from(mutants, (mutant) => Number(mutant.tracked)),
     unplaced,
     skipped,

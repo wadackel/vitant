@@ -20,10 +20,17 @@ function reportPath(name: string): string {
  * what it printed and what its workers wrote under build/test-reports.
  */
 function tool(args: string[], options: { env?: NodeJS.ProcessEnv; timeout?: number } = {}) {
+  // Run from a shell, the tool inherits none of what Vitest sets for this
+  // suite: NODE_ENV, TEST and the VITEST variables. Passed on, they would
+  // stand in for what the tool has to set itself, which the fixture's
+  // `watch.test.ts` fails without.
+  const env = Object.fromEntries(
+    Object.entries(options.env ?? process.env).filter(([name]) => name !== 'NODE_ENV' && name !== 'TEST' && !name.startsWith('VITEST')),
+  )
   const cli = spawnSync(process.execPath, [path.join(root, 'src/cli.ts'), ...args], {
     encoding: 'utf8',
     timeout: options.timeout ?? 600_000,
-    env: options.env,
+    env,
   })
   if (cli.error) {
     const project = args[args.indexOf('--root') + 1]
@@ -79,6 +86,16 @@ describe('running the fixture project', () => {
     expect(verdicts(few)).toEqual(verdicts(result))
   }, 120_000)
 
+  it('gives every mutant the same verdict with the runs that confirm a failure one at a time on the machine', () => {
+    const report = reportPath('strict')
+    const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--strict', '--report', report])
+    expect(cli.status, cli.stderr).toBe(0)
+    const strict: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    const verdicts = (run: RunResult) =>
+      run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
+    expect(verdicts(strict)).toEqual(verdicts(result))
+  }, 180_000)
+
   it('gives every mutant the same verdict with a worker started per whole-file run', () => {
     const report = reportPath('no-clone')
     const cli = tool(['--root', path.join(root, 'fixtures/basic'), '--no-clone', '--report', report])
@@ -100,8 +117,9 @@ describe('running the fixture project', () => {
     // it, and with the other test files of this suite running next to it
     // that happens to one now and then.
     expect(runs.lost).toBeLessThan(3)
-    // What is left to workers started for the run: mutants that block or end the process.
-    expect(runs.started).toBeLessThan(13)
+    // What is left to workers started for the run: mutants that block or end
+    // the process, and the runs made alone, four of them for `delay.ts`.
+    expect(runs.started).toBeLessThan(17)
   })
 
   it('kills a mutant a test fails on and keeps one no test notices', () => {
@@ -172,6 +190,11 @@ describe('running the fixture project', () => {
     expect(statusOf('src/setup.ts', 8, 'value - 1')).toBe('Survived')
   })
 
+  it('detects a mutant that makes a test run out of its time, though no control follows the try', () => {
+    expect(statusOf('src/delay.ts', 2, 'false')).toBe('Timeout')
+    expect(statusOf('src/delay.ts', 2, 'true')).toBe('Survived')
+  })
+
   it('counts a mutant that ends the process as detected and goes on with the rest of the file', () => {
     expect(statusOf('src/guard.ts', 2, 'true')).toBe('Killed')
     expect(statusOf('src/guard.ts', 2, 'false')).toBe('Survived')
@@ -211,6 +234,19 @@ describe('running the fixture project', () => {
     expect(statusOf('src/depth.ts', 20, 'true')).toBe('Killed')
   })
 
+  it('makes no copy once a file has loaded whose loading set a timer, kept alive or not', () => {
+    // A copy made later met the timer done, passed the test with the mutant
+    // and failed it without, and the mutant was left unconfirmed.
+    expect(statusOf('src/warm.ts', 7, 'x - 1')).toBe('Killed')
+  })
+
+  it('runs the tests with NODE_ENV set to test, as the vitest command does', () => {
+    // Otherwise the rejection the module leaves outside a test environment fails every run of the file.
+    expect(result.abandonedFiles).toEqual([])
+    expect(statusOf('src/watch.ts', 2, 'true')).toBe('Killed')
+    expect(statusOf('src/watch.ts', 2, 'false')).toBe('Survived')
+  })
+
   it('settles what only a test that cannot be re-run sees by running the whole file', () => {
     // A mutant of the pool leaves its count below zero, where the hook does not bring it
     // back; which of the two tests there meets that first differs from run to run. So
@@ -218,6 +254,8 @@ describe('running the fixture project', () => {
     const elsewhere = result.nonRepeatableTests.filter((name) => !/^test\/(pool|depth)\.test\.ts/.test(name))
     expect(elsewhere.sort()).toEqual([
       'test/sequence.test.ts > starts at one',
+      // Passes only once the module's timer has turned `early` off, which a second run in place finds done.
+      'test/warm.test.ts > settles later',
       'test/words.test.ts > reads the first word from the start of the file',
     ])
     // Re-running the test in place fails with or without the mutant; a worker
@@ -251,7 +289,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(26)
+    expect(second.reused).toBe(37)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 180_000)
@@ -271,7 +309,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(25)
+    expect(after.reused).toBe(36)
     expect(after.result.counts).toEqual(before.counts)
   }, 180_000)
 
@@ -283,9 +321,39 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(25)
+    expect(after.reused).toBe(36)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
+  }, 180_000)
+})
+
+describe('a project that keeps transformed modules on disk', () => {
+  // Inside the repository, so that it resolves the repository's Vitest; the cache stays in the copy.
+  const project = path.join(root, 'fixtures', `.tmp-cached-${process.pid}`)
+  const cache = path.join(project, '.vitest-cache')
+  const verdicts = (mutate: string[]) => {
+    const report = path.join(project, 'report.json')
+    const cli = tool(['--root', project, ...mutate.flatMap((file) => ['--mutate', file]), '--report', report])
+    expect(cli.status, cli.stderr).toBe(0)
+    const run = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+    return run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column}:${m.mutator}:${m.replacement}:${m.status}`)
+  }
+  afterAll(() => fs.rmSync(project, { recursive: true, force: true }))
+
+  it('gets the same verdicts after a run that mutated other files as with nothing cached', () => {
+    fs.rmSync(project, { recursive: true, force: true })
+    fs.cpSync(path.join(root, 'fixtures/basic'), project, { recursive: true, filter: (source) => !source.includes('node_modules') })
+    fs.writeFileSync(
+      path.join(project, 'vitest.config.ts'),
+      "import { defineConfig } from 'vitest/config'\nexport default defineConfig({ test: { include: ['test/**/*.test.ts'], fsModuleCache: true, fsModuleCachePath: '.vitest-cache' } })\n",
+    )
+    // The first run numbers the sites of words.ts after those of math.ts; the second has words.ts alone.
+    verdicts(['src/math.ts', 'src/words.ts'])
+    const after = verdicts(['src/words.ts'])
+    fs.rmSync(cache, { recursive: true, force: true })
+    const fresh = verdicts(['src/words.ts'])
+    expect(fresh.some((verdict) => verdict.endsWith(':Killed'))).toBe(true)
+    expect(after).toEqual(fresh)
   }, 180_000)
 })
 
@@ -302,6 +370,32 @@ describe('with mutants in code that only runs while a module loads run too', () 
     const others = (run: RunResult) =>
       run.mutants.filter((m) => result.mutants[m.id].status !== 'Static').map((m) => `${m.id} ${m.status}`)
     expect(others(judged)).toEqual(others(result))
+
+    // Each label is read in one way: by name, through a function, the
+    // namespace, a copy of it, a barrel, the original a mock is made from,
+    // or as the default export; the last only by a `Set.prototype.add` a
+    // test put in place, which the module's check of the built-ins sees. A
+    // file that reads none of what a mutant changes is not run with it.
+    const labels = judged.mutants.filter((m) => m.file === 'src/labels.ts' && m.mutator !== 'BlockStatement' && m.location.start.line !== 10)
+    expect(labels.map((m) => `${m.location.start.line} ${m.status}`)).toEqual([
+      ...[1, 2, 3, 4, 5, 6].map((line) => `${line} Killed`),
+      '7 Survived',
+      '13 Killed',
+      ...['16 Killed', '16 Killed', '16 Killed'],
+    ])
+    const ran = new Map<number, Set<string>>()
+    const records = path.join(root, 'fixtures/basic/node_modules/.vitant/session/results')
+    for (const name of fs.readdirSync(records)) {
+      for (const line of fs.readFileSync(path.join(records, name), 'utf8').split('\n')) {
+        if (!line.includes('"type":"whole"')) continue
+        const run = JSON.parse(line) as { mutant: number; file: string }
+        ran.set(run.mutant, (ran.get(run.mutant) ?? new Set()).add(path.basename(run.file)))
+      }
+    }
+    const filesOf = (line: number) => [...(ran.get(labels.find((m) => m.location.start.line === line)!.id) ?? [])].sort()
+    // The test that replaces `Set.prototype.add` imports the module by `import()`, whose result it drops: all of it counts as read.
+    expect(filesOf(1)).toEqual(['labels.greet.test.ts', 'labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts'])
+    expect(filesOf(7)).toEqual(['labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts'])
   }, 180_000)
 })
 
@@ -340,14 +434,55 @@ describe('with leads taken at their word', () => {
     )
     const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
     for (const mutant of led.mutants) {
-      if (mutant.status !== 'Led') expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${kind(result.mutants[mutant.id].status)}`)
+      // A failure next to other runs is left at that too, and that mutant is unconfirmed.
+      if (mutant.besideOnly) expect(`${mutant.id} ${mutant.status} ${kind(result.mutants[mutant.id].status)}`).toBe(`${mutant.id} Unconfirmed Killed`)
+      else if (mutant.status !== 'Led') expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${kind(result.mutants[mutant.id].status)}`)
       else {
         expect(mutant.led!.tests.length).toBeGreaterThan(0)
         expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
       }
     }
     expect(cli.stdout).toMatch(/--led: \d+ mutant\(s\) failed a test while trying it/)
+    // A try that ran out of the time Vitest gives the test has no control
+    // run after it to say the test passes without the mutant: no lead.
+    const delayed = led.mutants.find((m) => m.file === 'src/delay.ts' && m.location.start.line === 2 && m.replacement === 'false')!
+    expect(`${delayed.status} ${delayed.besideOnly}`).toBe('Unconfirmed test/delay.test.ts')
   }, 180_000)
+})
+
+describe('limits on a run of a whole file', () => {
+  // With the tool's own limits cut to a fraction of the defaults, as a slow
+  // machine leaves them against what a file takes: the project gives every
+  // test and hook a minute.
+  it('ends no run sooner than the suite would, nor sooner than loading the file and its hooks take', () => {
+    const report = reportPath('limits')
+    const cli = tool(['--root', path.join(root, 'fixtures/limits'), '--no-clone', '--timeout-ms', '100', '--timeout-factor', '1', '--report', report])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    const status = (file: string, line: number, replacement: string) =>
+      result.mutants.find((m) => m.file === file && m.location.start.line === line && m.replacement === replacement)?.status
+    // The test keeps the processor busy for a second or more without the memo.
+    expect(status('src/fib.ts', 6, 'false')).toBe('Survived')
+    // The file takes a second in `beforeAll` and a millisecond in its test.
+    expect(status('src/scale.ts', 2, 'v / 2')).toBe('Survived')
+    // Four seconds by the clock under a limit of five, and more than five on the processor.
+    expect(status('src/settle.ts', 2, "mode !== 'quick'")).toBe('Survived')
+    expect(status('src/settle.ts', 2, 'false')).toBe('Survived')
+  }, 300_000)
+
+  // A limit by the clock on the run as a whole would come here to five times
+  // the file's few milliseconds and 100 ms, and the project's five seconds:
+  // under six, where the file takes ten with the mutant and the suite passes.
+  it('ends no run of a whole file by the clock while its tests are each within their limit', () => {
+    const report = reportPath('wait')
+    const cli = tool(['--root', path.join(root, 'fixtures/wait'), '--no-clone', '--timeout-ms', '100', '--timeout-factor', '1', '--report', report])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    const status = (replacement: string) => result.mutants.find((m) => m.location.start.line === 2 && m.replacement === replacement)?.status
+    expect(status("mode !== 'quick'")).toBe('Survived')
+    expect(status('false')).toBe('Survived')
+    expect(status('""')).toBe('Survived')
+  }, 300_000)
 })
 
 describe('a mutant that keeps a test file from ever finishing to load', () => {
@@ -358,6 +493,38 @@ describe('a mutant that keeps a test file from ever finishing to load', () => {
     const stuck: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(stuck.mutants.map((mutant) => mutant.status)).toEqual(['Timeout'])
   }, 120_000)
+})
+
+describe('mocks a test file clears between its tests, on Vitest 3.2', () => {
+  // The fixture resolves Vitest 3.2 from the root's `vitest3`: the mocks the
+  // tool holds weakly exist only before Vitest 5, which keeps no Set of them.
+  beforeAll(() => {
+    const link = path.join(root, 'fixtures/mocks/node_modules/vitest')
+    if (fs.existsSync(link)) return
+    fs.mkdirSync(path.dirname(link), { recursive: true })
+    fs.symlinkSync('../../../node_modules/vitest3', link, 'junction')
+  })
+
+  it('are cleared for every test, so that a test counting calls passes unmutated and fails with a mutant', () => {
+    const report = reportPath('mocks')
+    const cli = tool(['--root', path.join(root, 'fixtures/mocks'), '--report', report])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const mocks: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(mocks.vitestVersion).toMatch(/^3\.2\./)
+    expect(mocks.failedBaselines).toEqual([])
+    const detected = (status: string) => (status === 'Timeout' ? 'Killed' : status)
+    expect(mocks.mutants.map((m) => `${m.location.start.line}:${m.location.start.column} ${m.replacement} ${detected(m.status)}`)).toEqual([
+      '1:60 {} Killed',
+      '2:7 "" Killed',
+      // Only the last test counts the calls of `burst`.
+      '5:76 {} Killed',
+      '6:18 i <= times Killed',
+      '6:18 i >= times Killed',
+      '6:18 false Killed',
+      '6:29 i-- Killed',
+      '6:39 "" Survived',
+    ])
+  }, 180_000)
 })
 
 describe('test files whose runs do not stand each other, or that fail now and then', () => {

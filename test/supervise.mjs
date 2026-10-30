@@ -11,11 +11,11 @@ if (pid === 0) {
   const cpu = () => (process.cpuUsage().user + process.cpuUsage().system) / 1000
   for (let taken = 0; Number(takes) === 0 || taken < Number(takes); taken += 16) {
     held.push(Buffer.alloc(16 * 1024 * 1024, 1))
-    addon.heartbeat(cpu(), 60_000)
+    addon.heartbeat(cpu(), 60_000, 0)
   }
   addon.done()
   addon.exit(0)
 }
 // Long enough that a copy kept from running on a busy machine does not pass for one that is stuck.
-const ended = addon.supervise(pid, 60_000, 60_000, Number(limit) * 1024 * 1024)
+const ended = addon.supervise(pid, 60_000, Number(limit) * 1024 * 1024)
 console.log(Object.entries(addon.Ended).find(([, value]) => value === ended)?.[0])
