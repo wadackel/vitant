@@ -233,6 +233,9 @@ export interface Runtime {
  * prototypes against a realm of its own: code a worker loaded before the
  * runtime was made could have added to them already.
  */
+/** The keys of the two prototypes as a realm of its own has them, the same for every runtime: making a realm takes milliseconds. */
+let pristine: [string[], string[], number, number] | undefined
+
 function builtinsCheck(): () => boolean {
   const global = globalThis as Record<string, unknown>
   const arrayIterator = Object.getPrototypeOf([][Symbol.iterator]())
@@ -252,9 +255,10 @@ function builtinsCheck(): () => boolean {
   const source = Function.prototype.toString
   const described = taken.map(([object, key]) => describe(object, key)?.value)
   const native = described.every((value) => typeof value === 'function' && /\{\s*\[native code\]\s*\}$/.test(source.call(value)))
-  const [objectNames, arrayNames, objectSymbols, arraySymbols] = vm.runInNewContext(
+  pristine ??= vm.runInNewContext(
     '[Object.getOwnPropertyNames(Object.prototype), Object.getOwnPropertyNames(Array.prototype), Object.getOwnPropertySymbols(Object.prototype).length, Object.getOwnPropertySymbols(Array.prototype).length]',
   ) as [string[], string[], number, number]
+  const [objectNames, arrayNames, objectSymbols, arraySymbols] = pristine
   const fresh = (object: object, expected: string[], count: number) => {
     const own = names(object)
     return own.length === expected.length && own.every((name) => expected.includes(name)) && symbols(object).length === count

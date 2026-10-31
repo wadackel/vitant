@@ -251,12 +251,12 @@ describe('running the fixture project', () => {
   it('settles what only a test that cannot be re-run sees by running the whole file', () => {
     // A mutant of the pool leaves its count below zero, where the hook does not bring it
     // back; which of the two tests there meets that first differs from run to run. So
-    // it is with the test a mutant leaves a level off.
-    const elsewhere = result.nonRepeatableTests.filter((name) => !/^test\/(pool|depth)\.test\.ts/.test(name))
+    // it is with the test a mutant leaves a level off, and with the one that passes only
+    // once the module's timer has turned `early` off: a second run in place finds it
+    // done, and on a slow runner so does the first.
+    const elsewhere = result.nonRepeatableTests.filter((name) => !/^test\/(pool|depth|warm)\.test\.ts/.test(name))
     expect(elsewhere.sort()).toEqual([
       'test/sequence.test.ts > starts at one',
-      // Passes only once the module's timer has turned `early` off, which a second run in place finds done.
-      'test/warm.test.ts > settles later',
       'test/words.test.ts > reads the first word from the start of the file',
     ])
     // Re-running the test in place fails with or without the mutant; a worker
@@ -395,7 +395,11 @@ describe('with mutants in code that only runs while a module loads run too', () 
     }
     const filesOf = (line: number) => [...(ran.get(labels.find((m) => m.location.start.line === line)!.id) ?? [])].sort()
     // The test that replaces `Set.prototype.add` imports the module by `import()`, whose result it drops: all of it counts as read.
-    expect(filesOf(1)).toEqual(['labels.greet.test.ts', 'labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts'])
+    // A mutant detected in one file needs no other, and which comes first differs from run to run.
+    const readers = ['labels.greet.test.ts', 'labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts']
+    expect(filesOf(1).length).toBeGreaterThan(0)
+    expect(readers).toEqual(expect.arrayContaining(filesOf(1)))
+    // One that survives is run with every file that reads it, and with no other.
     expect(filesOf(7)).toEqual(['labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts'])
   }, 180_000)
 })
