@@ -561,7 +561,13 @@ function deadline(ms: number | undefined): number {
  * turned a flag off 300 ms after loading, a copy made later passed a test
  * that every run of the suite fails.
  */
-const loadTimers: { _destroyed?: boolean; _idleStart?: number }[] = []
+interface LoadTimer {
+  _destroyed?: boolean
+  _idleStart?: number
+  _idleTimeout?: number
+  refresh?: () => unknown
+}
+const loadTimers: LoadTimer[] = []
 const timerHook = createHook({
   // Node calls `destroy` later than a timer is done with, and a timer that fired is no longer due in a copy.
   init(_id, type, _trigger, resource) {
@@ -581,6 +587,44 @@ function stoodStill(ms: number): void {
   for (const timer of loadTimers) if (!timer._destroyed && timer._idleStart !== undefined) timer._idleStart += by
 }
 
+/** Timers set while the file loaded, put off for now, with what was left of each when they were. */
+let frozen: [LoadTimer, number][] = []
+
+/**
+ * Puts every timer set while the file loaded off for good, keeping what
+ * was left of it, so that none goes off while this process waits between
+ * copies made once the file has loaded: `stoodStill` after the fact
+ * cannot take back a callback that has run. A timer's due time is its
+ * start in the event loop's time plus its delay; that time is read off a
+ * timer made for the purpose.
+ */
+function freeze(): void {
+  const probe = realSetTimeout(() => {}, 0) as unknown as LoadTimer
+  const now = probe._idleStart
+  clearTimeout(probe as unknown as NodeJS.Timeout)
+  frozen = []
+  for (const timer of loadTimers) {
+    if (timer._destroyed || timer._idleStart === undefined || timer._idleTimeout === undefined || now === undefined || !timer.refresh) continue
+    frozen.push([timer, Math.max(0, timer._idleStart + timer._idleTimeout - now)])
+    timer._idleTimeout = 2 ** 31 - 1
+    timer.refresh()
+  }
+}
+
+/**
+ * Makes each timer `freeze` put off due as long from now as it was then.
+ * An interval goes on at its own period after that, which Node takes from
+ * `_repeat`.
+ */
+function thaw(): void {
+  for (const [timer, left] of frozen) {
+    if (timer._destroyed) continue
+    timer._idleTimeout = left
+    timer.refresh!()
+  }
+  frozen = []
+}
+
 /**
  * Waits for what this process has under way to end, and says whether it
  * then holds nothing open beyond `before`. A write half done would be
@@ -591,14 +635,11 @@ function stoodStill(ms: number): void {
  * due sooner in each copy made later, where every run of the suite has it
  * due at the same point; Vitest's own are in every worker alike.
  */
-async function calm(before: Map<string, number>, timers: boolean): Promise<boolean> {
+async function calm(before: Map<string, number>, ignored: string[]): Promise<boolean> {
   for (let attempt = 0; attempt < 20; attempt++) {
     await quiet()
     const now = activeResources()
-    if (!timers) {
-      now.delete('Timeout')
-      now.delete('Immediate')
-    }
+    for (const kind of ignored) now.delete(kind)
     if (!exceeds(now, before)) return true
     await new Promise((resolve) => realSetTimeout(resolve, 5))
   }
@@ -1198,7 +1239,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (plain) {
         if (plain.pair) this.pairMet = await meetOther(plain, jobs)
         this.begin(plain, true)
-      } else if (cloner && !watching && jobs.length > 0 && (settled = await calm(workerResources, false))) {
+      } else if (cloner && !watching && jobs.length > 0 && (settled = await calm(workerResources, ['Timeout', 'Immediate']))) {
           // Nothing of the project has run in this process yet, so a copy of
         // it is what a new worker would be at this point.
         for (const job of jobs) {
@@ -1556,15 +1597,19 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const unbegun = this.waiting.filter((job) => this.open(job))
         this.waiting = []
         const told = new Set<number>()
-        // A file, a socket, a child process, a watcher or a timer the file
-        // left open while loading would be shared by every copy made from
-        // here; such a file's runs are all made from copies taken before it
-        // loads.
+        // Before anything is awaited: what the loop runs meanwhile is what
+        // copies made from here start from.
+        freeze()
+        // A file, a socket, a child process or a watcher the file left open
+        // while loading would be shared by every copy made from here; such a
+        // file's runs are all made from copies taken before it loads. So is a
+        // timer set since the timers were put off, which is not.
         const open = openDescriptors()
         const opened = !open || !this.openBeforeLoad || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
+        const settled = !opened && (await calm(this.heldBeforeLoad, ['Timeout']))
         timerHook.disable()
-        const settled = !opened && (await calm(this.heldBeforeLoad, true))
-        const shares = !settled || loadTimers.some((timer) => !timer._destroyed)
+        const putOff = new Set(frozen.map(([timer]) => timer))
+        const shares = !settled || loadTimers.some((timer) => !timer._destroyed && !putOff.has(timer))
         if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()] })
         // Nor can they be made from here then, and their next round makes them before the file loads.
         if (shares && unbegun.length > 0 && !this.unpaused) emit({ type: 'loading', file: this.wholeFile, why: 'unbegun' })
@@ -1589,11 +1634,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           }
           if (!claim(`whole.${job.id}`)) continue
           if (await this.clone(job, false)) {
+            thaw()
             this.begin(job, false)
             return super.onCollected?.(files)
           }
           copied = true
         }
+        thaw()
         runtime.a = -1
         // Every worker a file is given takes it as a template while a run
         // asked for by name is open, whoever has claimed it. One left with
