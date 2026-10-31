@@ -479,6 +479,8 @@ export type SessionRecord = (
   | { type: 'pairing'; file: string }
   /** A copy could not be made as a mutant's module began its own code while the file loaded. */
   | { type: 'loading'; file: string }
+  /** A worker given the file's runs made none of them. */
+  | { type: 'idle'; file: string }
   | ApartRecord
   | CalmRecord
   | { type: 'worker' }

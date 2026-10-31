@@ -1182,10 +1182,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (plan?.quiet) await alone(plan.together?.includes(file) ? file : '')
       else if (plan?.exclusive.includes(file)) await alone(file)
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
+      let settled: boolean | undefined
       if (plain) {
         if (plain.pair) this.pairMet = await meetOther(plain, jobs)
         this.begin(plain, true)
-      } else if (cloner && !watching && jobs.length > 0 && (await calm(workerResources, false))) {
+      } else if (cloner && !watching && jobs.length > 0 && (settled = await calm(workerResources, false))) {
           // Nothing of the project has run in this process yet, so a copy of
         // it is what a new worker would be at this point.
         for (const job of jobs) {
@@ -1226,6 +1227,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (job) this.begin(job, true)
       }
       this.idle = !this.whole && file !== undefined && plan?.wholeOnly.includes(file) === true
+      // A round in which the file's workers made none of its runs ends with
+      // nothing learnt, and three such end the run: what kept each from them
+      // is otherwise written nowhere.
+      if (this.idle && jobs.length > 0) {
+        emit({ type: 'idle', file, settled, jobs: jobs.map((job) => ({ id: job.id, mutant: job.mutant, control: job.control === true, open: this.open(job) })) })
+      }
       watch()
       workerResources = activeResources()
       return super.onBeforeCollect?.(paths)
