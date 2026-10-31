@@ -313,6 +313,7 @@ export const targets: Record<string, Target> = {
     installStryker: `npx -y pnpm@12.3.4 add -D -w ${stryker}`,
     scopes: {
       lib: { mutate: ['src/lib/**/*.ts'] },
+      constants: { mutate: ['src/lib/constants.ts'] },
     },
   },
   // Vitest 5, Yarn 4: the core of a local-first application, whose tests
@@ -348,6 +349,7 @@ export const targets: Record<string, Target> = {
     scopes: {
       utils: { mutate: ['src/utils/**/*.ts'] },
       services: { mutate: ['src/services/**/*.ts'] },
+      album: { mutate: ['src/services/album.service.ts'] },
     },
   },
   // Vitest 5: a Next.js application with unit, jsdom and React Server
@@ -370,6 +372,7 @@ export const targets: Record<string, Target> = {
     installStryker: `npx -y pnpm@11.7.0 add -D -w ${stryker}`,
     scopes: {
       utils: { mutate: ['lib/utils/**/*.ts'] },
+      validate: { mutate: ['lib/utils/validate.ts', 'lib/utils/templates.ts'] },
     },
   },
   // Vitest 3.2: a VS Code extension, its `vscode` module replaced through an

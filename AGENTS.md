@@ -38,6 +38,7 @@ Benchmarks clone third-party projects into `bench/.work/` and take minutes to ho
 ```sh
 node bench/setup.ts <target>
 node bench/tier.ts                    # six short scopes in about five minutes: what each run spent, and whether every verdict held
+node bench/tier.ts apps               # a file or two each of three applications, in about four minutes
 node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone]   # also checks against bench/truth/
 node bench/truth.ts make --root <project> --report <report.json> --out <truth.json> [--related]
 node bench/conformance.ts bench/.work/test262   # instrumented code against test262
