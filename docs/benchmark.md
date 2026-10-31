@@ -133,18 +133,18 @@ Against StrykerJS that is, on Linux and on macOS, 4.3 and 4.2 times as fast on j
 
 The two rows of es-toolkit are of three later runs the same day. In the runs before them the benchmark had put the link that lets the project import itself by name into the project's own `node_modules`, which its config does not leave out of the test files, and this tool, like a plain run there, found every test file twice; StrykerJS runs in a copy of the project, where the files behind the link are not related to what was mutated, and ran each once. With each file found twice, `array` took this tool 124.8 and 160.2 s and `pr` 64.8 and 42.1 s. The same later runs have a process that was copied for every run of a file not load the file itself afterwards.
 
-The application targets, in runs of 31 October 2026 with the copies made while a file loads (see [Making such a process cheap](design.md#making-such-a-process-cheap)). These take hours, and StrykerJS and this tool ran in jobs of their own, so a row is two machines and the processor of each Linux job is named: an EPYC 7763 took StrykerJS 7,250 s on immich `services` where a 9V45 had taken it 3,953 s a day before. One run each unless more are shown; every report of this tool agreed with the stored ground truth on every mutant it judged, apart from the first run of formbricks on Linux, below.
+The application targets, in runs of 31 October 2026 with the copies made while a file loads and the timers it set put off for copies made once it has (see [Making such a process cheap](design.md#making-such-a-process-cheap)); actual and Roo-Code are of the version before the timers. These take hours, and StrykerJS and this tool ran in jobs of their own, so a row is two machines and the processor of each Linux job is named: an EPYC 7763 took StrykerJS 7,250 s on immich `services` where a 9V45 had taken it 3,953 s a day before. One run each unless more are shown; every report of this tool agreed with the stored ground truth on every mutant it judged.
 
 | Target and scope | Linux: StrykerJS | This tool | macOS: StrykerJS | This tool |
 |---|---|---|---|---|
-| umami `lib` | 2,876.7 (7763) | 1,148.3 (7763) | 2,374.9 | 1,324.8 |
-| formbricks `utils` | 1,681.2 (9V74) | 2,075.4, 1,351.3 (7763) | 2,017.0 | 1,404.5, 1,464.1, 1,423.7 |
-| immich `utils` | 4,349.3 (9V74) | 3,825.5, 3,619.4 (9V74) | 5,912.7 | 3,833.2 |
-| immich `services` | 7,250.2 (7763) | 9,075.9 (9V74) | 6,574.8 | 4,575.8, 5,011.7 |
+| umami `lib` | 2,876.7 (7763) | 706.5 (9V45) | 2,374.9 | 1,352.9 |
+| formbricks `utils` | 1,681.2 (9V74) | 1,307.0, 1,224.9, 1,236.1 (7763) | 2,017.0 | 1,412.6, 1,304.5, 1,499.7 |
+| immich `utils` | 4,349.3 (9V74) | 3,187.6 (7763) | 5,912.7 | 3,526.4 |
+| immich `services` | 7,250.2 (7763) | 3,545.0 (9V74) | 6,574.8 | 4,740.0 |
 | actual `server` | 13,887.3 (9V45) | 7,528.6 (9V74) | 18,884.8 | 7,611.2 |
 | Roo-Code `utils` | does not start | 892.1 (9V45) | does not start | 2,110.0 |
 
-On macOS that is 1.8 times as fast on umami, 1.4 on formbricks, 1.5 on immich `utils`, 1.3 to 1.4 on `services` and 2.5 on actual. On Linux the one row on one processor, umami, is 2.5 times as fast. immich `services` on Linux is the slower of the two there: `detect-libc` leaves a request to Node's thread pool under way while those test files load, and no copy is made while they do (see the design record), so every run of a file is a copy made before it loads, as before. formbricks on Linux varies by half between two runs of the same commit on one processor. Its first run, on a 9V45, gave up on `proxy.test.ts` after three rounds in which the file's one worker made none of its runs, and reported the 898 mutants it reaches as pending; the two runs after it did not. A worker given a file's runs that makes none of them now writes down why.
+On macOS that is 1.8 times as fast on umami, 1.4 on formbricks, 1.7 on immich `utils`, 1.4 on `services` and 2.5 on actual. On Linux no row had both tools on one processor; every time of this tool is below StrykerJS's. immich `services` on Linux took 9,076 s on a 9V74 before the timers were put off: `detect-libc` leaves a request to Node's thread pool under way while those test files load, no copy is made while they do, and `exiftool-vendored`'s timer kept every copy from being made once they had. formbricks on Linux had given up on `proxy.test.ts` in two runs out of four, after three rounds in which no process said a word of the file, with every mutant it reaches reported as pending; such a file's runs now go to workers started for them, which happened twice in the three runs above, and each of the three ran to its end.
 
 The scopes StrykerJS does not start on, gives no usable verdicts for or was not run on, this tool alone:
 
