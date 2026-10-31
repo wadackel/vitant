@@ -80,6 +80,13 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
     // What the run had started outlives it where it was ended from outside.
     if (result.signal) spawnSync('pkill', ['-9', '-f', `${dir}/`])
     fs.closeSync(log)
+    // The next run writes over both, and the records kept after the last run
+    // are that run's: a run of several that failed is kept as it was.
+    if (result.status !== 0 && tool !== 'stryker') {
+      fs.copyFileSync(path.join(outDir, `${tool}.log`), path.join(outDir, `${tool}.run${i + 1}.log`))
+      const made = path.join(dir, 'node_modules/.vitant/session/results')
+      if (fs.existsSync(made)) fs.cpSync(made, path.join(outDir, `${tool}-records-run${i + 1}`), { recursive: true })
+    }
     timing.seconds.push(Number(((performance.now() - startedAt) / 1000).toFixed(1)))
     timing.exitCodes.push(result.status)
     console.log(`${tool} run ${i + 1}: ${timing.seconds.at(-1)}s (exit ${result.status})`)
