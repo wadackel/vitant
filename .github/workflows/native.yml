@@ -10,6 +10,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # For a branch with no pull request yet.
+  workflow_dispatch:
 
 permissions:
   contents: read
