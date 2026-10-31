@@ -921,6 +921,10 @@ function claim(name: string): boolean {
   }
 }
 
+function claimed(name: string): boolean {
+  return fs.existsSync(path.join(paths.claims, name))
+}
+
 /**
  * Claims the next free chunk of a planned test's mutants, looking from `from`
  * on and then at the ones before it, which a recycled worker may have handed
@@ -1231,7 +1235,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // nothing learnt, and three such end the run: what kept each from them
       // is otherwise written nowhere.
       if (this.idle && jobs.length > 0) {
-        emit({ type: 'idle', file, settled, jobs: jobs.map((job) => ({ id: job.id, mutant: job.mutant, control: job.control === true, open: this.open(job) })) })
+        emit({
+          type: 'idle',
+          file,
+          settled,
+          jobs: jobs.map((job) => ({
+            id: job.id,
+            mutant: job.mutant,
+            control: job.control === true,
+            open: this.open(job),
+            taken: claimed(`whole.${job.id}`),
+          })),
+        })
       }
       watch()
       workerResources = activeResources()
