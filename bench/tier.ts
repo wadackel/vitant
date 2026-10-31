@@ -23,7 +23,10 @@ const rows: string[][] = [['scope', 's', 'whole runs', 'whole s pass/det', 'tria
 let wrong = false
 for (const name of scopes) {
   const [target, scope] = name.split(':')
-  const run = spawnSync(process.execPath, [path.join(import.meta.dirname, 'run.ts'), target, scope, '--tool', 'vitant'], { encoding: 'utf8' })
+  // A run that hangs is ended and its processes written down rather than waited for: a copy stuck at a lock took a night of pinia's.
+  const run = spawnSync(process.execPath, [path.join(import.meta.dirname, 'run.ts'), target, scope, '--tool', 'vitant', '--limit', '20'], {
+    encoding: 'utf8',
+  })
   if (run.status !== 0) wrong = true
   const file = path.join(import.meta.dirname, 'results', `${target}-${scope}`, 'summary.json')
   const summary = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined

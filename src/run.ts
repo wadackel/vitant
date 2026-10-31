@@ -106,6 +106,8 @@ export interface Evidence {
 export interface WholeRuns {
   started: number
   'copied before load': number
+  /** Made as a mutant's module began its own code, see `WholeJob.loading`. */
+  'copied while loading': number
   'copied after load': number
   /** Copies that ended without a verdict; each run was made again in a worker started for it. */
   lost: number
@@ -475,6 +477,8 @@ export type SessionRecord = (
   | ControlRecord
   | PairRecord
   | { type: 'pairing'; file: string }
+  /** A copy could not be made as a mutant's module began its own code while the file loaded. */
+  | { type: 'loading'; file: string }
   | ApartRecord
   | CalmRecord
   | { type: 'worker' }
@@ -515,6 +519,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const staticMutants = new Map<string, Set<number>>()
   /** Test files that open something while they load which copies made afterwards would share. */
   const sharing = new Set<string>()
+  /** Test files in which a copy could not be made while they loaded. */
+  const unpaused = new Set<string>()
   /** Whole-file runs that a copy of a worker did not get through. */
   const plain = new Set<string>()
   /** Per test file, the sites whose code ran outside its tests in an unmutated run. */
@@ -632,6 +638,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       }
     }
     if (record.type === 'apart') apart.set(record.test, record.verdict === 'passed' && apart.get(record.test) !== false)
+    if (record.type === 'loading') unpaused.add(record.file)
     if (record.type === 'early') {
       if (record.site === -1) sharing.add(record.file)
       const set = staticSites.get(record.file) ?? new Set()
@@ -994,7 +1001,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1446,6 +1453,13 @@ function planPhase(
       site: siteOf[mutant],
       // Until an unmutated run of the file has said what runs while it loads, anything may.
       early,
+      // Not where a copy has been lost: the run with no mutant on that tells a
+      // copy at fault from a mutant can only be made before or after loading.
+      // Nor before an unmutated run has said what runs while the file loads: a
+      // job whose module did not begin goes to a copy made after loading, and
+      // those of formbricks' `validate.test.ts` failed beside other runs where
+      // the suite passes.
+      loading: early && status.staticSites.has(file) && !status.unpaused.has(file) && !status.lost.has(file),
       again: remade ? again : undefined,
       // A copy that runs into a limit holds up the copies due after it for
       // as long as that takes, a second or more where a loop does not end;
@@ -2907,7 +2921,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     Static: 0,
     Pending: 0,
   }
-  const wholeRuns: WholeRuns = { started: 0, 'copied before load': 0, 'copied after load': 0, lost: 0 }
+  const wholeRuns: WholeRuns = { started: 0, 'copied before load': 0, 'copied while loading': 0, 'copied after load': 0, lost: 0 }
   const work = { trials: 0, trialCpuMs: 0, wholeMs: { passed: 0, detected: 0 }, workers: 0 }
   for (const record of records) {
     if (record.type === 'whole' && record.by) {

@@ -488,6 +488,8 @@ const MAX_COPIES = 50
 /** How long a copy may go without a heartbeat while using no CPU time. */
 const STUCK_MS = 3000
 
+type CopiedBy = 'copied before load' | 'copied while loading' | 'copied after load'
+
 /** In `runtime.a`: no mutant is on, and none is to be probed for either. */
 const NO_MUTANT = 0x7fffffff
 
@@ -551,13 +553,25 @@ function deadline(ms: number | undefined): number {
  * turned a flag off 300 ms after loading, a copy made later passed a test
  * that every run of the suite fails.
  */
-const loadTimers: { _destroyed?: boolean }[] = []
+const loadTimers: { _destroyed?: boolean; _idleStart?: number }[] = []
 const timerHook = createHook({
   // Node calls `destroy` later than a timer is done with, and a timer that fired is no longer due in a copy.
   init(_id, type, _trigger, resource) {
     if (type === 'Timeout') loadTimers.push(resource as { _destroyed?: boolean })
   },
 })
+
+/**
+ * Moves the timers set while the file loads as late as the time a process
+ * stood still, so that each is due as far into what runs next as it was
+ * when the process stopped. Node takes a timer's due time from its start
+ * every time its list comes up, and puts the list back for later where the
+ * first timer is not due yet.
+ */
+function stoodStill(ms: number): void {
+  const by = Math.round(ms)
+  for (const timer of loadTimers) if (!timer._destroyed && timer._idleStart !== undefined) timer._idleStart += by
+}
 
 /**
  * Waits for what this process has under way to end, and says whether it
@@ -1074,11 +1088,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeOverran = 0
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     /** How the process making the whole-file run came to be. */
-    private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
+    private wholeBy: 'started' | CopiedBy = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
     private template = false
     private heldBeforeLoad = new Map<string, number>()
     private openBeforeLoad: Set<string> | undefined
+    /** Jobs to be copied for as their mutants' modules begin their own code, see `copyWhileLoading`. */
+    private waiting: WholeJob[] = []
+    /** No copy was made while the file loaded, where one was to be. */
+    private unpaused = false
     /** Vitest gave up on a test part-way, and with it on the rest of its suite. */
     private dropped = false
     /** A copy of this process runs the file; this one imports nothing of it. */
@@ -1171,18 +1189,24 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // Nothing of the project has run in this process yet, so a copy of
         // it is what a new worker would be at this point.
         for (const job of jobs) {
-          if (job.plain || !job.early || !this.open(job) || !claim(`whole.${job.id}`)) continue
+          if (job.plain || !job.early || job.loading || !this.open(job) || !claim(`whole.${job.id}`)) continue
           if (await this.clone(job, true)) {
             this.begin(job, true)
             return super.onBeforeCollect?.(paths)
           }
         }
         // The other jobs are for mutants whose code does not run while the
-        // file loads. A copy made once it has loaded is, for them, what a run
-        // that had the mutant on all along would be at that point. Until then
-        // no mutant is on and no probe runs.
-        this.template = jobs.some((job) => !job.plain && !job.early && this.open(job))
+        // file loads, or does once their module begins its own code. A copy
+        // made once it has loaded, or as that module begins, is for them what
+        // a run that had the mutant on all along would be at that point. Until
+        // then no mutant is on and no probe runs.
+        this.template = jobs.some((job) => !job.plain && (!job.early || job.loading) && this.open(job))
         if (this.template) {
+          this.waiting = jobs.filter((job) => !job.plain && job.loading && this.open(job))
+          this.unpaused = false
+          // A copy made while loading is made on the spot, and the count of
+          // calls under way that says it may be has to be whole by then.
+          if (this.waiting.length > 0) await this.standStill()
           runtime.a = NO_MUTANT
           // Node opens its end of the standard streams when they are first
           // used. A file that logs while it loads would look as if it had
@@ -1194,6 +1218,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           this.keepToItself()
           loadTimers.length = 0
           timerHook.enable()
+          if (this.waiting.length > 0) runtime.m = (first, end) => this.copyWhileLoading(first, end)
           return super.onBeforeCollect?.(paths)
         }
       } else {
@@ -1232,7 +1257,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
-      return this.copy(job, beforeLoad)
+      return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
     }
 
     /**
@@ -1282,8 +1307,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * process that was copied this waits for the copy to end. Returns whether
      * this is the copy.
      */
-    private copy(job: WholeJob, beforeLoad: boolean): boolean {
-      const by = beforeLoad ? 'copied before load' : 'copied after load'
+    private copy(job: WholeJob, by: CopiedBy): boolean {
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
       let pid: number
@@ -1371,6 +1395,59 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       limitStretch(Math.max(this.wholeBase, floor), floor)
     }
 
+    /**
+     * Makes the copies for the jobs whose mutants are in the module now
+     * beginning its own code, the one with sites `first` to `end`. Nothing is
+     * awaited here: a pause would let what the modules before it queued run
+     * ahead of its code, which no run of the suite does, and a copy made
+     * without one goes on from the same queue. Only where nothing this
+     * process holds could be shared with a copy, as after loading. A timer
+     * set since is put off, in each copy and then here, by as long as the
+     * copies took: otherwise it is due sooner in each copy made later, and
+     * here it would go off part-way through loading, in a process that may
+     * yet be copied once the file has loaded.
+     */
+    private copyWhileLoading(first: number, end: number): void {
+      const due = this.waiting.filter((job) => job.site >= first && job.site < end)
+      if (due.length === 0) return
+      this.waiting = this.waiting.filter((job) => !due.includes(job))
+      const open = openDescriptors()
+      const held = activeResources()
+      const why = runtime.h.subarray(first, end).includes(1)
+        ? 'ran'
+        : calls > 0 || unanswered.size > 0
+          ? 'calls'
+          : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
+            ? 'descriptors'
+            : // A callback queued with `setImmediate` is due at the next turn
+              // of the loop whatever the clock says, in each copy as in the
+              // run of the suite; a timer is put off, below.
+              exceeds(new Map([...held].filter(([kind]) => kind !== 'Immediate' && kind !== 'Timeout')), this.heldBeforeLoad)
+              ? 'held'
+              : undefined
+      if (why) {
+        // The jobs are left for the next round, which makes them before the file loads.
+        if (!this.unpaused) emit({ type: 'loading', file: this.wholeFile, why, held: why === 'held' ? [...held] : undefined })
+        this.unpaused = true
+        return
+      }
+      const stoppedAt = preciseNow()
+      for (const job of due) {
+        if (!this.open(job) || !claim(`whole.${job.id}`)) continue
+        if (this.copy(job, 'copied while loading')) {
+          stoodStill(preciseNow() - stoppedAt)
+          runtime.m = undefined
+          this.waiting = []
+          this.template = false
+          timerHook.disable()
+          workerResources = this.heldBeforeLoad
+          this.begin(job, true)
+          return
+        }
+      }
+      stoodStill(preciseNow() - stoppedAt)
+    }
+
     /** Turns the job's mutant on for the rest of the file's run. */
     private begin(job: WholeJob, beforeLoad: boolean): void {
       this.whole = job
@@ -1444,6 +1521,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     async onCollected(files: TaskLike[]): Promise<unknown> {
       if (this.away) return super.onCollected?.(files)
       if (this.template) {
+        runtime.m = undefined
+        // Jobs whose modules did not begin while the file loaded.
+        const unbegun = this.waiting.filter((job) => this.open(job))
+        this.waiting = []
         const told = new Set<number>()
         // A file, a socket, a child process, a watcher or a timer the file
         // left open while loading would be shared by every copy made from
@@ -1455,13 +1536,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const settled = !opened && (await calm(this.heldBeforeLoad, true))
         const shares = !settled || loadTimers.some((timer) => !timer._destroyed)
         if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()] })
+        // Nor can they be made from here then, and their next round makes them before the file loads.
+        if (shares && unbegun.length > 0 && !this.unpaused) emit({ type: 'loading', file: this.wholeFile, why: 'unbegun' })
         // No copy is made of a process that holds something open: a test that was to have its one run in one has had its turn.
         for (const job of shares ? (plan?.whole[this.wholeFile!] ?? []) : []) {
           if (job.trial !== undefined && claim(`whole.${job.id}`)) untold(job, this.wholeFile!)
         }
         let copied = false
         for (const job of shares ? [] : (plan?.whole[this.wholeFile!] ?? [])) {
-          if (job.plain || job.early || !this.open(job)) continue
+          if (job.plain || (job.early && !job.loading) || !this.open(job)) continue
           // The mutant's code did run while this process loaded the file, so
           // a copy from here would have had it off for that: the job is left
           // for a copy made before loading.

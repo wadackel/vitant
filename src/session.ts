@@ -150,6 +150,13 @@ export interface WholeJob {
   site: number
   /** The mutant's code runs while the file loads, as far as is known. */
   early: boolean
+  /**
+   * For such a mutant, the copy may be made while the file loads, as the
+   * mutant's module begins its own code: what ran before that is what a run
+   * with the mutant on would have run, up to the queue of what is to run
+   * next, which a copy made without a pause there keeps as it is.
+   */
+  loading?: boolean
   /** A copy of a worker ended without a verdict for this run; a worker started for it alone makes it. */
   plain: boolean
 }
@@ -203,6 +210,12 @@ export interface Runtime {
   k: () => boolean
   /** Per read site of a binding that can be made again, what makes it again, see `Mutant.again`. */
   e: Record<number, (() => void)[]>
+  /**
+   * Called as a module with mutants begins its own code, with the range of
+   * its sites, in a worker that makes copies at that point; see
+   * `WholeJob.loading`.
+   */
+  m?: (first: number, end: number) => void
   /** Set when the active mutant's code runs. */
   r: number
   /** Guarded loop iterations since the attempt started. */

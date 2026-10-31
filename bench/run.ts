@@ -157,6 +157,9 @@ if (tools.has('stryker')) {
         // Matches this tool, which does not run mutants that are only
         // evaluated while a module loads.
         ignoreStatic: true,
+        // The default of 5 minutes stops the run before any mutant on the
+        // slower application suites on a 4-core CI runner.
+        dryRunTimeoutMinutes: 60,
         reporters: ['json', 'clear-text'],
         clearTextReporter: { reportMutants: false, reportTests: false, logTests: false },
         jsonReporter: { fileName: strykerReport },

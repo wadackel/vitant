@@ -104,7 +104,7 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(plain)).toEqual(verdicts(result))
-    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied after load']).toBe(0)
+    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load']).toBe(0)
     expect(plain.wholeRuns.started).toBeGreaterThan(0)
   }, 180_000)
 
@@ -112,6 +112,7 @@ describe('running the fixture project', () => {
   it.skipIf(!addonTarget())('makes the whole-file runs in copies of a worker', () => {
     const runs = result.wholeRuns
     expect(runs['copied before load']).toBeGreaterThan(0)
+    expect(runs['copied while loading']).toBeGreaterThan(0)
     expect(runs['copied after load']).toBeGreaterThan(0)
     // A copy that ends without a verdict is run again in a worker started for
     // it, and with the other test files of this suite running next to it
@@ -289,7 +290,7 @@ describe('reusing an earlier run', () => {
     const first = runCopy()
     expect(first.reused).toBe(0)
     const second = runCopy()
-    expect(second.reused).toBe(37)
+    expect(second.reused).toBe(39)
     expect(second.result.rounds).toBe(0)
     expect(statuses(second.result)).toEqual(statuses(first.result))
   }, 180_000)
@@ -309,7 +310,7 @@ describe('reusing an earlier run', () => {
     fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
-    expect(after.reused).toBe(36)
+    expect(after.reused).toBe(38)
     expect(after.result.counts).toEqual(before.counts)
   }, 180_000)
 
@@ -321,7 +322,7 @@ describe('reusing an earlier run', () => {
       "\nit('tells even from odd', () => {\n  expect(isEven(2)).toBe(true)\n  expect(isEven(3)).toBe(false)\n})\n",
     )
     const after = runCopy()
-    expect(after.reused).toBe(36)
+    expect(after.reused).toBe(38)
     const mutant = after.result.mutants.find((m) => m.replacement === 'value % 2 !== 0')!
     expect(mutant.status).toBe('Killed')
   }, 180_000)
@@ -429,9 +430,8 @@ describe('with leads taken at their word', () => {
     expect(cli.status, cli.stderr).toBe(0)
     const led: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(led.counts.Led).toBeGreaterThan(0)
-    expect(led.wholeRuns.started + led.wholeRuns['copied before load'] + led.wholeRuns['copied after load']).toBeLessThan(
-      result.wholeRuns.started + result.wholeRuns['copied before load'] + result.wholeRuns['copied after load'],
-    )
+    const runs = ({ started, lost, ...copied }: RunResult['wholeRuns']) => started + Object.values(copied).reduce((sum, count) => sum + count, 0)
+    expect(runs(led.wholeRuns)).toBeLessThan(runs(result.wholeRuns))
     const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
     for (const mutant of led.mutants) {
       // A failure next to other runs is left at that too, and that mutant is unconfirmed.

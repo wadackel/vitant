@@ -965,7 +965,20 @@ export function instrument(
     return `(${RUNTIME_GLOBAL}.a<0?${text}:${renderPlain(site)})`
   }
 
-  const body = renderRange(0, source.length, roots)
+  // Before the module's own code and after its directives, which stop being
+  // directives behind a statement. A site that ran before this, a hoisted
+  // function called through an import cycle, says the module began earlier.
+  const program = parsed.program as Node
+  let start = (program.hashbang as Node | null)?.end ?? 0
+  for (const statement of program.body as Node[]) {
+    if (statement.type !== 'ExpressionStatement' || statement.directive == null) break
+    start = statement.end
+  }
+  const begins = `;${G}.m&&${G}.m(${options.siteBase},${options.siteBase + siteCount});`
+  const body =
+    siteCount === 0
+      ? renderRange(0, source.length, roots)
+      : renderRange(0, start, roots.filter((site) => site.end <= start)) + begins + renderRange(start, source.length, roots.filter((site) => site.start >= start))
   // Called in a copy made after the module loaded, with the mutant on: the
   // value is then what the module would have made with it on from the start.
   // Built-ins replaced since the module loaded would make another one.
