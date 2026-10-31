@@ -52,17 +52,36 @@ static BEAT: AtomicPtr<Beat> = AtomicPtr::new(ptr::null_mut());
 
 /// The shared page, mapped on first use.
 fn beat() -> Result<&'static Beat> {
-    let known = BEAT.load(Ordering::Acquire);
+    shared(&BEAT)
+}
+
+/// Turns of the event loop of a copy that runs a test file as a worker
+/// would, and of the copies it makes. Not `Beat`, which each copy it makes
+/// clears for itself.
+#[repr(C)]
+struct Alive {
+    turns: AtomicU64,
+}
+
+static ALIVE: AtomicPtr<Alive> = AtomicPtr::new(ptr::null_mut());
+
+fn alive() -> Result<&'static Alive> {
+    shared(&ALIVE)
+}
+
+/// A page mapped shared with every process this one copies from here on,
+/// on first use. `T` is integers and valid when zeroed, as fresh pages are.
+fn shared<T>(slot: &AtomicPtr<T>) -> Result<&'static T> {
+    let known = slot.load(Ordering::Acquire);
     if !known.is_null() {
         // SAFETY: set below to a mapping that is never unmapped.
         return Ok(unsafe { &*known });
     }
-    // SAFETY: an anonymous mapping of one `Beat`, which is integers and
-    // valid when zeroed, as fresh pages are.
+    // SAFETY: an anonymous mapping of one `T`.
     let mapped = unsafe {
         libc::mmap(
             ptr::null_mut(),
-            size_of::<Beat>(),
+            size_of::<T>(),
             libc::PROT_READ | libc::PROT_WRITE,
             libc::MAP_SHARED | libc::MAP_ANON,
             -1,
@@ -72,9 +91,9 @@ fn beat() -> Result<&'static Beat> {
     if mapped == libc::MAP_FAILED {
         return Err(os_error("mmap"));
     }
-    BEAT.store(mapped.cast(), Ordering::Release);
+    slot.store(mapped.cast(), Ordering::Release);
     // SAFETY: as above.
-    Ok(unsafe { &*mapped.cast::<Beat>() })
+    Ok(unsafe { &*mapped.cast::<T>() })
 }
 
 fn os_error(call: &str) -> Error {
@@ -100,6 +119,8 @@ fn uninterrupted(mut call: impl FnMut() -> libc::c_int) -> libc::c_int {
 #[napi]
 pub fn fork(lock: i32) -> Result<i32> {
     let shared = beat()?;
+    // Mapped before the copy is made, so that the two share it.
+    alive()?;
     // No copy exists that could be writing: the one before was waited for.
     shared.clear();
     // SAFETY: plain system calls on a descriptor the caller owns.
@@ -313,20 +334,74 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
     }
 }
 
-/// Waits for a copy that runs a test file as a worker would, which nobody
-/// watches from outside: it watches itself and the copies it makes, as a
-/// worker Vitest started does. Like `supervise` this does not run the event
-/// loop, for the same reason. Returns the code the copy ended itself with, or
-/// -1 where it did not end by itself.
+/// In a copy that runs a test file as a worker would, or one it made: its
+/// event loop has turned.
 #[napi]
-pub fn wait(pid: i32) -> Result<i32> {
+pub fn turned() -> Result<()> {
+    alive()?.turns.fetch_add(1, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Waits for a copy that runs a test file as a worker would. It watches
+/// itself and the copies it makes, as a worker Vitest started does; what it
+/// cannot see is itself stuck where no code of its own runs, on a lock
+/// another thread held when it was made, which once kept a run waiting for
+/// a night. So it is stopped when, for `stuck_ms`, it has no child, uses no
+/// CPU time and neither it nor anything it copied turned an event loop. A copy
+/// that waits for one it made has a child, and one that waits on the main
+/// process turns its loop. Like `supervise` this does not run the event
+/// loop, for the same reason. Returns the code the copy ended itself with,
+/// -1 where it did not end by itself, or -2 where it was stopped.
+#[napi]
+pub fn host(pid: i32, stuck_ms: f64) -> Result<i32> {
     if pid <= 0 {
         return Err(Error::from_reason(format!("not a process id: {pid}")));
     }
-    let mut status = 0;
-    // SAFETY: plain system call on a child of this process.
-    let ended = unsafe { uninterrupted(|| libc::waitpid(pid, &mut status, 0)) };
-    Ok(if ended == pid && libc::WIFEXITED(status) { libc::WEXITSTATUS(status) } else { -1 })
+    let shared = alive()?;
+    let mut turns = shared.turns.load(Ordering::Relaxed);
+    let mut cpu = cpu_ms(pid);
+    let mut still_since = Instant::now();
+    loop {
+        let mut status = 0;
+        // SAFETY: plain system call on a child of this process.
+        let ended = unsafe { uninterrupted(|| libc::waitpid(pid, &mut status, libc::WNOHANG)) };
+        if ended != 0 {
+            return Ok(if ended == pid && libc::WIFEXITED(status) { libc::WEXITSTATUS(status) } else { -1 });
+        }
+        std::thread::sleep(Duration::from_millis(100));
+        let still_ms = still_since.elapsed().as_secs_f64() * 1000.0;
+        let now_turns = shared.turns.load(Ordering::Relaxed);
+        let now_cpu = cpu_ms(pid);
+        // Node's own threads use a little CPU time in a process that runs
+        // nothing; a hundredth of the time it sat is not code of its running.
+        let busy = matches!((now_cpu, cpu), (Some(now), Some(then)) if now - then > still_ms / 100.0);
+        if now_turns != turns || busy || has_child(pid) {
+            turns = now_turns;
+            cpu = now_cpu;
+            still_since = Instant::now();
+        } else if still_ms > stuck_ms {
+            stop(pid);
+            return Ok(-2);
+        }
+    }
+}
+
+/// Whether a process has a child, one that has ended and not been waited for included.
+#[cfg(target_os = "macos")]
+fn has_child(pid: i32) -> bool {
+    let mut children = [0 as libc::c_int; 16];
+    // SAFETY: the kernel fills at most the buffer it is given.
+    let count = unsafe { libc::proc_listchildpids(pid, children.as_mut_ptr().cast(), size_of_val(&children) as libc::c_int) };
+    count > 0
+}
+
+#[cfg(not(target_os = "macos"))]
+fn has_child(pid: i32) -> bool {
+    match std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")) {
+        Ok(children) => !children.trim().is_empty(),
+        // A kernel without the file: what cannot be told keeps the copy.
+        Err(_) => true,
+    }
 }
 
 fn stop(pid: i32) {

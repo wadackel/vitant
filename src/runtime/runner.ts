@@ -452,6 +452,7 @@ const heartbeat = () => {
     // from outside, and is told what the thread would read.
     cloner!.heartbeat(beat[0], beat[1], stretch[1])
   }
+  if (hosted) cloner!.turned()
 }
 heartbeat()
 realSetInterval(heartbeat, 50).unref()
@@ -466,8 +467,10 @@ interface Cloner {
   done(): void
   /** Waits for a copy to end and says how it did. */
   supervise(pid: number, stuckMs: number, residentLimit: number): number
-  /** Waits for a copy that watches itself; the code it ended itself with, or -1. */
-  wait(pid: number): number
+  /** In a copy that runs a test file, or one it made: its event loop has turned. */
+  turned(): void
+  /** Waits for a copy that watches itself; the code it ended itself with, -1, or -2 where it was stopped as stuck. */
+  host(pid: number, stuckMs: number): number
   Ended: { Done: number; Blocked: number; Lost: number }
   exit(code: number): never
 }
@@ -482,6 +485,11 @@ const cloner: Cloner | undefined =
 
 /** What a copy that runs a test file ends with to be replaced by another, see `handOver`. */
 const RECYCLED = 75
+/**
+ * How long a copy that runs a test file may sit with no child, no CPU time
+ * and no turn of an event loop before it is taken to be stuck at a lock.
+ */
+const HOST_STUCK_MS = 30_000
 /** How many copies one after another are given a file in a round. */
 const MAX_COPIES = 50
 
@@ -1134,7 +1142,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           succeeding = copies > 1
           break
         }
-        const ended = cloner!.wait(pid)
+        const ended = cloner!.host(pid, HOST_STUCK_MS)
         // A copy that a mutant left unfit for the tests that follow, or
         // that holds too much, ends itself with what it had taken handed
         // back. This process is still what a worker is before its first
