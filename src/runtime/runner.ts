@@ -1174,9 +1174,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         let pid: number
         try {
           pid = cloner!.fork(forkLock)
-        } catch {
+        } catch (error) {
           // Running the file here would leave its traces for the next; the
-          // round after this one finds its work not done.
+          // round after this one finds its work not done, and gives the file
+          // workers of its own.
+          emit({ type: 'unhanded', file, error: String(error) })
           return process.kill(process.pid, 'SIGKILL')
         }
         if (pid === 0) {

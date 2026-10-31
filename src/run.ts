@@ -2506,6 +2506,15 @@ export async function run(options: RunOptions): Promise<RunResult> {
           (job.plain || !status.plain.has(wholeKey(job.mutant, job.file))) &&
           fs.existsSync(path.join(paths.claims, `whole.${job.id}`)),
       )
+      // A file no process of the round said a word of, though it had runs to
+      // make: its workers went before they took any. On a Linux runner the
+      // same two runs of formbricks' `proxy.test.ts` were planned three
+      // rounds in a row and the file was given up on. Its runs go to workers
+      // started for each, which take no copy of themselves.
+      const heard = new Set(readRecords().flatMap((record) => ((record as { at?: number }).at ?? 0) >= plannedAt && 'file' in record ? [record.file as string] : []))
+      const unreached = planned.filter(
+        (job) => !job.plain && !heard.has(job.file) && !fs.existsSync(path.join(paths.claims, `whole.${job.id}`)) && !stopped.includes(job),
+      )
       // A stop on time on the processor or on memory names the test it came
       // in, as a loop this runner ended in the test would: a lead its test
       // gave for the same mutant then vouches for it, where 28 of es-toolkit's
@@ -2523,6 +2532,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
             ? { type: 'whole', file, mutant, verdict: 'failed', died: true, alone, quiet, knew, by: 'started' }
             : { type: 'plain', file, mutant },
         ),
+        ...unreached.map(({ mutant, file }) => ({ type: 'plain', file, mutant })),
+        ...[...new Set(unreached.map((job) => job.file))].map((file) => ({ type: 'unhanded', file })),
       ].map((record) => JSON.stringify({ ...record, at: Date.now() }))
       if (lines.length > 0) {
         fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
