@@ -484,6 +484,8 @@ export type SessionRecord = (
   | ApartRecord
   | CalmRecord
   | { type: 'worker' }
+  /** A round ended, for reading where a run's time went: `bench/spent.ts`. */
+  | { type: 'round'; round: number; startedAt: number; workers: number }
 ) & {
   at: number
 }
@@ -2474,6 +2476,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
           clearInterval(sweeping)
         }
         rounds++
+        fs.appendFileSync(
+          path.join(paths.results, 'main.jsonl'),
+          `${JSON.stringify({ type: 'round', round: rounds, startedAt: Date.now() - (performance.now() - roundStartedAt), workers, at: Date.now() })}\n`,
+        )
         const seconds = ((performance.now() - roundStartedAt) / 1000).toFixed(1)
         const detected = fs.readFileSync(paths.state).filter((value) => value !== MUTANT_PENDING).length
         options.log(`round ${rounds} took ${seconds}s, ${detected} mutants detected so far`)

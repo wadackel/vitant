@@ -10,6 +10,8 @@
 // two commits are compared on one machine, CI runners differing by a third
 // from one job to the next.
 // `vitant-confirm4` and `vitant-led` are it with `--confirm 4` and with `--led`, held against the scope's report of `vitant`.
+// `--workers N` gives both tools N processes at once, as a CI runner with N
+// cores would; where it is left out each takes its own default.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
@@ -30,12 +32,13 @@ const { values, positionals } = parseArgs({
     runs: { type: 'string', default: '1' },
     limit: { type: 'string' },
     records: { type: 'boolean', default: false },
+    workers: { type: 'string' },
   },
 })
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led] [--runs N] [--limit MINUTES] [--records]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led] [--runs N] [--limit MINUTES] [--records] [--workers N]')
   process.exit(1)
 }
 
@@ -171,6 +174,7 @@ if (tools.has('stryker')) {
         clearTextReporter: { reportMutants: false, reportTests: false, logTests: false },
         jsonReporter: { fileName: strykerReport },
         tempDirName: '.stryker-tmp',
+        ...(values.workers ? { concurrency: Number(values.workers) } : {}),
       },
       null,
       2,
@@ -200,6 +204,7 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
     process.exit(1)
   }
   const args = [path.join(toolRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
+  if (values.workers) args.push('--max-workers', values.workers)
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if (tool === 'vitant-confirm4') args.push('--confirm', '4')
   if (tool === 'vitant-led') args.push('--led')
