@@ -23,6 +23,7 @@ import { type Generated, generate, type GenerateOptions } from './mutate/generat
 import { RUNTIME_GLOBAL } from './mutate/instrument.ts'
 import { placeReads, reexports, type WatchedModule } from './mutate/reads.ts'
 import { addonTarget } from './platform.ts'
+import { mendPool } from './pool.ts'
 import {
   createRuntime,
   MUTANT_KILLED,
@@ -2160,6 +2161,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const projectRequire = createRequire(path.join(options.root, 'package.json'))
   const vitestPackage = projectRequire.resolve('vitest/package.json')
   const vitestVersion: string = JSON.parse(fs.readFileSync(vitestPackage, 'utf8')).version
+  const vitestDist = fs.realpathSync(path.join(path.dirname(vitestPackage), 'dist'))
+  const mended = /^4\./.test(vitestVersion) ? mendPool(vitestDist) : () => false
   const { createVitest } = await import(
     pathToFileURL(path.join(path.dirname(vitestPackage), 'dist/node.js')).href
   )
@@ -2174,7 +2177,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // next file it could share one with, and waits for that file for good. A
   // worker that hands its files to copies ends when a copy is stopped in a
   // loop, so with more such files than workers a round of svelte never ended.
-  const reusesEnded = major === 4 && (minor < 1 || (minor === 1 && patch < 9))
+  // From 4.0.17 the pool is mended as it loads, see `mendPool`.
+  const reusesEnded = major === 4 && (minor < 1 || (minor === 1 && patch < 9)) && !mended()
   const config = writeSession(sessionDir, generated, options, major, vitestPackage)
   process.env.VITANT_SESSION = sessionDir
   // `globalSetup` files load in this process and may import instrumented code.
