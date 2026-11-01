@@ -605,6 +605,13 @@ let forkLock: number | undefined = cloner ? fs.openSync(paths.config, 'r') : und
 let calls = 0
 let counting = false
 /**
+ * This process runs a file's tests only to copy itself before some of
+ * them, see `walk`: nothing reads what they print, and a call to print it
+ * still out when a copy is due keeps the copy from being made, 575 times in
+ * a run of jotai on a Linux runner.
+ */
+let walking = false
+/**
  * Counts the calls this process has out. A copy shares the channel with the
  * process it was copied from: an answer to one would reach the other, and
  * half of one, if a copy ended while reading it, the next copy.
@@ -623,7 +630,7 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       // copy stopped with half of it sent would leave the channel, which the
       // process it was copied from goes on using, with a message that never
       // ends. Nothing reads the output of a copy's run.
-      if (cloned && key === 'onUserConsoleLog') return () => {}
+      if ((cloned || walking) && key === 'onUserConsoleLog') return () => {}
       // The functions carry variants of themselves as properties, which stay reachable.
       return new Proxy(value, {
         apply(fn, self, args) {
@@ -1603,6 +1610,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // it sent immich's runs of those mutants to copies made before loading.
       drainStaticHits()
       this.walked = true
+      walking = true
       this.template = false
       this.walking = new Map()
       for (const job of jobs) this.walking.set(job.before!, [...(this.walking.get(job.before!) ?? []), job])
