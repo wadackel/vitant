@@ -361,6 +361,7 @@ pub fn host(pid: i32, stuck_ms: f64) -> Result<i32> {
     let mut turns = shared.turns.load(Ordering::Relaxed);
     let mut cpu = cpu_ms(pid);
     let mut still_since = Instant::now();
+    let mut checked = still_since;
     loop {
         let mut status = 0;
         // SAFETY: plain system call on a child of this process.
@@ -368,7 +369,14 @@ pub fn host(pid: i32, stuck_ms: f64) -> Result<i32> {
         if ended != 0 {
             return Ok(if ended == pid && libc::WIFEXITED(status) { libc::WEXITSTATUS(status) } else { -1 });
         }
-        std::thread::sleep(Duration::from_millis(100));
+        // The end of a copy is seen within milliseconds: a worker hands it
+        // file after file, and slept a tenth of a second at a time it took
+        // ufo's runs from 6.8 s to 10.7 s.
+        std::thread::sleep(Duration::from_millis(2));
+        if checked.elapsed() < Duration::from_millis(100) {
+            continue;
+        }
+        checked = Instant::now();
         let still_ms = still_since.elapsed().as_secs_f64() * 1000.0;
         let now_turns = shared.turns.load(Ordering::Relaxed);
         let now_cpu = cpu_ms(pid);

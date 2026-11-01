@@ -1344,7 +1344,11 @@ function planPhase(
   // What a run of a file may take is gone by its tests alone only where
   // loading it and its hooks take no time: with a `beforeAll` of 16 s and a
   // test of a millisecond, every run of a mutant the suite passes ran into
-  // the limit and was reported as a timeout.
+  // the limit and was reported as a timeout. What a run costs is not: most
+  // are copies that load nothing, and planned by the loading es-toolkit's
+  // `pr` got 28 workers that each loaded the file to be copied, not 4,
+  // and took 18.7 s for 8.5 s.
+  const testMs = new Map(fileMs)
   for (const [file, wallMs] of status.fileWall) fileMs.set(file, Math.max(fileMs.get(file) ?? 0, wallMs))
   plan.ignore = [...failing.values()].flat()
   const controlled = new Set<string>()
@@ -1387,7 +1391,7 @@ function planPhase(
     }
     list.push(job(mutant))
     addWork(file, 0, 0, 1)
-    workByFile.get(file)!.wholeMs = fileMs.get(file) ?? 0
+    workByFile.get(file)!.wholeMs = testMs.get(file) ?? 0
   }
   /** Runs that are to be made with nothing else running, which is a round of their own. */
   const quietJobs: [number, string][] = []
@@ -1488,7 +1492,7 @@ function planPhase(
     // file planned by the latter gets one worker to make such runs one
     // after another. Where runs have been made, what they took counts.
     const took = status.wholeTook.get(file)
-    workByFile.get(file)!.wholeMs = Math.max(fileMs.get(file) ?? 0, took ? took.ms / took.runs : 0)
+    workByFile.get(file)!.wholeMs = Math.max(testMs.get(file) ?? 0, took ? took.ms / took.runs : 0)
   }
   if (workByFile.size === 0) {
     const covering = new Map<number, Set<string>>()
@@ -1693,7 +1697,7 @@ function planPhase(
       })
     }
     addWork(file, 0, 0, 2)
-    workByFile.get(file)!.wholeMs ||= fileMs.get(file) ?? 0
+    workByFile.get(file)!.wholeMs ||= testMs.get(file) ?? 0
   }
   return { plan, workByFile }
 }
