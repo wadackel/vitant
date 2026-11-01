@@ -157,6 +157,13 @@ export interface WholeJob {
    * next, which a copy made without a pause there keeps as it is.
    */
   loading?: boolean
+  /**
+   * The first test of the file whose run with no mutant on reached the
+   * mutant. The run may be made in a copy of a process that ran the tests
+   * before it with no mutant on and saw the mutant's code not run: up to that
+   * point it is a run with the mutant on, see `docs/design.md`.
+   */
+  before?: string
   /** A copy of a worker ended without a verdict for this run; a worker started for it alone makes it. */
   plain: boolean
 }

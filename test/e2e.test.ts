@@ -104,7 +104,7 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(plain)).toEqual(verdicts(result))
-    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load']).toBe(0)
+    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load'] + plain.wholeRuns['copied before a test']).toBe(0)
     expect(plain.wholeRuns.started).toBeGreaterThan(0)
   }, 180_000)
 
@@ -497,6 +497,27 @@ describe('a mutant that keeps a test file from ever finishing to load', () => {
     const stuck: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(stuck.mutants.map((mutant) => mutant.status)).toEqual(['Timeout'])
   }, 120_000)
+})
+
+describe('runs copied after the tests before the first to reach the mutant', () => {
+  it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file or the tests run at once', () => {
+    const walk = path.join(root, 'fixtures/walk')
+    const report = reportPath('walk')
+    const cli = tool(['--root', walk, '--report', report])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const run: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(run.wholeRuns['copied before a test']).toBeGreaterThan(0)
+    const results = path.join(walk, 'node_modules/.vitant/session/results')
+    const refused = fs
+      .readdirSync(results)
+      .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
+      .filter((line) => line.includes('"type":"walk"'))
+      .map((line) => JSON.parse(line) as { file: string; why: string })
+      .map((record) => `${path.basename(record.file)} ${record.why}`)
+    expect([...new Set(refused)].sort()).toEqual(['inbox.test.ts wrote', 'pair.test.ts concurrent'])
+    // Copied once after the first test, the file it leaves is there for one copy and gone for the next.
+    expect(run.mutants.find((mutant) => mutant.replacement === 'n / 2')?.status).toBe('Killed')
+  }, 60_000)
 })
 
 describe('copies of a worker made one after another', () => {
