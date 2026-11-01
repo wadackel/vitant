@@ -1254,6 +1254,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private walking: Map<string, WholeJob[]> | undefined
     /** Tests the runs of the file leave out, which the process walking it leaves out too. */
     private walkIgnore: string[] = []
+    /** This process walked the file, see `walk`. */
+    private walked = false
     /** A test failed, or an error nothing handled came, while walking. */
     private walkFailed = false
     /** `writes` as the walk began. */
@@ -1596,6 +1598,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * the mutant's code not having run, and the copy saves the tests before.
      */
     private walk(jobs: WholeJob[]): void {
+      // What ran while the file loaded is noted now. What the tests reach
+      // from here on is not code that runs while it loads, and noted as such
+      // it sent immich's runs of those mutants to copies made before loading.
+      drainStaticHits()
+      this.walked = true
       this.template = false
       this.walking = new Map()
       for (const job of jobs) this.walking.set(job.before!, [...(this.walking.get(job.before!) ?? []), job])
@@ -2489,7 +2496,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return super.onAfterRunFiles?.(files)
       }
       this.finishActive()
-      drainStaticHits()
+      if (!this.walked) drainStaticHits()
       const sites: number[] = []
       for (let site = staticHits.indexOf(1); site !== -1; site = staticHits.indexOf(1, site + 1)) {
         sites.push(site)
