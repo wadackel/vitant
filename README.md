@@ -8,7 +8,7 @@ Mutation testing for Vitest. Every verdict is what your own test suite would giv
 
 ## Why vitant
 
-- **Verdicts you can trust.** A mutant is Killed or Survived only on what your test files do when run whole, in a fresh process, with the mutant on from before the file is imported. The verdicts on the benchmark scopes are checked against the suite with the mutant written into the source: every mutant on some scopes, a sample and every survivor on others. [Limits](#limits) lists what cannot be judged that way.
+- **Verdicts you can trust.** A mutant is Killed or Survived only on what your test files do when run whole, in a fresh process, with the mutant on from before the file is imported. The verdicts on the benchmark scopes are checked against the suite with the mutant written into the source: every mutant on some scopes, a sample and every survivor on others. [Limits](#limits) lists what cannot be judged that way. `--strict` makes every detection rest on a run made with nothing else on the machine, for a project to be held to that from the start; the default lets those runs go beside other test files', which is faster and has given the same verdicts on every benchmark scope.
 - **Faster than a run per mutant.** On GitHub's hosted runners vitant is as fast as or faster than StrykerJS on every scope both ran. See [Benchmark](#benchmark).
 - **Any Vitest from 3.0.** Run against 3.0, 3.2, 4.1 and 5.0.
 - **Nothing to configure.** No plugin, no config change, no code added to your tests. vitant finds the Vitest config and the sources under `src`.
@@ -77,7 +77,8 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | `--incremental` | off | Reuse the last run's results for test files nothing they load has changed in. |
 | `--static` | off | Also run mutants in code that only runs while a module loads. |
 | `--confirm <n>` | every test file that reaches the mutant | Let a mutant go once it has passed the `n` test files nearest to it, and report it as Unconfirmed, not Survived, where others reach it. |
-| `--led` | off | Leave a mutant a test failed with while trying it at that, with no run of its test file to confirm it, and report it as Led, not Killed. |
+| `--strict` | off | Make the runs that confirm a failure no lead vouches for one at a time on the whole machine. By default they go beside other test files' runs, one run of a file at a time, and only files whose runs have got in each other's way wait for the machine to themselves; two files that share a port or a path and never meet in the suite could fail each other there. |
+| `--led` | off | Leave a mutant a test failed with while trying it at that, with no run of its test file to confirm it, and report it as Led, not Killed. A mutant that failed a run of a test file next to other runs, with no lead, is not run again with nothing else running either, and is reported as Unconfirmed. |
 | `--no-related` | | Run every test file, not only those that import a mutated file. |
 | `--no-clone` | | Start a worker for every whole-file run instead of copying one. |
 | `--max-workers <n>` | the number of processors | Workers at once. More than that and tests that wait on the clock fail on a machine that is behind; a third more gave wrong verdicts on hosted CI runners. |
@@ -96,7 +97,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | Killed | A test file failed when run whole, in a fresh worker, with the mutant on from before the file was imported. |
 | Timeout | The same, with the file running into a loop or a hang instead of failing. Counted as detected. |
 | Survived | Every test file the mutant can change anything in passed, run that way. |
-| Unconfirmed | No run settled the mutant: a test that reaches it was left out for failing with no mutant on, failed in one run of its file and passed in another, or has failed and passed with another mutant; or the files beyond the `--confirm` limit were not run. Counted as survived in the score. |
+| Unconfirmed | No run settled the mutant: a test that reaches it was left out for failing with no mutant on, failed in one run of its file and passed in another, or has failed and passed with another mutant; or the files beyond the `--confirm` limit were not run. Or, with `--led`, a file failed with the mutant next to other runs and no run made with nothing else running was made to confirm it; the report names the file. Counted as survived in the score. |
 | Led | Only with `--led`: a test failed with the mutant while trying it, and no run of the whole file was made to confirm it. Counted as survived in the score. |
 | NoCoverage | No test runs the mutated code. |
 | Static | The code only runs while a module loads, and no test or hook reaches it. Not run unless `--static` is given. |
@@ -117,21 +118,21 @@ How each step was arrived at, what it costs, and what went wrong before it exist
 
 ## Benchmark
 
-StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every report of vitant agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts).
+StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every report of vitant agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts). The two ran in jobs of their own; the macOS runners are of one model, the Linux ones are not.
 
 | Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
 |---|---|---|---|---|
-| ufo `all` | 65.4 | 17.7 | 51.9 | 20.4 |
-| zustand `all` | 252.8 | 78.3 | 222.2 | 81.5 |
-| es-toolkit `array` | 346.3 | 89.5 | 362.5 | 100.1 |
-| es-toolkit `pr`: lines the pinned commit changed | 39.1 | 30.3 | 25.8 | 24.8 |
-| immer `all` | 692.4 | 549.7 | 521.7 | 362.3 |
-| jotai `vanilla` | 1,996.4 | 460.3 | 1,563.2 | 369.5 |
-| query `core` | 1,580.5 | 443.0 | 1,436.3 | 429.7 |
-| valibot `schemas` | 1,023.9 | 237.9 | 939.8 | 205.5 |
-| xstate `core` | 656.9 | 416.1 | 809.4 | 466.4 |
+| ufo `all` | 66.8 | 26.7 | 61.1 | 51.7 |
+| zustand `all` | 268.1 | 66.9 | 207.7 | 73.2 |
+| es-toolkit `array` | 328.4 | 153.7 | 259.8 | 221.8 |
+| es-toolkit `pr`: lines the pinned commit changed | 30.0 | 40.1 | 29.3 | 45.3 |
+| immer `all` | 695.4 | 547.4 | 471.9 | 385.9 |
+| jotai `vanilla` | 1,986.1 | 455.3 | 1,609.3 | 606.4 |
+| query `core` | 1,766.4 | 364.6 | 1,285.7 | 434.5 |
+| valibot `schemas` | 918.3 | 293.6 | 763.1 | 418.5 |
+| xstate `core` | 668.5 | 523.3 | 642.9 | 481.0 |
 
-On the eight whole-directory scopes that is 1.3 to 4.6 times as fast. The scopes where StrykerJS does not start or reports nothing usable, and the other targets, are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
+On the eight whole-directory scopes that is 1.2 to 3.0 times as fast on macOS. On the few changed lines of es-toolkit `pr`, StrykerJS is the faster: one of its 93 mutants makes a loop that never ends, and vitant lets it run to the test's own limit before it calls it a timeout. The application targets, the scopes where StrykerJS does not start or reports nothing usable, and the other targets are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
 
 ## Limits
 
@@ -140,7 +141,7 @@ On the eight whole-directory scopes that is 1.3 to 4.6 times as fast. The scopes
 - **One test file runs in many processes at once**, which a plain run never does. Tests that listen on a port or write files next to themselves get in each other's way; vitant notices and runs such a file one process at a time.
 - **A Vitest project with a config file of its own is not run.** Projects declared in the root config are.
 - **A test that fails now and then** is left out once it is caught failing with no mutant on, and a mutant only it reaches is reported as Unconfirmed, not Survived. A test that is not caught, or that a mutant makes fail by chance, can still give a wrong verdict.
-- **A timeout is a judgement.** A mutant that makes a test take many times longer and still finish within the project's own timeout is called a timeout here.
+- **A timeout is a judgement.** No run is ended sooner than the project's own limit for the test that is running, but a mutant that keeps a hook busy for many times longer than the file takes, or makes several tests each wait for most of their time, and still finishes is called a timeout here.
 
 The full list, with what each one cost on a real project: [docs/limits.md](docs/limits.md).
 

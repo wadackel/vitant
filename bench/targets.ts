@@ -298,6 +298,97 @@ export const targets: Record<string, Target> = {
       schemas: { mutate: ['src/schemas/**/*.ts'] },
     },
   },
+  // Vitest 4, jsdom: a web application whose library code imports a Prisma
+  // client generated at install, as the project's `pretest` does; the CI
+  // gives it a database URL nothing connects to. A route test imports a
+  // workspace package as built, so the packages are built as the CI does.
+  umami: {
+    repo: 'https://github.com/umami-software/umami',
+    commit: 'e92fdab99508a8ed05249f6c5f07e140deab79e1',
+    install: [
+      'npx -y pnpm@12.3.4 install --frozen-lockfile',
+      'DATABASE_URL=postgresql://user:pass@localhost:5432/dummy npx -y pnpm@12.3.4 generate:db:client',
+      'npx -y pnpm@12.3.4 build:packages',
+    ],
+    installStryker: `npx -y pnpm@12.3.4 add -D -w ${stryker}`,
+    scopes: {
+      lib: { mutate: ['src/lib/**/*.ts'] },
+      constants: { mutate: ['src/lib/constants.ts'] },
+    },
+  },
+  // Vitest 5, Yarn 4: the core of a local-first application, whose tests
+  // open an in-process sqlite database through a native module
+  // (better-sqlite3, prebuilt in its package, so the install runs no
+  // scripts) and load a grammar through a Vite plugin of the workspace.
+  actual: {
+    repo: 'https://github.com/actualbudget/actual',
+    commit: '27290a8990ef8c24c71c581f4da08d6df020a009',
+    dir: 'packages/loot-core',
+    install: ['corepack yarn install --immutable'],
+    installStryker: `corepack yarn workspace @actual-app/core add -D ${stryker}`,
+    scopes: {
+      server: { mutate: ['src/server/budget/**/*.ts', 'src/server/aql/**/*.ts'] },
+    },
+  },
+  // Vitest 5: a NestJS server whose services are built with every
+  // repository mocked through dependency injection, transformed by SWC for
+  // the decorators. The config lives under `test/` and names its own root,
+  // and neither tool takes a config path, so a config at the package root
+  // re-exports it. The server imports two workspace packages as built,
+  // which the CI builds first as well.
+  immich: {
+    repo: 'https://github.com/immich-app/immich',
+    commit: 'be825a0518addd098166471706a64c8305cafca2',
+    dir: 'server',
+    install: [
+      'npx -y pnpm@11.28.5 install --frozen-lockfile',
+      'npx -y pnpm@11.28.5 --filter @immich/sdk --filter @immich/plugin-sdk build',
+      `echo "export { default } from './test/vitest.config.mjs'" > server/vitest.config.mjs`,
+    ],
+    installStryker: `cd server && npx -y pnpm@11.28.5 add -D ${stryker}`,
+    scopes: {
+      utils: { mutate: ['src/utils/**/*.ts'] },
+      services: { mutate: ['src/services/**/*.ts'] },
+      album: { mutate: ['src/services/album.service.ts'] },
+    },
+  },
+  // Vitest 5: a Next.js application with unit, jsdom and React Server
+  // Components projects in one config. As the CI does: a `.env` from the
+  // project's script, Redis unset, the imported workspace packages built.
+  // The project runs Vitest under `dotenv`, which neither tool does, so a
+  // config beside its own loads the file and re-exports it. `pnpm add` in
+  // the package stalls fetching every platform's binaries: StrykerJS goes in the root.
+  formbricks: {
+    repo: 'https://github.com/formbricks/formbricks',
+    commit: '33c0761485d709accb05da01a18fb1f67835183e',
+    dir: 'apps/web',
+    install: [
+      'npx -y pnpm@11.7.0 install --frozen-lockfile',
+      'npx -y pnpm@11.7.0 dev:setup',
+      "sed -i.bak 's|^REDIS_URL=.*|REDIS_URL=|' .env && rm .env.bak",
+      'npx -y pnpm@11.7.0 exec turbo run build --filter=@formbricks/ai --filter=@formbricks/logger --filter=@formbricks/database --filter=@formbricks/storage --filter=@formbricks/cache --filter=@formbricks/jobs --filter=@formbricks/surveys',
+      `printf '%s\\n' 'import { config } from "dotenv";' 'config({ path: "../../.env", quiet: true });' 'export { default } from "./vite.config.mts";' > apps/web/vitest.config.mts`,
+    ],
+    installStryker: `npx -y pnpm@11.7.0 add -D -w ${stryker}`,
+    scopes: {
+      utils: { mutate: ['lib/utils/**/*.ts'] },
+      validate: { mutate: ['lib/utils/validate.ts', 'lib/utils/templates.ts'] },
+    },
+  },
+  // Vitest 3.2: a VS Code extension, its `vscode` module replaced through an
+  // alias by a mock of the project's own, network calls refused by a setup
+  // file and a 20-second time limit for every test. Tests look for the
+  // bundle the project's `pretest` builds, so that is built at install.
+  'roo-code': {
+    repo: 'https://github.com/RooCodeInc/Roo-Code',
+    commit: 'b867ec9145750d0ae1ff7f02d35406e9bf2a0b16',
+    dir: 'src',
+    install: ['npx -y pnpm@10.8.1 install --frozen-lockfile', 'npx -y pnpm@10.8.1 bundle'],
+    installStryker: `cd src && npx -y pnpm@10.8.1 add -D ${stryker}`,
+    scopes: {
+      utils: { mutate: ['utils/**/*.ts', 'shared/**/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */

@@ -85,16 +85,16 @@ describe('what the runs of whole files settle', () => {
     expect(told.triedSole.get(1)?.has('t1')).toBe(true)
   })
 
-  it('holds a second failure without the mutant against a test only where the test could have passed', () => {
+  it('holds no second failure without the mutant against a test', () => {
     const again = (nonRepeatable: boolean) =>
       ({ ...lead(1, 't1', false), killed: [], suspected: [1], nonRepeatable }) as unknown as SessionRecord
     const killed = [lead(0, 't1'), whole(0, 'failed', { test: 't1' })]
-    // Failed with a mutant, failed again without it, and the file passes with that mutant: the test fails as it pleases.
-    expect(inspect([...killed, again(false), whole(1, 'passed')]).detected.has(0)).toBe(false)
-    // Unless it is a test that fails any second run in a worker, which that is then all it shows.
-    const status = inspect([...killed, again(true), whole(1, 'passed')])
-    expect(status.refuted.size).toBe(0)
-    expect(status.detected.get(0)).toBe(MUTANT_KILLED)
+    // Failed with a mutant, failed again without it, and the file passes with that mutant: the mutant left the worker so.
+    for (const nonRepeatable of [false, true]) {
+      const status = inspect([...killed, again(nonRepeatable), whole(1, 'passed')])
+      expect(status.refuted.size).toBe(0)
+      expect(status.detected.get(0)).toBe(MUTANT_KILLED)
+    }
   })
 
   it('does not let a lead from one test vouch for the failure of another', () => {
@@ -135,6 +135,20 @@ describe('what the runs of whole files settle', () => {
     expect(inspect([...chance, ...runs, both, both]).detected.get(1)).toBe(MUTANT_KILLED)
   })
 
+  it('leaves a failure at that when its run made alone failed only in a test that fails by chance', () => {
+    const chance = [whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })]
+    // A run with the file to itself that failed in t3 as well, which counts, and a run with nothing else running that failed in t2 only.
+    const failure = whole(1, 'failed', { tests: ['t2', 't3'], test: 't2', alone: true })
+    const quiet = whole(1, 'failed', { test: 't2', alone: true, quiet: true })
+    const status = inspect([...chance, failure, quiet])
+    expect(status.detected.has(1)).toBe(false)
+    expect(status.whole.get(`1\n${file}`)).toMatchObject({ failed: 1, quiet: 0, quietDoubted: 1 })
+    expect([...(status.doubted.get(1) ?? [])]).toEqual(['t2'])
+    // Where the run made alone fails in t3 too, it settles the failure.
+    const both = whole(1, 'failed', { tests: ['t2', 't3'], test: 't2', alone: true, quiet: true })
+    expect(inspect([...chance, failure, both]).detected.get(1)).toBe(MUTANT_KILLED)
+  })
+
   it('wants a run made alone for what a witness fails that failed and passed a run of its file with one mutant', () => {
     const chance = [whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })]
     const failure = whole(1, 'failed', { test: 't2', alone: true })
@@ -151,12 +165,10 @@ describe('what the runs of whole files settle', () => {
     const apart = { type: 'apart', file, test: 't1', verdict: 'passed' } as SessionRecord
     const failure = whole(0, 'timeout', { test: 't1' })
     expect(inspect([slow('loop'), failure]).detected.get(0)).toBe(MUTANT_TIMEOUT)
-    for (const records of [[slow('test timeout')], [copied, apart]]) {
-      const status = inspect([...records, failure])
-      expect(status.detected.has(0)).toBe(false)
-      expect(status.whole.get(`0\n${file}`)?.timedOut).toBe(1)
-      expect(inspect([...records, failure, whole(0, 'timeout', { test: 't1', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_TIMEOUT)
-    }
+    const status = inspect([copied, apart, failure])
+    expect(status.detected.has(0)).toBe(false)
+    expect(status.whole.get(`0\n${file}`)?.timedOut).toBe(1)
+    expect(inspect([copied, apart, failure, whole(0, 'timeout', { test: 't1', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_TIMEOUT)
   })
 
   it('does not count runs a limit ended in a file where such a run passed another time', () => {
@@ -313,6 +325,14 @@ describe('tests that leave a mutant open', () => {
     ])
     expect(reached.everywhere).toEqual([])
     expect(doubts({ flaky: new Set(['t3']), tests }, [], label).everywhere).toEqual(['t3'])
+  })
+
+  it('names a test whose unmutated run failed after it had passed once, as it is left out the same way', () => {
+    const tests: Tests = new Map([
+      ['t1', { ...test('t1', [0]), failed: true }],
+      ['t2', test('t2', [1])],
+    ])
+    expect([...doubts({ flaky: new Set(), tests }, [], label).leftOutOf]).toEqual([[0, ['t1']]])
   })
 
   it('names a test that failed a run of its file with a mutant it reaches, and not one that does not reach it', () => {

@@ -85,6 +85,12 @@ jobs:
             h3 utils
             es-toolkit pr
             vue pr
+            umami lib
+            formbricks utils
+            actual server
+            immich utils
+            immich services
+            roo-code utils
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)

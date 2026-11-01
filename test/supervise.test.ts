@@ -24,6 +24,21 @@ describe.runIf(addon && fs.existsSync(addon))('watching a copy of a process', ()
     expect(watch(768, 0)).toBe('Done')
   }, 90_000)
 
+  const host = (mode: string): string =>
+    spawnSync(process.execPath, ['--single-threaded', path.join(import.meta.dirname, 'host.mjs'), addon!, mode], { encoding: 'utf8' }).stdout.trim()
+
+  it('stops a copy that runs a test file once it sits with no child, no CPU time and no turn of a loop', () => {
+    expect(host('stuck')).toBe('-2')
+  }, 30_000)
+
+  it('leaves a copy that runs a test file alone while it waits for one it made', () => {
+    expect(host('waits')).toBe('7')
+  }, 30_000)
+
+  it('leaves a copy that runs a test file alone while its event loop turns', () => {
+    expect(host('turns')).toBe('5')
+  }, 30_000)
+
   it('ends a copy whose process is gone, though the copy is in a loop', async () => {
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-orphan-')), 'pid')
     // Nothing of the copy's is waited for: it would hold a pipe open for as long as it lives.

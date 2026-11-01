@@ -1,0 +1,12 @@
+{
+  "command": "related",
+  "mutants": [
+    {"file":"src/services/album.service.ts","start":[28,28],"end":[28,58],"mutator":"LogicalOperator","replacement":"metadata?.endDate && undefined","suite":"pass"},
+    {"file":"src/services/album.service.ts","start":[82,26],"end":[82,75],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},
+    {"file":"src/services/album.service.ts","start":[225,80],"end":[225,82],"mutator":"ArrayDeclaration","replacement":"[\"Stryker was here\"]","suite":"pass"},
+    {"file":"src/services/album.service.ts","start":[293,10],"end":[293,38],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},
+    {"file":"src/services/album.service.ts","start":[91,82],"end":[99,3],"mutator":"BlockStatement","replacement":"{}","suite":"pass"},
+    {"file":"src/services/album.service.ts","start":[174,83],"end":[174,87],"mutator":"ArrayDeclaration","replacement":"[]","suite":"fail"},
+    {"file":"src/services/album.service.ts","start":[328,6],"end":[328,41],"mutator":"ConditionalExpression","replacement":"true","suite":"fail"}
+  ]
+}

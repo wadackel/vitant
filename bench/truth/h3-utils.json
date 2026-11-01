@@ -358,7 +358,7 @@
     {"file":"src/utils/internal/validate.ts","start":[46,28],"end":[46,39],"mutator":"StringLiteral","replacement":"\"\"","suite":"fail"},
     {"file":"src/utils/internal/validate.ts","start":[62,8],"end":[62,24],"mutator":"OptionalChaining","replacement":"options.onError","suite":"fail","note":"every test passes; the run fails on the type check Vitest makes for this project, which this tool does not make"},
     {"file":"src/utils/internal/validate.ts","start":[62,8],"end":[64,10],"mutator":"OptionalChaining","replacement":"options?.onError({\n          issues: [{ message: VALIDATION_FAILED }],\n        })","suite":"fail","note":"every test passes; the run fails on the type check Vitest makes for this project, which this tool does not make"},
-    {"file":"src/utils/internal/validate.ts","start":[62,27],"end":[64,9],"mutator":"ObjectLiteral","replacement":"{}","suite":"pass"},
+    {"file":"src/utils/internal/validate.ts","start":[62,27],"end":[64,9],"mutator":"ObjectLiteral","replacement":"{}","suite":"fail","note":"every test passes; the run fails on the type check Vitest makes for this project, which this tool does not make"},
     {"file":"src/utils/internal/validate.ts","start":[63,18],"end":[63,50],"mutator":"ArrayDeclaration","replacement":"[]","suite":"pass"},
     {"file":"src/utils/internal/validate.ts","start":[63,19],"end":[63,49],"mutator":"ObjectLiteral","replacement":"{}","suite":"fail","note":"every test passes; the run fails on the type check Vitest makes for this project, which this tool does not make"},
     {"file":"src/utils/internal/validate.ts","start":[67,8],"end":[67,20],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},

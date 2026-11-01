@@ -1,0 +1,19 @@
+{
+  "command": "related",
+  "mutants": [
+    {"file":"lib/utils/templates.ts","start":[23,48],"end":[26,14],"mutator":"OptionalChaining","replacement":"getLocalizedValue(\n      newElement.subheader,\n      defaultLanguageCode\n    ).replace","suite":"pass"},
+    {"file":"lib/utils/templates.ts","start":[38,6],"end":[38,47],"mutator":"LogicalOperator","replacement":"preset.blocks || preset.blocks.length > 0","suite":"pass"},
+    {"file":"lib/utils/templates.ts","start":[38,6],"end":[38,47],"mutator":"ConditionalExpression","replacement":"true","suite":"pass"},
+    {"file":"lib/utils/templates.ts","start":[38,23],"end":[38,47],"mutator":"EqualityOperator","replacement":"preset.blocks.length >= 0","suite":"pass"},
+    {"file":"lib/utils/templates.ts","start":[38,23],"end":[38,47],"mutator":"ConditionalExpression","replacement":"true","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[10,11],"end":[10,63],"mutator":"MethodExpression","replacement":"(serializedValue ?? String(value))","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[13,13],"end":[13,44],"mutator":"MethodExpression","replacement":"String(value)","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[30,23],"end":[30,51],"mutator":"LogicalOperator","replacement":"issue?.path?.join(\".\") && \"\"","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[30,23],"end":[30,40],"mutator":"OptionalChaining","replacement":"issue?.path.join","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[30,23],"end":[30,34],"mutator":"OptionalChaining","replacement":"issue.path","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[30,41],"end":[30,44],"mutator":"StringLiteral","replacement":"\"\"","suite":"pass"},
+    {"file":"lib/utils/validate.ts","start":[33,14],"end":[33,18],"mutator":"StringLiteral","replacement":"\"\"","suite":"pass"},
+    {"file":"lib/utils/templates.ts","start":[38,23],"end":[38,47],"mutator":"EqualityOperator","replacement":"preset.blocks.length <= 0","suite":"fail"},
+    {"file":"lib/utils/validate.ts","start":[11,10],"end":[17,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail"}
+  ]
+}

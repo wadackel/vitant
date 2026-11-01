@@ -27,6 +27,8 @@ for each one whether the suite detects it.
                           as unconfirmed, not as survived, where others reach it (default: all of them)
   --led                   leave a mutant a test failed with while trying it at that, with no run of its
                           test file to confirm it, and report it as led, not as killed
+  --strict                make the runs that confirm a failure no lead vouches for one at a time on the
+                          whole machine, not one per test file beside other files' runs
   --no-related            run every test file, not only those that import a mutated file
   --no-clone              start a worker for every whole-file run instead of copying one
   --max-workers <n>       workers at once (default: the number of processors)
@@ -64,6 +66,7 @@ const { values, positionals } = (() => {
         static: { type: 'boolean', default: false },
         confirm: { type: 'string' },
         led: { type: 'boolean', default: false },
+        strict: { type: 'boolean', default: false },
         report: { type: 'string' },
         elements: { type: 'string' },
       },
@@ -120,6 +123,7 @@ const result = await run({
   clone: !values['no-clone'],
   static: values.static,
   led: values.led,
+  strict: values.strict,
   confirm,
   // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
   maxWorkers: Number(values['max-workers'] ?? os.availableParallelism()),
@@ -161,7 +165,7 @@ const order: MutantStatus[] = [
 console.log(order.map((status) => `${status} ${counts[status]}`).join('  '))
 if (confirm !== Infinity) {
   console.log(
-    `--confirm ${confirm}: ${counts.Unconfirmed} mutant(s) passed the test files nearest to them and were not run against the rest; they count as survived in the score`,
+    `--confirm ${confirm}: ${result.mutants.filter((mutant) => mutant.confirmed).length} mutant(s) passed the test files nearest to them and were not run against the rest; they count as survived in the score`,
   )
 }
 if (values.led) {
@@ -170,6 +174,10 @@ if (values.led) {
     `--led: ${counts.Led} mutant(s) failed a test while trying it and no run of a whole file confirmed it (${sole} with no other run of the test's file under way); ` +
       `they count as survived in the score, which with every one of them detected would be ${percent(detected + counts.Led, covered + counts.NoCoverage)} at most`,
   )
+  const beside = result.mutants.filter((mutant) => mutant.besideOnly).length
+  if (beside > 0) {
+    console.log(`--led: ${beside} mutant(s) failed a run of a test file next to other runs and no run made with nothing else running confirmed it; they are unconfirmed and count as survived in the score`)
+  }
 }
 console.log(
   `score ${percent(detected, covered + counts.NoCoverage)} (covered ${percent(detected, covered)})  ` +
@@ -181,10 +189,10 @@ console.log(
 )
 {
   const { started, lost, ...copied } = result.wholeRuns
-  const copies = copied['copied before load'] + copied['copied after load']
+  const copies = copied['copied before load'] + copied['copied while loading'] + copied['copied after load']
   console.log(
     `whole-file runs ${started + copies}: ${copies} in copies of a worker ` +
-      `(${copied['copied before load']} made before the file loaded, ${copied['copied after load']} after), ` +
+      `(${copied['copied before load']} made before the file loaded, ${copied['copied while loading']} while it loaded, ${copied['copied after load']} after), ` +
       `${started} in workers started for them` +
       (lost > 0 ? `; ${lost} copies ended without a verdict and were run again` : ''),
   )
@@ -232,10 +240,11 @@ const leftOut = Object.entries(result.leftOut.projects)
 if (result.leftOut.typeCheck) {
   console.log('the project has Vitest check types along with its tests, which is not done here: a mutant that only breaks types fails its suite and is reported as survived')
 }
-if (leftOut.length > 0 || result.leftOut.typeTests > 0) {
+if (leftOut.length > 0 || result.leftOut.typeTests > 0 || result.leftOut.browserTests > 0) {
   console.log('not the whole suite: a mutant reported as survived was not run with')
   for (const [project, files] of leftOut) console.log(`  ${files} test file(s) of project ${project}, which the mutants could not be put into`)
   if (result.leftOut.typeTests > 0) console.log(`  ${result.leftOut.typeTests} file(s) of type tests, which run in the type checker`)
+  if (result.leftOut.browserTests > 0) console.log(`  ${result.leftOut.browserTests} file(s) that run in a browser, which this tool does not`)
 }
 const quietRuns = result.quietRuns.failed + result.quietRuns.passed
 if (quietRuns > 0) {

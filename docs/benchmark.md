@@ -27,7 +27,7 @@ node bench/run.ts excalidraw pr       # mutate only the lines the pinned commit 
 
 Results are written to `bench/results/<target>-<scope>/`: `summary.json` has the wall-clock times and `compare.txt` how the verdicts line up. StrykerJS runs with `coverageAnalysis: perTest`, `ignoreStatic: true` and no type checker, which is its fastest configuration.
 
-The times that are kept up to date are those under "On hosted CI runners" below. The tables before it are of one machine at the time each target was added, and say what a rule cost or gained there. Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as often as times are shown. The times of this tool were taken before a loop in a whole-file run had to keep the process busy for a second to count as endless; that rule adds about a second of one core for every such mutant, which on this machine took es-toolkit `array` from 24 s to 34 s and hono `router` from 35 s to 40 s.
+The times that are kept up to date are those under "On hosted CI runners" below. The tables before it are of one machine at the time each target was added, and say what a rule cost or gained there. Apple M6 (12 cores, 32 GB), Node 24.21.0. StrykerJS was run once, this tool as often as times are shown. The times of this tool were taken before a loop in a whole-file run had to keep the process busy for a second to count as endless; that rule adds about a second of one core for every such mutant, which on this machine took es-toolkit `array` from 24 s to 34 s and hono `router` from 35 s to 40 s. What exact verdicts allow at best on this machine follows from the runs of a session: those that are made with nothing else running take what they took, and all the others, spread with no gap over the twelve workers, take a twelfth of theirs. For runs that took 105.1 s on immer, 49.1 s on es-toolkit `array` and 12.7 s on ufo that is 62.8 s, 31.4 s and 7.0 s, leaving out the start of each worker, 20 ms to 140 ms before its first record.
 
 | Target and scope | Mutants | StrykerJS | This tool | Without copies |
 |---|---|---|---|---|
@@ -90,25 +90,61 @@ solid and svelte are slow for the reason excalidraw is: one or two test files th
 
 In vue, 13 of the 14 mutants not judged fail the suite: code that only runs while a module loads is not run here ([Limits](limits.md)), and in a library that builds its tables at load that is about one mutant in thirty.
 
+## Application targets
+
+The projects above are libraries. These are applications, each with what its own CI does before the tests can run: a generated Prisma client, workspace packages built first, an environment file. One run each of both tools on the machine above, one after the other: umami, formbricks and actual with nothing else running on 29 October 2026 (the first of actual's two runs next to small runs on fixtures), Roo-Code that day next to the check of actual, immich `services` that day with nothing else running, immich `utils` on 21 October with other work keeping the machine busy (a load average of 18 to 23 on its 12 cores). The check against the suite is of every mutant reported as survived, and of a sample spread evenly over the rest.
+
+| Target and scope | Mutants | This tool | StrykerJS | Against the suite |
+|---|---|---|---|---|
+| [umami](https://github.com/umami-software/umami) `lib`: `src/lib` (Vitest 4, jsdom, a Next.js application) | 5,833 | 378 s, the median of 377, 378 and 387 s | 414 s, the median of 409, 414 and 429 s | 1,367 checked, every survivor among them: all agree |
+| [formbricks](https://github.com/formbricks/formbricks) `utils`: `apps/web/lib/utils` (Vitest 4, a Next.js application, an environment file) | 2,559 | 413 s, the median of 401, 413 and 444 s | 404 s, the median of 400, 404 and 420 s | 473 checked, every survivor among them: all agree |
+| [actual](https://github.com/actualbudget/actual) `server`: `packages/loot-core/src/server/{budget,aql}` (Vitest 5, Yarn 4, an in-process sqlite database) | 5,892 | 1,846 s and 1,919 s | 2,973 s and 2,849 s | 240 checked: all agree; StrykerJS disagrees with the suite on 81 of them |
+| [Roo-Code](https://github.com/RooCodeInc/Roo-Code) `utils`: `src/utils`, `src/shared` (Vitest 3.2, a VS Code extension) | 3,273 | 1,239 s, six workers | does not start | 200 checked: all agree |
+| [immich](https://github.com/immich-app/immich) `utils`: `server/src/utils` (Vitest 5, a NestJS server, SWC) | 4,280 | 902 s | does not start: a test fails in its first run | 531 checked, every survivor among them: all agree |
+| [immich](https://github.com/immich-app/immich) `services`: `server/src/services` | 10,244 | 1,855 s | does not start | 250 checked: all agree |
+
+749 of umami's 1,293 survivors are strings and lists in `src/lib/constants.ts`, which nearly every test file imports. Each was run with every test file that loads the module, 48,028 whole-file runs and 4,901 s, until a mutant that only reading its binding can make anything of was run with only the files that read it ([Deciding](design.md#deciding)): 4,317 runs. StrykerJS runs only the tests that reach a mutant. Of the 20 mutants on which the two disagree between detected and not, StrykerJS has 14 survive that the suite fails with, in code that runs while a module loads, and kills 6 that the suite passes with.
+
+formbricks is the one of these where the two take about as long, three runs of each in turn. It spends 125 s in the round that makes runs one at a time: 81 runs with a mutant whose failures next to other runs nothing else vouched for, 16 of them waiting out the 5-s limit of a test, and 44 with none. With `--led` it took 189 s, 2,003 mutants reported as led and every survivor as without the option; with `--confirm 4` 444 s, 21 survivors unconfirmed.
+
+actual is where StrykerJS is furthest from the suite. Its setup file empties the database before the tests, which builds every view from the table schema in `aql/schema/index.ts`, so every test file reads that binding: each of its surviving mutants was run with the 86 test files that load it, two seconds a run made before the file loads, 20,881 runs and most of the time, until a re-export that esbuild writes as `export { schema2 as schema }` was no longer taken for a read: then 8,429. Two test files were then run one process at a time, `executors.test.ts` among them, and its 486 runs made that way, 1,503 s one after another, were a third of the 4,489 s the run took. Most of the files read the schema in their tests, through the setup file's `emptyDatabase`, and not while they load, so a run there is a copy made after the file loaded in which the schema is made again with the mutant on ([Deciding](design.md#deciding)): 13,481 of 14,631 runs, 1,846 s, every verdict as two runs before. StrykerJS switches a mutant on in a process where the schema was built already, and the switch changes nothing: of the 63 such mutants in the sample that it reports as survived, 43 fail the suite. Before that, two runs took 4,846 s and 7,649 s with every verdict the same but for six that a test which fails by chance moves between survived and unconfirmed; the second made each run a third slower with as many runs, which was not looked into further. In the last run a test of `main.test.ts` failed with no mutant on and was left out, and 160 mutants it reaches are unconfirmed where the runs before had them survived or, for one the suite fails with, killed. With `--led` it took 2,255 s: 3,499 mutants led that the run without it detects, one led that it has as survived, and the 160 survived, the test that fails by itself not having been met there.
+
+Roo-Code ran with six workers next to another check, so its time is not one to compare.
+
+In immich, 562 of the 4,280 mutants are in code that only runs while a module loads, the decorators and schemas of a NestJS server, and are not run ([Limits](limits.md)). StrykerJS stops after its first run, in which a test of the database backups fails that passes in the suite.
+
 ## On hosted CI runners
 
-`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners, and these are the times that are kept up to date. In seconds, the median of three runs, from the runs of 13 October 2026; every report of this tool agreed with the stored ground truth on both. StrykerJS and this tool ran one after the other in the same job, so a row compares the two on one machine. Between rows it does not: a job gets whichever processor is free (an EPYC 7763, 9V45 or 9V74 or a Xeon 8573C on Linux), and the same scope takes visibly longer on one than on another.
+`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners, and these are the times that are kept up to date. In seconds, the median of three runs, from runs of 1 November 2026; every report of this tool agreed with the stored ground truth on both. StrykerJS and this tool ran in jobs of their own, so on Linux a row is two processors (StrykerJS on an EPYC 9V74 for ufo and es-toolkit `pr`, a Xeon 8370C for `array` and an 8573C for valibot, an EPYC 7763 for the rest; this tool on a 9V45 for ufo and query, a 9V74 for `pr`, an 8573C for jotai, a 7763 for the rest), and a job gets whichever is free: the same scope takes visibly longer on one than on another. The macOS runners are of one model.
 
 | Target and scope | Linux: StrykerJS | This tool | macOS: StrykerJS | This tool |
 |---|---|---|---|---|
-| ufo `all` | 65.4 | 17.7 | 51.9 | 20.4 |
-| zustand `all` | 252.8 | 78.3 | 222.2 | 81.5 |
-| es-toolkit `array` | 346.3 | 89.5 | 362.5 | 100.1 |
-| es-toolkit `pr`: lines the pinned commit changed | 39.1 | 30.3 | 25.8 | 24.8 |
-| immer `all` | 692.4 | 549.7 | 521.7 | 362.3 |
-| jotai `vanilla` | 1,996.4 | 460.3 | 1,563.2 | 369.5 |
-| query `core` | 1,580.5 | 443.0 | 1,436.3 | 429.7 |
-| valibot `schemas` | 1,023.9 | 237.9 | 939.8 | 205.5 |
-| xstate `core` | 656.9 | 416.1 | 809.4 | 466.4 |
+| ufo `all` | 66.8 | 26.7 | 61.1 | 51.7 |
+| zustand `all` | 268.1 | 66.9 | 207.7 | 73.2 |
+| es-toolkit `array` | 328.4 | 153.7 | 259.8 | 221.8 |
+| es-toolkit `pr`: lines the pinned commit changed | 30.0 | 40.1 | 29.3 | 45.3 |
+| immer `all` | 695.4 | 547.4 | 471.9 | 385.9 |
+| jotai `vanilla` | 1,986.1 | 455.3 | 1,609.3 | 606.4 |
+| query `core` | 1,766.4 | 364.6 | 1,285.7 | 434.5 |
+| valibot `schemas` | 918.3 | 293.6 | 763.1 | 418.5 |
+| xstate `core` | 668.5 | 523.3 | 642.9 | 481.0 |
 
-Against StrykerJS that is, on Linux and on macOS, 4.3 and 4.2 times as fast on jotai, 4.3 and 4.6 on valibot, 3.7 and 2.5 on ufo, 3.6 and 3.3 on query, 3.2 and 2.7 on zustand, 3.9 and 3.6 on es-toolkit `array`, 1.6 and 1.7 on xstate, and 1.3 and 1.4 on immer. On the few changed lines of es-toolkit `pr` it is 1.3 times as fast on Linux and as fast on macOS, where the second of StrykerJS's three runs ended with an error after 6.3 s and the other two took 25.8 and 30.1 s.
+On macOS that is 3.0 times as fast on query, 2.8 on zustand, 2.7 on jotai, 1.8 on valibot, 1.3 on xstate, 1.2 on immer, ufo and es-toolkit `array`; on Linux, where only zustand, immer and xstate had one processor for both, 4.0, 1.3 and 1.3 times as fast there. On the few changed lines of es-toolkit `pr` StrykerJS is the faster: this tool takes a third longer on one processor on Linux, half as long again on macOS.
 
-The two rows of es-toolkit are of three later runs the same day. In the runs before them the benchmark had put the link that lets the project import itself by name into the project's own `node_modules`, which its config does not leave out of the test files, and this tool, like a plain run there, found every test file twice; StrykerJS runs in a copy of the project, where the files behind the link are not related to what was mutated, and ran each once. With each file found twice, `array` took this tool 124.8 and 160.2 s and `pr` 64.8 and 42.1 s. The same later runs have a process that was copied for every run of a file not load the file itself afterwards.
+On 13 October this tool had taken 17.7 and 20.4 s on ufo, 89.5 and 100.1 s on `array`, 30.3 and 24.8 s on `pr`, 460.3 and 369.5 s on jotai and 237.9 and 205.5 s on valibot. Run in one job with that version, the version of these runs takes ufo from 17.5 to 36.5 s on macOS and `pr` from 20.6 to 37.3 s, with every verdict the same. Nearly all of it is runs that stop a test: a loop past its count now runs until the test's own limit has passed on the clock and in the processor's time, and a test that waits for good until Vitest's limit ends it, where the second of before also called a timeout a loop or a wait that ends in two seconds and passes the suite (see [Limits](limits.md), a timeout is a judgement). es-toolkit's `pr` has one such mutant: its run took 1.1 s, twice, and takes 10.1 s. What was looked at to cut that without a wrong verdict is in the [decisions](decisions.md).
+
+The application targets, in runs of 31 October 2026 with the copies made while a file loads and the timers it set put off for copies made once it has (see [Making such a process cheap](design.md#making-such-a-process-cheap)); actual and Roo-Code are of the version before the timers. These take hours, and StrykerJS and this tool ran in jobs of their own, so a row is two machines and the processor of each Linux job is named: an EPYC 7763 took StrykerJS 7,250 s on immich `services` where a 9V45 had taken it 3,953 s a day before. One run each unless more are shown; every report of this tool agreed with the stored ground truth on every mutant it judged.
+
+| Target and scope | Linux: StrykerJS | This tool | macOS: StrykerJS | This tool |
+|---|---|---|---|---|
+| umami `lib` | 2,876.7 (7763) | 706.5 (9V45) | 2,374.9 | 1,352.9 |
+| formbricks `utils` | 1,681.2 (9V74) | 1,307.0, 1,224.9, 1,236.1 (7763) | 2,017.0 | 1,412.6, 1,304.5, 1,499.7 |
+| immich `utils` | 4,349.3 (9V74) | 3,187.6 (7763) | 5,912.7 | 3,526.4 |
+| immich `services` | 7,250.2 (7763) | 3,545.0 (9V74) | 6,574.8 | 4,740.0 |
+| actual `server` | 13,887.3 (9V45) | 7,528.6 (9V74) | 18,884.8 | 7,611.2 |
+| Roo-Code `utils` | does not start | 892.1 (9V45) | does not start | 2,110.0 |
+
+On macOS that is 1.8 times as fast on umami, 1.4 on formbricks, 1.7 on immich `utils`, 1.4 on `services` and 2.5 on actual. On Linux no row had both tools on one processor; every time of this tool is below StrykerJS's. immich `services` on Linux took 9,076 s on a 9V74 before the timers were put off: `detect-libc` leaves a request to Node's thread pool under way while those test files load, no copy is made while they do, and `exiftool-vendored`'s timer kept every copy from being made once they had. formbricks on Linux had given up on `proxy.test.ts` in two runs out of four, after three rounds in which no process said a word of the file, with every mutant it reaches reported as pending; such a file's runs now go to workers started for them, which happened twice in the three runs above, and each of the three ran to its end.
 
 The scopes StrykerJS does not start on, gives no usable verdicts for or was not run on, this tool alone:
 
@@ -151,7 +187,7 @@ The first run of this workflow, with a third more workers than cores, reported o
 
 ## Checking the verdicts
 
-`bench/truth.ts` writes each mutant of a report into the source, in parentheses where it stands for an expression and only where that parses to the same tree around it, runs Vitest, and compares: a mutant counts as agreeing when the suite fails or hangs and the report says Killed or Timeout, or the suite passes and the report says anything else. Three things are checked with it:
+`bench/truth.ts` writes each mutant of a report into the source, in parentheses where it stands for an expression and only where that parses to the same tree around it, runs Vitest, and compares. Inside an optional chain that goes on past the mutant it writes the text bare: `(a?.b.c)()` calls undefined where `a?.b.c()` stops at `a`, and one survivor of umami was taken for failing the suite until that was seen. Of the 190 entries stored before then that lie inside such a chain, none came out otherwise written bare. A mutant counts as agreeing when the suite fails or hangs and the report says Killed or Timeout, or the suite passes and the report says anything else. Three things are checked with it:
 
 - **The fixture project, on every push and every platform.** `pnpm test:truth` runs the whole suite of `fixtures/basic` for each of its 210 mutants. The first time it ran it found two defects no assertion had been written for: mutants in code that only cleanup hooks reach were reported as not covered, and a mutant that ended the process left every mutant of its test file pending. Two reviews then named traps the fixture did not have, and the check confirmed six of them as defects, each now a fixture: code only `afterAll` or the teardown of a shared fixture reaches (reported as static), tests with `retry` or `repeats` and tests that skip themselves (not covered), a loop that a mutant makes long but not endless (timeout), a loop in `beforeAll` counted against the tests' share (timeout), and a file that never finishes loading with a mutant, where the tool itself did not end.
 - **The benchmark scopes, in CI.** `bench/truth/` holds what the suites gave for 16,663 mutants of 22 scopes, and `bench/run.ts` fails when a report disagrees with it; `.github/workflows/bench.yml` runs that on Linux and macOS runners. The entries were made on macOS with the test files that reach each mutant; the ten that the first version of the check had written without parentheses, and so wrongly, were made again. One entry carries a note: the miss in hono described under [Limits](limits.md). pinia's own suite does not pass at the pinned commit, so seven of its entries that could not be made again were dropped. A run in which nothing failed but tests that fail with no mutant too counts as passing only if Vitest also had no error that nothing handled: it ends with an error for those while every test passes, its JSON report does not list them, and a reporter of the check's own asks for them. One mutant of solid, rightly reported as killed, was first taken for passing without that.

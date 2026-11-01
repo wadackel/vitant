@@ -3,6 +3,7 @@
 // project, so this file works with whichever Vitest version that project
 // resolves.
 
+import { createHook } from 'node:async_hooks'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -66,8 +67,14 @@ export interface VitestBindings {
  * the arguments it was called with, until the worker exits. That is harmless
  * when a test runs once and exhausts the heap when it runs thousands of times,
  * so mocks created during an attempt are held weakly once the attempt is over.
- * `vi.clearAllMocks()` and friends only ever call `forEach`, which still
- * reaches the ones that are alive.
+ * `vi.clearAllMocks()` and friends still have to reach the ones that are
+ * alive, and Vitest goes through the registry two ways: with `forEach` up to
+ * 3.0.6, and from 3.0.7 by spreading it and restoring in reverse, so the order
+ * matters too. Patching `forEach` alone leaves every mock made before the
+ * first attempt ended uncleared from 3.0.7 on: call counts grow from test to
+ * test, and tests that count calls fail with no mutant on. Both
+ * ways go through one sequence: the weakly held mocks, which were
+ * all made before those still in the set, then the set, in the order made.
  */
 function trackMocksWeakly(mocks: Set<object>): () => void {
   const weak = new Set<WeakRef<object>>()
@@ -77,14 +84,18 @@ function trackMocksWeakly(mocks: Set<object>): () => void {
     created.push(mock)
     return add(mock)
   }
-  const forEach = mocks.forEach.bind(mocks)
-  mocks.forEach = (callback, thisArg) => {
-    forEach(callback, thisArg)
+  const held = mocks.values.bind(mocks)
+  function* all(): SetIterator<object> {
     for (const ref of weak) {
       const mock = ref.deref()
-      if (mock) callback.call(thisArg, mock, mock, mocks)
+      if (mock) yield mock
       else weak.delete(ref)
     }
+    yield* held()
+  }
+  mocks[Symbol.iterator] = all
+  mocks.forEach = (callback, thisArg) => {
+    for (const mock of [...all()]) callback.call(thisArg, mock, mock, mocks)
   }
   return () => {
     for (const mock of created) {
@@ -129,7 +140,7 @@ interface TestRun {
   /** Whether the mutant being checked tripped a time limit rather than an assertion. */
   mutantTimedOut: boolean
   /** Which limit the last attempt tripped, for the report. */
-  timeoutCause?: 'loop' | 'timer' | 'test timeout' | 'idle'
+  timeoutCause?: 'loop' | 'timer' | 'idle'
   timeoutCauses: string[]
   /** Why the worker stopped running the test's mutants, for diagnosis. */
   stop?: string
@@ -310,6 +321,7 @@ const watchdogSource = `
 const { workerData } = require('node:worker_threads')
 const fs = require('node:fs')
 const beat = new Float64Array(workerData.shared, 0, 2)
+const stretch = new Float64Array(workerData.stretch)
 const mutant = new Int32Array(workerData.shared, 16, 2)
 const testId = new Uint8Array(workerData.shared, 24, 256)
 const deadline = new Float64Array(workerData.deadline)
@@ -322,12 +334,15 @@ for (;;) {
   const started = beat[0]
   const stalled = mutant[0]
   // A run of a whole file can also wait for good on what a mutant keeps
-  // from happening while the file loads, using no CPU time at all and with
-  // no test's time limit to end it.
+  // from happening, using no CPU time at all, where Vitest has no limit on
+  // time to end it, such as while the file loads: see clockOn.
   // Nor does a limit on time come soon enough for a mutant that takes a
   // gigabyte a second.
-  const overdue = (deadline[0] > 0 && Date.now() > deadline[0]) || (resident[0] > 0 && process.memoryUsage.rss() > resident[0])
-  if ((beat[1] > 0 && cpu() - started > beat[1]) || overdue) {
+  const clock = deadline[0] > 0 && Date.now() > deadline[0]
+  const memory = resident[0] > 0 && process.memoryUsage.rss() > resident[0]
+  const overdue = clock || memory
+  const long = beat[1] > 0 && cpu() - started > beat[1] && (stretch[1] === 0 || Date.now() - stretch[0] > stretch[1])
+  if (long || overdue) {
     const end = testId.indexOf(0)
     const id = new TextDecoder().decode(testId.subarray(0, end === -1 ? testId.length : end))
     // The attempt may have ended while this thread was getting here; the
@@ -340,12 +355,14 @@ for (;;) {
     // on a slow machine that alone is over the limit, with every mutant in
     // turn: the mutant stays as it is and the file's tests are replayed.
     const cold = mutant[1] === 2
-    fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, cold, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
+    const by = clock ? 'clock' : memory ? 'memory' : 'cpu'
+    fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, cold, whole: mutant[1] === 1, by, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
     // In a whole-file run the stall is the verdict. Either way it must not
     // replace what another worker has already found out.
     const current = new Uint8Array(1)
-    fs.readSync(fd, current, 0, 1, stalled)
-    if (!cold && (current[0] === ${MUTANT_PENDING} || current[0] === ${MUTANT_STALLED})) {
+    // A run with no mutant on has no byte here; the position -1 would be read as the file's own.
+    if (stalled >= 0) fs.readSync(fd, current, 0, 1, stalled)
+    if (stalled >= 0 && !cold && (current[0] === ${MUTANT_PENDING} || current[0] === ${MUTANT_STALLED})) {
       fs.writeSync(fd, new Uint8Array([mutant[1] ? ${MUTANT_TIMEOUT} : ${MUTANT_STALLED}]), 0, 1, stalled)
     }
     // A worker that is gone with a mutant on is taken to have died of it.
@@ -360,8 +377,23 @@ const beat = new Float64Array(shared, 0, 2)
 /** [0] the active mutant, [1] 1 in a whole-file run, 2 in a test's first try of a mutant in a worker that skipped the tests before it. */
 const beatMutant = new Int32Array(shared, 16, 2)
 const beatTest = new Uint8Array(shared, 24, 256)
-/** When a run of a whole file has to be over, by the clock; 0 outside one. */
+/**
+ * [0] wall time at the last heartbeat, [1] how long by the clock a stretch
+ * must last before it is ended, 0 for no such floor. The processor time of
+ * the process counts every thread: a loop that allocates keeps the
+ * collector's threads busy beside it, and in four seconds by the clock used
+ * six of processor time, where the suite's limit of five is on the clock.
+ */
+const stretch = new Float64Array(new SharedArrayBuffer(16))
+/** Sets how much processor time one stretch without a heartbeat may use, and how long by the clock it must at least last. */
+function limitStretch(cpuMs: number, wallMs = 0): void {
+  beat[1] = cpuMs
+  stretch[1] = wallMs
+}
+/** When a run of a whole file has to have moved on, by the clock; 0 outside one. */
 const wallDeadline = new Float64Array(new SharedArrayBuffer(8))
+/** How far each heartbeat puts `wallDeadline` off while the body of a test with a limit of Vitest's runs in such a run; 0 otherwise. */
+let bodyClockMs = 0
 /** How much memory a run of a whole file may hold, in bytes; 0 outside one. */
 const residentLimit = new Float64Array(new SharedArrayBuffer(8))
 let watching = false
@@ -391,6 +423,7 @@ function watch(): void {
     workerData: {
       shared,
       deadline: wallDeadline.buffer,
+      stretch: stretch.buffer,
       resident: residentLimit.buffer,
       statePath: paths.state,
       resultsPath: path.join(paths.results, `${process.pid}.jsonl`),
@@ -401,14 +434,25 @@ function watch(): void {
 const heartbeat = () => {
   const usage = process.cpuUsage()
   beat[0] = (usage.user + usage.system) / 1000
+  stretch[0] = realNow()
   // A copy whose watcher is gone has nobody to hand a verdict to, and one
   // that runs a file nobody to end it.
   if ((cloned || hosted) && process.ppid !== copiedFrom) cloner!.exit(1)
+  // Vitest ends a test's body by a timer, which only fires while the event
+  // loop turns: a body that blocks it without using the processor, on a
+  // child process run to its end for one, is left to the clock.
+  if (bodyClockMs > 0) wallDeadline[0] = realNow() + bodyClockMs
+  // A copy has no thread that would stop it by the clock. Over its time it
+  // ends without a verdict, rather than with a timeout as a worker does: a
+  // copy can wait for good on a thread it does not have, and a worker
+  // started for the job decides.
+  if (cloned && wallDeadline[0] > 0 && realNow() > wallDeadline[0]) cloner!.exit(1)
   if (cloned) {
     // It has no thread to watch it; the process it was copied from does,
     // from outside, and is told what the thread would read.
-    cloner!.heartbeat(beat[0], beat[1])
+    cloner!.heartbeat(beat[0], beat[1], stretch[1])
   }
+  if (hosted) cloner!.turned()
 }
 heartbeat()
 realSetInterval(heartbeat, 50).unref()
@@ -418,13 +462,15 @@ interface Cloner {
   /** 0 in the copy, its process id in the one that was copied. */
   fork(lock: number): number
   pid(): number
-  heartbeat(cpuMs: number, limitMs: number): void
+  heartbeat(cpuMs: number, limitMs: number, floorMs: number): void
   /** In a copy: its verdict is written. */
   done(): void
   /** Waits for a copy to end and says how it did. */
-  supervise(pid: number, stuckMs: number, ceilingMs: number, residentLimit: number): number
-  /** Waits for a copy that watches itself; the code it ended itself with, or -1. */
-  wait(pid: number): number
+  supervise(pid: number, stuckMs: number, residentLimit: number): number
+  /** In a copy that runs a test file, or one it made: its event loop has turned. */
+  turned(): void
+  /** Waits for a copy that watches itself; the code it ended itself with, -1, or -2 where it was stopped as stuck. */
+  host(pid: number, stuckMs: number): number
   Ended: { Done: number; Blocked: number; Lost: number }
   exit(code: number): never
 }
@@ -439,11 +485,18 @@ const cloner: Cloner | undefined =
 
 /** What a copy that runs a test file ends with to be replaced by another, see `handOver`. */
 const RECYCLED = 75
+/**
+ * How long a copy that runs a test file may sit with no child, no CPU time
+ * and no turn of an event loop before it is taken to be stuck at a lock.
+ */
+const HOST_STUCK_MS = 30_000
 /** How many copies one after another are given a file in a round. */
 const MAX_COPIES = 50
 
 /** How long a copy may go without a heartbeat while using no CPU time. */
 const STUCK_MS = 3000
+
+type CopiedBy = 'copied before load' | 'copied while loading' | 'copied after load'
 
 /** In `runtime.a`: no mutant is on, and none is to be probed for either. */
 const NO_MUTANT = 0x7fffffff
@@ -489,6 +542,90 @@ function trackCalls(state: { rpc?: object } | undefined): void {
   wrapped.add(state.rpc)
 }
 /**
+ * How much longer than a loop past its count may keep the process busy the
+ * watchdog lets a stretch go on. A copy that the process it came from stops
+ * names no test, and a lead its test gave for the same loop then does not
+ * vouch for it; ended in the test, the loop names it.
+ */
+const LOOP_FIRST_MS = 1000
+
+/** How long Vitest lets a test or a hook run before it fails it, or 0 where it gives no limit, which leaves this runner's own. */
+function deadline(ms: number | undefined): number {
+  return ms !== undefined && ms > 0 && Number.isFinite(ms) ? ms : 0
+}
+
+/**
+ * Timers set while a file loads, whether they keep the process alive or
+ * not: what the process lists as active leaves out one that was unref'd, and
+ * a copy made later meets it due sooner, or at once. In a file whose code
+ * turned a flag off 300 ms after loading, a copy made later passed a test
+ * that every run of the suite fails.
+ */
+interface LoadTimer {
+  _destroyed?: boolean
+  _idleStart?: number
+  _idleTimeout?: number
+  refresh?: () => unknown
+}
+const loadTimers: LoadTimer[] = []
+const timerHook = createHook({
+  // Node calls `destroy` later than a timer is done with, and a timer that fired is no longer due in a copy.
+  init(_id, type, _trigger, resource) {
+    if (type === 'Timeout') loadTimers.push(resource as { _destroyed?: boolean })
+  },
+})
+
+/**
+ * Moves the timers set while the file loads as late as the time a process
+ * stood still, so that each is due as far into what runs next as it was
+ * when the process stopped. Node takes a timer's due time from its start
+ * every time its list comes up, and puts the list back for later where the
+ * first timer is not due yet.
+ */
+function stoodStill(ms: number): void {
+  const by = Math.round(ms)
+  for (const timer of loadTimers) if (!timer._destroyed && timer._idleStart !== undefined) timer._idleStart += by
+}
+
+/** Timers set while the file loaded, put off for now, with what was left of each when they were. */
+let frozen: [LoadTimer, number][] = []
+
+/**
+ * Puts every timer set while the file loaded off for good, keeping what
+ * was left of it, so that none goes off while this process waits between
+ * copies made once the file has loaded: `stoodStill` after the fact
+ * cannot take back a callback that has run. A timer's due time is its
+ * start in the event loop's time plus its delay; that time is read off a
+ * timer made for the purpose.
+ */
+function freeze(): void {
+  const probe = realSetTimeout(() => {}, 0) as unknown as LoadTimer
+  const now = probe._idleStart
+  clearTimeout(probe as unknown as NodeJS.Timeout)
+  frozen = []
+  for (const timer of loadTimers) {
+    if (timer._destroyed || timer._idleStart === undefined || timer._idleTimeout === undefined || now === undefined || !timer.refresh) continue
+    frozen.push([timer, Math.max(0, timer._idleStart + timer._idleTimeout - now)])
+    timer._idleTimeout = 2 ** 31 - 1
+    timer.refresh()
+  }
+}
+
+/**
+ * Makes each timer `freeze` put off due as long from now as it was then.
+ * An interval goes on at its own period after that, which Node takes from
+ * `_repeat`.
+ */
+function thaw(): void {
+  for (const [timer, left] of frozen) {
+    if (timer._destroyed) continue
+    timer._idleTimeout = left
+    timer.refresh!()
+  }
+  frozen = []
+}
+
+/**
  * Waits for what this process has under way to end, and says whether it
  * then holds nothing open beyond `before`. A write half done would be
  * finished by the process and its copy both; a request a thread is working
@@ -498,14 +635,11 @@ function trackCalls(state: { rpc?: object } | undefined): void {
  * due sooner in each copy made later, where every run of the suite has it
  * due at the same point; Vitest's own are in every worker alike.
  */
-async function calm(before: Map<string, number>, timers: boolean): Promise<boolean> {
+async function calm(before: Map<string, number>, ignored: string[]): Promise<boolean> {
   for (let attempt = 0; attempt < 20; attempt++) {
     await quiet()
     const now = activeResources()
-    if (!timers) {
-      now.delete('Timeout')
-      now.delete('Immediate')
-    }
+    for (const kind of ignored) now.delete(kind)
     if (!exceeds(now, before)) return true
     await new Promise((resolve) => realSetTimeout(resolve, 5))
   }
@@ -823,6 +957,10 @@ function meetOther(job: WholeJob, jobs: WholeJob[]): Promise<boolean> {
   return meet(taken(job.id), taken(other.id), 10_000 + 3 * job.fileMs)
 }
 
+function taken(name: string): boolean {
+  return fs.existsSync(path.join(paths.claims, name))
+}
+
 function claim(name: string): boolean {
   try {
     fs.closeSync(fs.openSync(path.join(paths.claims, name), 'wx'))
@@ -830,6 +968,10 @@ function claim(name: string): boolean {
   } catch {
     return false
   }
+}
+
+function claimed(name: string): boolean {
+  return fs.existsSync(path.join(paths.claims, name))
 }
 
 /**
@@ -844,6 +986,16 @@ function claimChunk(testId: string, planned: PlannedTest, from: number): number 
     if (claim(`${testId}.${index}`)) return index
   }
   return -1
+}
+
+/** Whether a planned test still has work for a worker that reaches it. */
+function untaken(testId: string): boolean {
+  const planned = plan?.tests[testId]
+  if (!planned) return false
+  if (!planned.mutants) return !taken(testId)
+  const chunks = Math.ceil(planned.mutants.length / planned.chunk)
+  for (let index = 0; index < chunks; index++) if (!taken(`${testId}.${index}`)) return true
+  return false
 }
 
 function newRun(mode: TestRun['mode']): TestRun {
@@ -931,6 +1083,30 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private loopLimit = runtime.x
     /** Every runnable test of the files this worker ran. */
     private seen: string[] = []
+    /** In a replayed file, the tests anyone drives, in the order they run. */
+    private ahead: string[] = []
+    /** Whether nothing is left for this worker to drive in its replayed file. */
+    private through = false
+    /**
+     * Tests of `ahead` seen with every chunk taken. Looked up on disk for
+     * each test passed by, the tests after it went quadratic in a worker
+     * that starts after the others: 25 million lookups and 248 s of twelve
+     * workers in one round of immer. A chunk handed back after that is left
+     * to the next round, as it is once `through` is set.
+     */
+    private full = new Set<string>()
+    /** This worker makes its file's pass, see `RoundPlan.measure`. */
+    private measuring = false
+    /** In a run of a whole file, the shortest stretch, on the processor and by the clock, that ends it: the suite's own limit for what is running. */
+    private floorMs = 0
+    /** In a run of a whole file, the limit on a stretch that comes from what the file takes. */
+    private wholeBase = 0
+    /** In a run of a whole file, how long by the clock it may go without moving on, see `clockOn`. */
+    private wholeClockMs = 0
+    /** In a run of a whole file, how many test bodies with a time limit of Vitest's are running. */
+    private wholeBodies = 0
+    /** When this process took its file on, before loading it. */
+    private fileStart = 0
     /** Whether a test stopped passing unmutated in this worker, which ends the worker. */
     private tainted = false
     /** Whether a mutant has been on in this worker. */
@@ -965,11 +1141,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeOverran = 0
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     /** How the process making the whole-file run came to be. */
-    private wholeBy: 'started' | 'copied before load' | 'copied after load' = 'started'
+    private wholeBy: 'started' | CopiedBy = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
     private template = false
     private heldBeforeLoad = new Map<string, number>()
     private openBeforeLoad: Set<string> | undefined
+    /** Jobs to be copied for as their mutants' modules begin their own code, see `copyWhileLoading`. */
+    private waiting: WholeJob[] = []
+    /** No copy was made while the file loaded, where one was to be. */
+    private unpaused = false
     /** Vitest gave up on a test part-way, and with it on the rest of its suite. */
     private dropped = false
     /** A copy of this process runs the file; this one imports nothing of it. */
@@ -994,16 +1174,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         let pid: number
         try {
           pid = cloner!.fork(forkLock)
-        } catch {
+        } catch (error) {
           // Running the file here would leave its traces for the next; the
-          // round after this one finds its work not done.
+          // round after this one finds its work not done, and gives the file
+          // workers of its own.
+          emit({ type: 'unhanded', file, error: String(error) })
           return process.kill(process.pid, 'SIGKILL')
         }
         if (pid === 0) {
           succeeding = copies > 1
           break
         }
-        const ended = cloner!.wait(pid)
+        const ended = cloner!.host(pid, HOST_STUCK_MS)
         // A copy that a mutant left unfit for the tests that follow, or
         // that holds too much, ends itself with what it had taken handed
         // back. This process is still what a worker is before its first
@@ -1042,36 +1224,45 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     async onBeforeCollect(paths: (string | { filepath: string })[]): Promise<unknown> {
+      this.fileStart = realNow()
       loadRound()
       const file = typeof paths[0] === 'string' ? paths[0] : paths[0]?.filepath
       if (cloner && !hosted && !cloned && !watching && plan?.handed.includes(file) && (await this.handOver(file))) return super.onBeforeCollect?.(paths)
       loaded = false
       this.idle = false
+      this.measuring = false
       this.wholeFile = file
       const jobs = plan?.whole[file] ?? []
       // Before anything of the file runs here, loading it included.
-      if (plan?.quiet) await alone('')
+      if (plan?.quiet) await alone(plan.together?.includes(file) ? file : '')
       else if (plan?.exclusive.includes(file)) await alone(file)
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
+      let settled: boolean | undefined
       if (plain) {
         if (plain.pair) this.pairMet = await meetOther(plain, jobs)
         this.begin(plain, true)
-      } else if (cloner && !watching && jobs.length > 0 && (await calm(workerResources, false))) {
+      } else if (cloner && !watching && jobs.length > 0 && (settled = await calm(workerResources, ['Timeout', 'Immediate']))) {
           // Nothing of the project has run in this process yet, so a copy of
         // it is what a new worker would be at this point.
         for (const job of jobs) {
-          if (job.plain || !job.early || !this.open(job) || !claim(`whole.${job.id}`)) continue
+          if (job.plain || !job.early || job.loading || !this.open(job) || !claim(`whole.${job.id}`)) continue
           if (await this.clone(job, true)) {
             this.begin(job, true)
             return super.onBeforeCollect?.(paths)
           }
         }
         // The other jobs are for mutants whose code does not run while the
-        // file loads. A copy made once it has loaded is, for them, what a run
-        // that had the mutant on all along would be at that point. Until then
-        // no mutant is on and no probe runs.
-        this.template = jobs.some((job) => !job.plain && !job.early && this.open(job))
+        // file loads, or does once their module begins its own code. A copy
+        // made once it has loaded, or as that module begins, is for them what
+        // a run that had the mutant on all along would be at that point. Until
+        // then no mutant is on and no probe runs.
+        this.template = jobs.some((job) => !job.plain && (!job.early || job.loading) && this.open(job))
         if (this.template) {
+          this.waiting = jobs.filter((job) => !job.plain && job.loading && this.open(job))
+          this.unpaused = false
+          // A copy made while loading is made on the spot, and the count of
+          // calls under way that says it may be has to be whole by then.
+          if (this.waiting.length > 0) await this.standStill()
           runtime.a = NO_MUTANT
           // Node opens its end of the standard streams when they are first
           // used. A file that logs while it loads would look as if it had
@@ -1081,6 +1272,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           this.heldBeforeLoad = activeResources()
           this.openBeforeLoad = openDescriptors()
           this.keepToItself()
+          loadTimers.length = 0
+          timerHook.enable()
+          if (this.waiting.length > 0) runtime.m = (first, end) => this.copyWhileLoading(first, end)
           return super.onBeforeCollect?.(paths)
         }
       } else {
@@ -1088,9 +1282,38 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (job) this.begin(job, true)
       }
       this.idle = !this.whole && file !== undefined && plan?.wholeOnly.includes(file) === true
+      // A round in which the file's workers made none of its runs ends with
+      // nothing learnt, and three such end the run: what kept each from them
+      // is otherwise written nowhere.
+      if (this.idle && jobs.length > 0) {
+        emit({
+          type: 'idle',
+          file,
+          settled,
+          jobs: jobs.map((job) => ({
+            id: job.id,
+            mutant: job.mutant,
+            control: job.control === true,
+            open: this.open(job),
+            taken: claimed(`whole.${job.id}`),
+          })),
+        })
+      }
       watch()
       workerResources = activeResources()
       return super.onBeforeCollect?.(paths)
+    }
+
+    /** Whether this worker gives the tests of the file their unmutated run, see `RoundPlan.probe`. */
+    private probes(file: string): boolean {
+      return plan !== undefined && file in plan.probe && (!plan.measure.includes(file) || this.measuring)
+    }
+
+    private untakenHere(testId: string): boolean {
+      if (this.full.has(testId)) return false
+      if (untaken(testId)) return true
+      this.full.add(testId)
+      return false
     }
 
     private open(job: WholeJob): boolean {
@@ -1107,7 +1330,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
-      return this.copy(job, beforeLoad)
+      return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
     }
 
     /**
@@ -1157,8 +1380,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * process that was copied this waits for the copy to end. Returns whether
      * this is the copy.
      */
-    private copy(job: WholeJob, beforeLoad: boolean): boolean {
-      const by = beforeLoad ? 'copied before load' : 'copied after load'
+    private copy(job: WholeJob, by: CopiedBy): boolean {
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
       let pid: number
@@ -1181,13 +1403,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       // This process waits without touching the channel to the main
       // process, which the copy uses in its place. A copy that keeps to its
-      // heartbeat and never ends, awaiting what a mutant keeps from
-      // happening where no test's time limit applies, is given up on at what
-      // ends a run in a worker started for it, which is where it goes from
-      // here: waiting longer for it only puts that run off.
-      const limit = hardLimitMs({ baselineMs: job.fileMs })
+      // heartbeat and never ends stops itself by the clock, see `heartbeat`.
       const copiedAt = preciseNow()
-      const ended = cloner!.supervise(pid, STUCK_MS, limit + 30_000, job.control || job.calm ? 0 : residentLimitOf(job))
+      const ended = cloner!.supervise(pid, STUCK_MS, job.control || job.calm ? 0 : residentLimitOf(job))
       if (job.trial !== undefined) {
         if (ended !== cloner!.Ended.Done) untold(job, this.wholeFile!)
       } else if (job.calm) {
@@ -1217,6 +1435,92 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       return false
     }
 
+    /**
+     * Starts the time a run of a whole file has by the clock over, at each
+     * point where the run is seen to move on. A limit on the run as a whole
+     * is not one the suite has: thirty tests that each wait a second under a
+     * limit of five pass, and would be over it. What is left between two such
+     * points is what Vitest gives no limit, loading the file or a fixture's
+     * teardown, or hooks, every `beforeEach` of a test for one, each under a
+     * limit of its own but not seen apart here. The body of a test that has a limit
+     * is timed only while it keeps the event loop from turning, see
+     * `heartbeat`: otherwise Vitest ends it.
+     */
+    private clockOn(): void {
+      if (this.whole) wallDeadline[0] = realNow() + this.wholeClockMs
+    }
+
+    /** Runs a test's body in a run of a whole file, where the clock counts only while Vitest's limit cannot end it. */
+    private async runWholeBody(test: TaskLike, fn: () => unknown): Promise<void> {
+      const limited = deadline((test as { timeout?: number }).timeout ?? this.config.testTimeout) > 0
+      if (limited && this.wholeBodies++ === 0) bodyClockMs = this.wholeClockMs
+      try {
+        await fn()
+      } finally {
+        if (limited && --this.wholeBodies === 0) bodyClockMs = 0
+        this.clockOn()
+      }
+    }
+
+    /** The limits on a stretch of a run of a whole file, for what is running now. */
+    private limitWhole(): void {
+      const floor = this.floorMs && this.floorMs + LOOP_FIRST_MS
+      limitStretch(Math.max(this.wholeBase, floor), floor)
+    }
+
+    /**
+     * Makes the copies for the jobs whose mutants are in the module now
+     * beginning its own code, the one with sites `first` to `end`. Nothing is
+     * awaited here: a pause would let what the modules before it queued run
+     * ahead of its code, which no run of the suite does, and a copy made
+     * without one goes on from the same queue. Only where nothing this
+     * process holds could be shared with a copy, as after loading. A timer
+     * set since is put off, in each copy and then here, by as long as the
+     * copies took: otherwise it is due sooner in each copy made later, and
+     * here it would go off part-way through loading, in a process that may
+     * yet be copied once the file has loaded.
+     */
+    private copyWhileLoading(first: number, end: number): void {
+      const due = this.waiting.filter((job) => job.site >= first && job.site < end)
+      if (due.length === 0) return
+      this.waiting = this.waiting.filter((job) => !due.includes(job))
+      const open = openDescriptors()
+      const held = activeResources()
+      const why = runtime.h.subarray(first, end).includes(1)
+        ? 'ran'
+        : calls > 0 || unanswered.size > 0
+          ? 'calls'
+          : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
+            ? 'descriptors'
+            : // A callback queued with `setImmediate` is due at the next turn
+              // of the loop whatever the clock says, in each copy as in the
+              // run of the suite; a timer is put off, below.
+              exceeds(new Map([...held].filter(([kind]) => kind !== 'Immediate' && kind !== 'Timeout')), this.heldBeforeLoad)
+              ? 'held'
+              : undefined
+      if (why) {
+        // The jobs are left for the next round, which makes them before the file loads.
+        if (!this.unpaused) emit({ type: 'loading', file: this.wholeFile, why, held: why === 'held' ? [...held] : undefined })
+        this.unpaused = true
+        return
+      }
+      const stoppedAt = preciseNow()
+      for (const job of due) {
+        if (!this.open(job) || !claim(`whole.${job.id}`)) continue
+        if (this.copy(job, 'copied while loading')) {
+          stoodStill(preciseNow() - stoppedAt)
+          runtime.m = undefined
+          this.waiting = []
+          this.template = false
+          timerHook.disable()
+          workerResources = this.heldBeforeLoad
+          this.begin(job, true)
+          return
+        }
+      }
+      stoodStill(preciseNow() - stoppedAt)
+    }
+
     /** Turns the job's mutant on for the rest of the file's run. */
     private begin(job: WholeJob, beforeLoad: boolean): void {
       this.whole = job
@@ -1226,6 +1530,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.wholeStartedAt = preciseNow()
       // A mutant that is only to be on for one test comes on at that test.
       runtime.a = job.control || job.trial !== undefined ? NO_MUTANT : job.mutant
+      // A module the file has not loaded yet makes the value as it loads, with the mutant on.
+      if (!beforeLoad) for (const site of job.again ?? []) for (const remake of runtime.e[site] ?? []) remake()
       this.trialOver = false
       this.trialSaid = false
       // The loops of the whole file share one count, with room for those
@@ -1256,10 +1562,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // mutant that blocked a worker before gets the plain limit: blocking
       // twice is what a timeout is.
       const file = { baselineMs: job.fileMs }
-      beat[1] = job.stalled ? limitMs(file) : hardLimitMs(file)
+      // Nor sooner than the suite's own limit could end what is running, a
+      // hook until the first test: a mutant that kept a test busy for 4 s
+      // where the project gives a test 60 s passes the suite, and was
+      // reported as a timeout.
+      this.wholeBase = job.stalled ? limitMs(file) : hardLimitMs(file)
+      this.floorMs = deadline(this.config.hookTimeout)
+      this.limitWhole()
       heartbeat()
-      // A copy is watched, for this too, by the process it was copied from.
-      wallDeadline[0] = cloned ? 0 : realNow() + hardLimitMs(file)
+      this.wholeClockMs = hardLimitMs(file) + Math.max(deadline(this.config.testTimeout), deadline(this.config.hookTimeout))
+      this.wholeBodies = 0
+      bodyClockMs = 0
+      this.clockOn()
       residentLimit[0] = cloned || job.control || job.calm ? 0 : residentLimitOf(job)
       // A count of iterations says a loop is long, not that it does not
       // end: a mutant can send a loop over a few million elements that it
@@ -1269,7 +1583,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // loop of the file is likely to.
       const busyMs = Math.min(beat[1], Math.max(1000, job.fileMs * 2))
       runtime.x = (() => {
-        if (cpuMs() - beat[0] < busyMs) {
+        if (cpuMs() - beat[0] < Math.max(busyMs, this.floorMs) || realNow() - stretch[0] < this.floorMs) {
           runtime.l += config.loopSlack
           return
         }
@@ -1280,43 +1594,79 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     async onCollected(files: TaskLike[]): Promise<unknown> {
       if (this.away) return super.onCollected?.(files)
       if (this.template) {
+        runtime.m = undefined
+        // Jobs whose modules did not begin while the file loaded.
+        const unbegun = this.waiting.filter((job) => this.open(job))
+        this.waiting = []
         const told = new Set<number>()
-        // A file, a socket, a child process, a watcher or a timer the file
-        // left open while loading would be shared by every copy made from
-        // here; such a file's runs are all made from copies taken before it
-        // loads.
+        // Before anything is awaited: what the loop runs meanwhile is what
+        // copies made from here start from.
+        freeze()
+        // A file, a socket, a child process or a watcher the file left open
+        // while loading would be shared by every copy made from here; such a
+        // file's runs are all made from copies taken before it loads. So is a
+        // timer set since the timers were put off, which is not.
         const open = openDescriptors()
         const opened = !open || !this.openBeforeLoad || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
-        const shares = opened || !(await calm(this.heldBeforeLoad, true))
+        const settled = !opened && (await calm(this.heldBeforeLoad, ['Timeout']))
+        timerHook.disable()
+        const putOff = new Set(frozen.map(([timer]) => timer))
+        const shares = !settled || loadTimers.some((timer) => !timer._destroyed && !putOff.has(timer))
         if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()] })
+        // Nor can they be made from here then, and their next round makes them before the file loads.
+        if (shares && unbegun.length > 0 && !this.unpaused) emit({ type: 'loading', file: this.wholeFile, why: 'unbegun' })
         // No copy is made of a process that holds something open: a test that was to have its one run in one has had its turn.
         for (const job of shares ? (plan?.whole[this.wholeFile!] ?? []) : []) {
           if (job.trial !== undefined && claim(`whole.${job.id}`)) untold(job, this.wholeFile!)
         }
+        let copied = false
         for (const job of shares ? [] : (plan?.whole[this.wholeFile!] ?? [])) {
-          if (job.plain || job.early || !this.open(job)) continue
+          if (job.plain || (job.early && !job.loading) || !this.open(job)) continue
           // The mutant's code did run while this process loaded the file, so
           // a copy from here would have had it off for that: the job is left
           // for a copy made before loading.
-          if (job.trial === undefined && runtime.h[job.site] === 1) {
-            if (!told.has(job.site)) emit({ type: 'early', file: this.wholeFile, site: job.site })
-            told.add(job.site)
+          // A binding that is to be made again was read while this process
+          // loaded the file, after all: what read it had the value made with
+          // the mutant off.
+          const read = job.again ? job.again.find((site) => runtime.h[site] === 1) : job.trial === undefined && runtime.h[job.site] === 1 ? job.site : undefined
+          if (read !== undefined) {
+            if (!told.has(read)) emit({ type: 'early', file: this.wholeFile, site: read })
+            told.add(read)
             continue
           }
           if (!claim(`whole.${job.id}`)) continue
           if (await this.clone(job, false)) {
+            thaw()
             this.begin(job, false)
             return super.onCollected?.(files)
           }
+          copied = true
         }
-        // All that is left for this process is to end the file's run.
+        thaw()
         runtime.a = -1
-        forEachTask(files, (task) => {
-          if (task.mode === 'run' || task.mode === 'queued') task.mode = 'skip'
-        })
-        return super.onCollected?.(files)
+        // Every worker a file is given takes it as a template while a run
+        // asked for by name is open, whoever has claimed it. One left with
+        // no job is, with no mutant on so far, a worker the file's tries
+        // can have: ending the file here left them to a round of their own,
+        // 76 s of rea's `ExecFileOutput.ts`.
+        if (!copied && plan && !plan.wholeOnly.includes(this.wholeFile!)) {
+          this.template = false
+          watch()
+          workerResources = this.heldBeforeLoad
+        } else {
+          forEachTask(files, (task) => {
+            if (task.mode === 'run' || task.mode === 'queued') task.mode = 'skip'
+          })
+          return super.onCollected?.(files)
+        }
       }
       if (this.whole) return super.onCollected?.(files)
+      const file = this.wholeFile!
+      if (plan?.measure.includes(file)) {
+        this.measuring = claim(`measure.${plan.measure.indexOf(file)}`)
+        // The workers that try run the file as they would in any other round.
+        if (!this.measuring && !plan.replay.includes(file)) replayFiles.delete(file)
+      }
       drainStaticHits()
       loaded = true
       // One global holds the active mutant, so tests cannot interleave.
@@ -1328,12 +1678,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // Tests no worker drives this round are skipped before any hook
           // runs, and with them every suite left without a test to run.
           skipUnplanned(file)
-        } else if (plan && !plan.probe[file.file.filepath]) {
+        } else if (plan && !this.probes(file.file.filepath)) {
           // A replayed file runs as in a normal run up to the last test
           // anyone drives; nothing after it is needed.
           let last: TaskLike | undefined
+          this.ahead = []
+          this.through = false
+          this.full.clear()
           forEachTask([file], (task) => {
-            if (task.type === 'test' && plan!.tests[task.id]) last = task
+            if (task.type === 'test' && plan!.tests[task.id]) {
+              last = task
+              this.ahead.push(task.id)
+            }
           })
           let reached = last === undefined
           forEachTask([file], (task) => {
@@ -1348,12 +1704,24 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onBeforeRunSuite(suite: TaskLike): Promise<void> {
       this.finishActive()
+      this.clockOn()
       await super.onBeforeRunSuite?.(suite)
+    }
+
+    async onAfterRunSuite(suite: TaskLike): Promise<void> {
+      this.clockOn()
+      await super.onAfterRunSuite?.(suite)
     }
 
     async onBeforeRunTask(test: TaskLike): Promise<void> {
       await super.onBeforeRunTask?.(test)
       if (this.whole) {
+        beatTest.fill(0)
+        beatTest.set(new TextEncoder().encode(test.id).subarray(0, 255))
+        this.floorMs = deadline((test as { timeout?: number }).timeout ?? this.config.testTimeout)
+        this.limitWhole()
+        this.clockOn()
+        heartbeat()
         // The first failure settles it.
         const over = this.whole.trial !== undefined ? this.trialOver : this.wholeSettled()
         if (over || this.whole.ignore.includes(test.id)) test.mode = 'skip'
@@ -1361,14 +1729,24 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       if (test.mode !== 'run' && test.mode !== 'queued') return
       this.seen.push(test.id)
-      if (plan?.ignore.includes(test.id) && plan.pristine.includes(test.file.filepath) && plan.probe[test.file.filepath]?.length === 0) {
+      if (plan?.ignore.includes(test.id) && plan.pristine.includes(test.file.filepath) && plan.probe[test.file.filepath]?.length === 0 && this.probes(test.file.filepath)) {
         test.mode = 'skip'
         this.ignored++
         return
       }
-      const run = this.admit(test)
+      const run = this.through ? undefined : this.admit(test)
       if (!run) {
         if (!replays(test.file.filepath)) test.mode = 'skip'
+        // A replayed file runs its tests unmutated only to bring the ones
+        // after them to where they would be. Once every test after this one
+        // is taken by other workers, that is for nothing: in rea five workers
+        // of `ExecFileOutput.test.ts` ran on for 32 s each at the end of a
+        // round. A chunk a recycled worker hands back after this is left to
+        // the next round.
+        else if (plan && !this.probes(test.file.filepath) && (this.through || !this.ahead.slice(this.ahead.indexOf(test.id) + 1).some((id) => this.untakenHere(id)))) {
+          this.through = true
+          test.mode = 'skip'
+        }
         return
       }
       this.admitted.set(test.id, run)
@@ -1392,9 +1770,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return undefined
       }
       if (!plan) return newRun('probe')
-      if (plan.probe[test.file.filepath] && !probed.has(test.id) && claim(test.id)) {
+      if (this.probes(test.file.filepath) && !probed.has(test.id) && claim(test.id)) {
         return newRun('probe')
       }
+      if (this.measuring) return undefined
       const planned = plan.tests[test.id]
       if (!planned) return undefined
       if (!planned.mutants) return claim(test.id) ? newRun('probe') : undefined
@@ -1420,6 +1799,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     // attempt is known to be over and its result settled.
     onBeforeTryTask(test: TaskLike, options: TryOptions): unknown {
       if (this.whole) {
+        this.clockOn()
         if (this.whole.trial === test.id && this.whole.mutant >= 0) {
           runtime.n = 0
           runtime.t = false
@@ -1505,7 +1885,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         heartbeat()
         beatMutant[0] = run.mutant
         beatMutant[1] = 0
-        beat[1] = limitMs(run)
+        limitStretch(limitMs(run))
         runtime.l = run.baselineLoops * config.loopFactor + config.loopSlack
       }
       if (run.attempt === 'mutant') {
@@ -1518,7 +1898,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // so one stretch without yielding ends at the plain limit. That only
         // hands the mutant to a whole-file run, which gives it the most a run
         // may take before it calls it a timeout.
-        beat[1] = limitMs(run)
+        limitStretch(limitMs(run))
         runtime.l = run.baselineLoops * config.loopFactor + config.loopSlack
         runtime.r = 0
         trying(run.mutant)
@@ -1549,6 +1929,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     async runTask(test: TaskLike): Promise<void> {
       const fn = vitest.getFn(test)
       if (!fn) throw new Error('Test function is not found')
+      if (this.whole) return this.runWholeBody(test, fn)
       const run = this.active?.test === test ? this.active.run : undefined
       if (!run || run.attempt === 'baseline') {
         await fn()
@@ -1629,7 +2010,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     onTaskFinished(test: TaskLike): unknown {
       if (this.whole) return super.onTaskFinished?.(test)
       runtime.a = -1
-      beat[1] = 0
+      limitStretch(0)
       // What only the cleanup hooks reach is not something a mutant run of
       // the test could reach either.
       const run = this.active?.test === test ? this.active.run : undefined
@@ -1640,6 +2021,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     // Vitest 5 resets the state before the next `onBeforeTryTask`, so there the
     // outcome has to be read here.
     onAfterRetryTask(test: TaskLike, options: TryOptions): unknown {
+      this.clockOn()
       if (this.active?.test === test) {
         this.active.run.failed = test.result?.state === 'fail'
         this.active.run.errorsSeen = test.result?.errors?.length ?? 0
@@ -1662,8 +2044,15 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       }
       if (!this.whole) return
+      beatTest.fill(0)
+      this.floorMs = deadline(this.config.hookTimeout)
+      this.limitWhole()
+      this.clockOn()
+      heartbeat()
       if (this.whole.trial !== undefined) {
-        const failed = test.result?.state === 'fail'
+        // A loop this runner ended is a failure whatever the test made of the
+        // error, as in a test trying a mutant, and not Vitest's limit.
+        const failed = test.result?.state === 'fail' || runtime.t
         if (test.id === this.whole.trial) {
           runtime.a = NO_MUTANT
           const mutant = this.whole.mutant
@@ -1679,7 +2068,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
               attempts: 1,
               copied: true,
               sole: !plan || plan.sole.includes(test.file.filepath) || plan.exclusive.includes(test.file.filepath),
-              overran: failed && /^Test timed out in \d+ms/.test(firstError(test) ?? ''),
+              overran: failed && !runtime.t && /^Test timed out in \d+ms/.test(firstError(test) ?? ''),
               killed: failed ? [mutant] : [],
               survived: failed ? [] : [mutant],
             })
@@ -1694,7 +2083,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return
       }
       this.wholeWaits.delete(test.id)
-      if (test.result?.state === 'fail') {
+      // A plain run never gets past a loop this runner ended, though the
+      // test caught the error and passed.
+      if (test.result?.state === 'fail' || (runtime.t && this.wholeFailure === undefined)) {
         if (!this.wholeFailure) this.wholeTest = test.id
         this.wholeTests.push(test.id)
         const overran = /^Test timed out in \d+ms/.test(firstError(test) ?? '')
@@ -1788,8 +2179,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       release()
       if (this.whole) {
         runtime.a = -1
-        beat[1] = 0
+        limitStretch(0)
         wallDeadline[0] = 0
+        bodyClockMs = 0
         residentLimit[0] = 0
         runtime.x = this.loopLimit
         // A hook or the file itself can fail with every test passing.
@@ -1838,7 +2230,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // A file counts as covered once a worker went through all of it with
         // every test running, which the first round does and probing does.
         // A process that loaded the file only to be copied ran none of its tests.
-        const complete = (!plan || file.file.filepath in plan.probe) && !this.dropped && !this.template
+        const complete = (!plan || this.probes(file.file.filepath)) && !this.dropped && !this.template
         emit({
           type: 'file',
           file: file.file.filepath,
@@ -1850,9 +2242,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // Only a pass that gave every test its run: one that fills in what
           // a worker that was lost left out passes the others by, and one for
           // the tests that failed is for them alone.
-          pristine: plan?.pristine.includes(file.file.filepath) && plan.probe[file.file.filepath]?.length === 0 && !this.template,
+          pristine: plan?.pristine.includes(file.file.filepath) && plan.probe[file.file.filepath]?.length === 0 && this.probes(file.file.filepath) && !this.template,
           ignored: this.ignored,
           complete,
+          wallMs: realNow() - this.fileStart,
           // What the file loaded decides whether its results can be reused later.
           modules: complete ? loadedModules(this.workerState) : undefined,
         })
@@ -1890,7 +2283,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private settle(test: TaskLike, run: TestRun): void {
       runtime.a = -1
       trying(-1)
-      beat[1] = 0
+      limitStretch(0)
       run.settled = true
       releaseMocks?.()
       // Vitest 5 tears down `aroundEach` hooks and their fixtures after its
@@ -1942,7 +2335,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // In the first round heavy tests only report what they reach; the
           // main process then decides which test tries each mutant first.
           run.pristine = !this.attempted && !this.upset
-          const measuring = plan?.pristine.includes(test.file.filepath)
+          const measuring = plan?.pristine.includes(test.file.filepath) && (this.measuring || !plan.measure.includes(test.file.filepath))
           // A file that is measured has one worker, so what its tests try
           // there runs one after another while other workers may be idle;
           // past a point the rest is better left to the rounds that share it
@@ -1958,15 +2351,24 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         run.attempt = 'mutant'
       } else if (run.attempt === 'mutant') {
         // A tripped limit counts even if the test swallowed the error.
-        if (failed || runtime.t) {
+        // Vitest fails a test that took longer than its timeout even if it
+        // returned, which is how a slow but finite mutant shows up.
+        const overran = /^Test timed out in \d+ms/.test(error ?? '')
+        if (failed && overran && !runtime.t) {
+          // The control after such a try ran out of the time again, 30 s
+          // each, five times in five in a run of rea's `ExecFileOutput.ts`,
+          // which says how the mutant left the worker. One that passes gives
+          // a lead whose file's failing run is still made again alone
+          // (`overrun`), so it leads to a run of the file as a failed one does.
+          this.tainted = true
+          run.unverified.push(run.mutant)
+          run.suspected.push(run.mutant)
+          markTainted(test.id, run.mutant)
+        } else if (failed || runtime.t) {
           // A failure only proves something if the test still passes without
           // the mutant, so the verdict waits for a control run.
-          // Vitest fails a test that took longer than its timeout even if it
-          // returned, which is how a slow but finite mutant shows up.
-          const overran = /^Test timed out in \d+ms/.test(error ?? '')
-          run.mutantTimedOut = runtime.t || overran
-          if (overran && !runtime.t) run.timeoutCause = 'test timeout'
-          else if (!runtime.t) run.timeoutCause = undefined
+          run.mutantTimedOut = runtime.t
+          if (!runtime.t) run.timeoutCause = undefined
           else run.timeoutCause ??= 'loop'
           run.attempt = 'control'
         } else {
@@ -1995,8 +2397,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           run.attempt = 'mutant'
         } else if (failed) {
           // The mutant stays pending: in this worker the test may fail only
-          // because the tests before it were skipped.
+          // because the tests before it were skipped. Every worker of the
+          // round skips or runs them alike, so none tries it here again: in
+          // rea four workers spent 60 s each on one such try.
           run.needsReplay = true
+          markTainted(test.id, run.mutant)
           run.attempt = 'mutant'
         } else {
           // Failing with the mutant and passing without it is a lead for a
@@ -2041,7 +2446,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.active = undefined
       if (!plan && run.attempts > 1) this.trialMs += preciseNow() - run.startedAt - run.baselineMs
       runtime.a = -1
-      beat[1] = 0
+      limitStretch(0)
       // Vitest 3 leaves the test for good in that case, without the hooks that
       // follow an attempt and without the tests after it in its suite.
       const cut = !run.settled && run.attempts > 0 && run.attempt !== 'baseline' && test.result?.state === 'fail'

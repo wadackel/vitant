@@ -3,6 +3,7 @@
 
 import path from 'node:path'
 import { types } from 'node:util'
+import vm from 'node:vm'
 
 export const MUTANT_PENDING = 0
 export const MUTANT_KILLED = 1
@@ -40,6 +41,8 @@ export interface RoundPlan {
   probe: Record<string, string[]>
   /** Test files to go through once more without trying any mutant, so that no mutant has touched what the tests see. */
   pristine: string[]
+  /** Of `probe`, the files whose pass is one worker's: the worker that claims it probes every test and tries nothing, the others try and probe nothing. */
+  measure: string[]
   /**
    * Tests that fail with no mutant on. A pass that measures their file
    * leaves them out, as the runs of the whole file do: what the tests after
@@ -58,6 +61,12 @@ export interface RoundPlan {
   settling: boolean
   /** The round is of runs made one at a time with nothing else running, see `WholeJob.quiet`. */
   quiet: boolean
+  /**
+   * In such a round, the files whose runs are made next to other files'
+   * runs, one of each file at a time: every file but those whose runs have
+   * got in each other's way, unless `--strict`.
+   */
+  together?: string[]
   /** Test files that one worker has to itself in the round, as every file has in the first. */
   sole: string[]
   /**
@@ -93,6 +102,12 @@ export interface WholeJob {
    * Such a run is made with no other of the file under way.
    */
   exclusive?: boolean
+  /**
+   * Read sites of the bindings to make again, in order, once the mutant is
+   * on in a copy made after the file loaded, see `Mutant.again`. The file
+   * read none of them while it loaded.
+   */
+  again?: number[]
   /**
    * No mutant, and made at the same moment as another such run of the file:
    * the two show whether runs of the file fail each other. Asked of a file
@@ -135,6 +150,13 @@ export interface WholeJob {
   site: number
   /** The mutant's code runs while the file loads, as far as is known. */
   early: boolean
+  /**
+   * For such a mutant, the copy may be made while the file loads, as the
+   * mutant's module begins its own code: what ran before that is what a run
+   * with the mutant on would have run, up to the queue of what is to run
+   * next, which a copy made without a pause there keeps as it is.
+   */
+  loading?: boolean
   /** A copy of a worker ended without a verdict for this run; a worker started for it alone makes it. */
   plain: boolean
 }
@@ -184,6 +206,16 @@ export interface Runtime {
   A: (value: unknown) => boolean
   /** `Reflect.apply`, as it was before any test could replace it. */
   y: typeof Reflect.apply
+  /** Whether `Set`, `Map` and `Object.freeze`, and what they call on an array they are given, are still the built-ins, and `Object.prototype` has no key it did not have. */
+  k: () => boolean
+  /** Per read site of a binding that can be made again, what makes it again, see `Mutant.again`. */
+  e: Record<number, (() => void)[]>
+  /**
+   * Called as a module with mutants begins its own code, with the range of
+   * its sites, in a worker that makes copies at that point; see
+   * `WholeJob.loading`.
+   */
+  m?: (first: number, end: number) => void
   /** Set when the active mutant's code runs. */
   r: number
   /** Guarded loop iterations since the attempt started. */
@@ -193,6 +225,53 @@ export interface Runtime {
   /** Whether the limit was exceeded during the attempt. */
   t: boolean
   x: () => never
+}
+
+/**
+ * The check behind `Runtime.k`. What it compares with is taken as the
+ * runtime is made, before any test file loads, and the keys of the two
+ * prototypes against a realm of its own: code a worker loaded before the
+ * runtime was made could have added to them already.
+ */
+/** The keys of the two prototypes as a realm of its own has them, the same for every runtime: making a realm takes milliseconds. */
+let pristine: [string[], string[], number, number] | undefined
+
+function builtinsCheck(): () => boolean {
+  const global = globalThis as Record<string, unknown>
+  const arrayIterator = Object.getPrototypeOf([][Symbol.iterator]())
+  const taken = [
+    [global, 'Set'],
+    [global, 'Map'],
+    [global, 'Object'],
+    [Object, 'freeze'],
+    [Set.prototype, 'add'],
+    [Map.prototype, 'set'],
+    [Array.prototype, Symbol.iterator],
+    [arrayIterator, 'next'],
+  ] as const
+  const describe = Object.getOwnPropertyDescriptor
+  const names = Object.getOwnPropertyNames
+  const symbols = Object.getOwnPropertySymbols
+  const source = Function.prototype.toString
+  const described = taken.map(([object, key]) => describe(object, key)?.value)
+  const native = described.every((value) => typeof value === 'function' && /\{\s*\[native code\]\s*\}$/.test(source.call(value)))
+  pristine ??= vm.runInNewContext(
+    '[Object.getOwnPropertyNames(Object.prototype), Object.getOwnPropertyNames(Array.prototype), Object.getOwnPropertySymbols(Object.prototype).length, Object.getOwnPropertySymbols(Array.prototype).length]',
+  ) as [string[], string[], number, number]
+  const [objectNames, arrayNames, objectSymbols, arraySymbols] = pristine
+  const fresh = (object: object, expected: string[], count: number) => {
+    const own = names(object)
+    return own.length === expected.length && own.every((name) => expected.includes(name)) && symbols(object).length === count
+  }
+  // Through descriptors, so that a getter put in a built-in's place is not run.
+  return () =>
+    native &&
+    fresh(Object.prototype, objectNames, objectSymbols) &&
+    fresh(Array.prototype, arrayNames, arraySymbols) &&
+    taken.every(([object, key], index) => {
+      const descriptor = describe(object, key)
+      return descriptor !== undefined && 'value' in descriptor && descriptor.value === described[index]
+    })
 }
 
 export function createRuntime(siteCount: number, mutantCount: number): Runtime {
@@ -232,6 +311,8 @@ export function createRuntime(siteCount: number, mutantCount: number): Runtime {
     ),
     A: Set.prototype.has.bind(new Set<unknown>([Array.isArray, Object.is])),
     y: Reflect.apply,
+    k: builtinsCheck(),
+    e: {},
     n: 0,
     l: Infinity,
     t: false,

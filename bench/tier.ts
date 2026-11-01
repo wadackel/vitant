@@ -3,7 +3,7 @@
 // "does this change do less work, and is every verdict as it was" that does
 // not wait for the scopes that take an hour or for a quiet machine.
 //
-//   node bench/tier.ts [slow | <target>:<scope> ...]
+//   node bench/tier.ts [slow | apps | <target>:<scope> ...]
 //
 // The counts say how much there was to do and the seconds how long this
 // machine took over it, whatever else it was doing. Exits with 1 when a
@@ -17,13 +17,18 @@ import path from 'node:path'
 const quick = ['ufo:all', 'pinia:pinia', 'zustand:all', 'es-toolkit:array', 'hono:router', 'immer:all']
 // A few files each of the scopes that take ten minutes to an hour, with what makes those slow: about a quarter of an hour.
 const slow = ['h3:session', 'excalidraw:angle', 'effect:option', 'solid:scheduler']
+// A file or two each of the application scopes, which load a framework before the code under test: a few minutes.
+const apps = ['umami:constants', 'formbricks:validate', 'immich:album']
 
-const scopes = process.argv[2] === 'slow' ? slow : process.argv.length > 2 ? process.argv.slice(2) : quick
+const scopes = process.argv[2] === 'slow' ? slow : process.argv[2] === 'apps' ? apps : process.argv.length > 2 ? process.argv.slice(2) : quick
 const rows: string[][] = [['scope', 's', 'whole runs', 'whole s pass/det', 'trials', 'trial cpu s', 'workers', 'quiet', 'rounds', 'changed', 'truth']]
 let wrong = false
 for (const name of scopes) {
   const [target, scope] = name.split(':')
-  const run = spawnSync(process.execPath, [path.join(import.meta.dirname, 'run.ts'), target, scope, '--tool', 'vitant'], { encoding: 'utf8' })
+  // A run that hangs is ended and its processes written down rather than waited for: a copy stuck at a lock took a night of pinia's.
+  const run = spawnSync(process.execPath, [path.join(import.meta.dirname, 'run.ts'), target, scope, '--tool', 'vitant', '--limit', '20'], {
+    encoding: 'utf8',
+  })
   if (run.status !== 0) wrong = true
   const file = path.join(import.meta.dirname, 'results', `${target}-${scope}`, 'summary.json')
   const summary = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : undefined

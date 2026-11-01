@@ -11,7 +11,7 @@ import type { Generated } from './mutate/generate.ts'
 import { relative } from './session.ts'
 
 /** Bumped whenever cached data would be read differently. */
-const FORMAT = 4
+const FORMAT = 5
 
 export interface CachedTest {
   name: string
@@ -40,6 +40,8 @@ export interface CachedFile {
   /** How a run of the whole file with the mutant always on ended. */
   whole: Record<string, 'failed' | 'timeout' | 'passed'>
   tests: Record<string, CachedTest>
+  /** The bindings only reading can make anything of that its unmutated runs read, by `bindingKeys`. */
+  reads: string[]
 }
 
 export interface Cache {
@@ -47,6 +49,8 @@ export interface Cache {
   /** Per source file, the mutants the cached tests were run against. */
   mutants: Record<string, string[]>
   files: Record<string, CachedFile>
+  /** Every binding of that kind there was, by `bindingKeys`: one there was not was never marked where it is read. */
+  watched: string[]
   /**
    * Per mutant, by `hintKeys`, the tests that detected it, as
    * `<test file>\n<test name>`. Unlike the results above this only decides
@@ -79,11 +83,19 @@ export function fingerprint(root: string, vitestVersion: string, limits: unknown
   const shared = fs
     .readdirSync(root)
     .filter((name) =>
-      /^(vitest|vite)\.(config|workspace)\.|^(package\.json|yarn\.lock|pnpm-lock\.yaml|package-lock\.json|bun\.lockb?)$/.test(name),
+      // A `tsconfig` decides how classes and decorators compile, and Vite reads `.env` files into the code.
+      /^(vitest|vite)\.(config|workspace)\.|^(package\.json|yarn\.lock|pnpm-lock\.yaml|package-lock\.json|bun\.lockb?)$|^tsconfig[^/]*\.json$|^\.env(\..+)?$/.test(name),
     )
     .sort()
     .map((name) => `${name}:${hashFile(path.join(root, name))}`)
   return JSON.stringify([FORMAT, process.versions.node.split('.')[0], process.platform, process.arch, vitestVersion, limits, shared])
+}
+
+/** Per read site, `<source file>#<binding>`. */
+export function bindingKeys(generated: Generated, root: string): Map<number, string> {
+  const keys = new Map<number, string>()
+  for (const [file, entry] of generated.files) for (const [name, site] of entry.bindings) keys.set(site, `${relative(root, file)}#${name}`)
+  return keys
 }
 
 export function mutantKeys(generated: Generated, root: string): string[] {
