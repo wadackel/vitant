@@ -1142,6 +1142,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeWaits = new Set<string>()
     /** Tests of the run that Vitest's own time limit ended. */
     private wholeOverran = 0
+    /** The teardowns of fixtures scoped to the worker, each made to run once, see `onCleanupWorkerContext`. */
+    private workerCleanups: (() => Promise<unknown>)[] = []
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     /** How the process making the whole-file run came to be. */
     private wholeBy: 'started' | CopiedBy = 'started'
@@ -2175,6 +2177,21 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       return cloner!.exit(0)
     }
 
+    /**
+     * Vitest 3.2 runs the teardown of a fixture scoped to the worker after
+     * the file, and fails the run where it throws: a mutant the teardown's
+     * assertion sees fails the suite with every test passing. A copy ends
+     * before that, and a worker started for the run has said its verdict, so
+     * a run of a whole file runs them itself, once. From Vitest 4 such a
+     * teardown failing fails nothing.
+     */
+    onCleanupWorkerContext(listener: () => unknown): void {
+      let ran: Promise<unknown> | undefined
+      const once = () => (ran ??= Promise.resolve().then(listener))
+      this.workerCleanups.push(once)
+      super.onCleanupWorkerContext?.(once)
+    }
+
     async onAfterRunFiles(files: TaskLike[]): Promise<unknown> {
       if (this.away) return super.onAfterRunFiles?.(files)
       try {
@@ -2188,10 +2205,20 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
     }
 
-    private afterRunFiles(files: TaskLike[]): unknown {
+    private async afterRunFiles(files: TaskLike[]): Promise<unknown> {
       // The file's tests and hooks are through, which is all another run of it could meet.
       release()
       if (this.whole) {
+        // With the mutant still on, as the suite has it.
+        if (vitest.major === 3) {
+          for (const cleanup of this.workerCleanups.splice(0)) {
+            try {
+              await cleanup()
+            } catch {
+              this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
+            }
+          }
+        }
         runtime.a = -1
         limitStretch(0)
         wallDeadline[0] = 0

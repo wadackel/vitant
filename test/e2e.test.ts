@@ -517,16 +517,19 @@ describe('mocks a test file clears between its tests, on Vitest 3.2', () => {
     expect(mocks.vitestVersion).toMatch(/^3\.2\./)
     expect(mocks.failedBaselines).toEqual([])
     const detected = (status: string) => (status === 'Timeout' ? 'Killed' : status)
-    expect(mocks.mutants.map((m) => `${m.location.start.line}:${m.location.start.column} ${m.replacement} ${detected(m.status)}`)).toEqual([
-      '1:60 {} Killed',
-      '2:7 "" Killed',
+    expect(mocks.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${detected(m.status)}`)).toEqual([
+      // Only the teardown of a fixture scoped to the worker sees these, after the file's tests.
+      'src/box.ts:1:56 {} Killed',
+      'src/box.ts:2:14 box.value - 1 Killed',
+      'src/relay.ts:1:60 {} Killed',
+      'src/relay.ts:2:7 "" Killed',
       // Only the last test counts the calls of `burst`.
-      '5:76 {} Killed',
-      '6:18 i <= times Killed',
-      '6:18 i >= times Killed',
-      '6:18 false Killed',
-      '6:29 i-- Killed',
-      '6:39 "" Survived',
+      'src/relay.ts:5:76 {} Killed',
+      'src/relay.ts:6:18 i <= times Killed',
+      'src/relay.ts:6:18 i >= times Killed',
+      'src/relay.ts:6:18 false Killed',
+      'src/relay.ts:6:29 i-- Killed',
+      'src/relay.ts:6:39 "" Survived',
     ])
   }, 180_000)
 })
