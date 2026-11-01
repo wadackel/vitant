@@ -655,9 +655,6 @@ function trackCalls(state: { rpc?: object } | undefined): void {
  */
 const LOOP_FIRST_MS = 1000
 
-/** How often a loop past its count in a whole-file run looks whether it may be ended, in milliseconds. */
-const LOOP_LOOK_MS = 10
-
 /** How long Vitest lets a test or a hook run before it fails it, or 0 where it gives no limit, which leaves this runner's own. */
 function deadline(ms: number | undefined): number {
   return ms !== undefined && ms > 0 && Number.isFinite(ms) ? ms : 0
@@ -1804,20 +1801,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // also kept the process busy without a pause for longer than any
       // loop of the file is likely to.
       const busyMs = Math.min(beat[1], Math.max(1000, job.fileMs * 2))
-      // The next look comes some milliseconds on, not a fixed count of
-      // iterations on: where each iteration made objects to keep, a
-      // million of them took seconds, and valibot's loops ran 12 s to 21 s
-      // past a limit of 5 s.
-      let lookedAt = 0
-      let lookedN = 0
-      let slack = config.loopSlack
       runtime.x = (() => {
-        const now = realNow()
-        if (cpuMs() - beat[0] < Math.max(busyMs, this.floorMs) || now - stretch[0] < this.floorMs) {
-          if (lookedAt > 0) slack = Math.max(1000, Math.min(config.loopSlack, Math.round(((runtime.n - lookedN) * LOOP_LOOK_MS) / Math.max(now - lookedAt, 0.01))))
-          lookedAt = now
-          lookedN = runtime.n
-          runtime.l = runtime.n + slack
+        if (cpuMs() - beat[0] < Math.max(busyMs, this.floorMs) || realNow() - stretch[0] < this.floorMs) {
+          runtime.l += config.loopSlack
           return
         }
         return this.loopLimit()
