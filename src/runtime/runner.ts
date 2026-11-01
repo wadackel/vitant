@@ -1660,10 +1660,16 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // file's snapshots as its suite begins, is over by a later test.
         const lasting = why === 'failed' || why === 'wrote'
         const held = why === 'held' ? [...activeResources()] : undefined
-        for (const job of lasting ? [...this.walking!.values()].flat().concat(jobs) : jobs) {
-          emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why, held })
+        // For the whole file where it lasts: a run refused here is not made
+        // this round, and with each refused in turn, the runs of actual's
+        // `main.test.ts`, one process at a time, went three rounds without
+        // a verdict and the run gave up on six files.
+        if (lasting) {
+          emit({ type: 'walk', file: this.wholeFile, why })
+          this.walking = new Map()
+        } else {
+          for (const job of jobs) emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why, held })
         }
-        if (lasting) this.walking = new Map()
         return false
       }
       freeze()
