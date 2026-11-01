@@ -499,6 +499,20 @@ describe('a mutant that keeps a test file from ever finishing to load', () => {
   }, 120_000)
 })
 
+describe('copies of a worker made one after another', () => {
+  it('read the clock as a run of the suite would, not later by the copies before them', () => {
+    const report = reportPath('clock')
+    const cli = tool(['--root', path.join(root, 'fixtures/clock'), '--report', report, '--max-workers', '1'])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const clock: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    // With the clock as it runs, the test that checks how long has passed
+    // since the file loaded failed in later copies and was taken to fail now
+    // and then, and each failure was run again with nothing else running.
+    expect(clock.flakyTests).toEqual([])
+    expect(clock.quietRuns).toEqual({ failed: 0, passed: 0 })
+  }, 60_000)
+})
+
 describe('mocks a test file clears between its tests, on Vitest 3.2', () => {
   // The fixture resolves Vitest 3.2 from the root's `vitest3`: the mocks the
   // tool holds weakly exist only before Vitest 5, which keeps no Set of them.

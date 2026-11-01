@@ -483,6 +483,56 @@ const cloner: Cloner | undefined =
     ? createRequire(import.meta.url)(process.env.VITANT_FORK)
     : undefined
 
+/**
+ * How long this process, and those it was copied from, stood still for
+ * copies of themselves since the project's code began: a copy made after
+ * others starts that much later than the run it stands for, and a process
+ * that made copies goes on that much later. The clocks the project reads
+ * leave it out, so that a copy reads the time it would have read in a run
+ * of the suite: a test that checks how long has passed since the file
+ * loaded, or since an earlier test, would otherwise see the copies before
+ * it. Timers are put off by the same, see `stoodStill` and `thaw`.
+ */
+let stood = 0
+
+/**
+ * Puts clocks in place of `Date`, `performance.now`, `process.hrtime` and
+ * `process.uptime` that leave out `stood`, before the project's code reads
+ * them. `Date` is a function returning the engine's own dates, with its
+ * prototype, as fake timers make it: a class of its own would give
+ * `new Date()` another prototype and fail `instanceof` both ways.
+ */
+function standClocks(): void {
+  const NativeDate = Date
+  const nativeNow = NativeDate.now.bind(NativeDate)
+  const nativeBigint = process.hrtime.bigint.bind(process.hrtime)
+  const nativeUptime = process.uptime.bind(process)
+  const nativePerformanceNow = performance.now.bind(performance)
+  function StoodDate(this: unknown, ...args: unknown[]): unknown {
+    if (!new.target) return new NativeDate(nativeNow() - stood).toString()
+    const date = args.length === 0 ? new NativeDate(nativeNow() - stood) : new (NativeDate as unknown as new (...args: unknown[]) => Date)(...args)
+    if (new.target !== StoodDate) Object.setPrototypeOf(date, new.target.prototype)
+    return date
+  }
+  for (const key of Reflect.ownKeys(NativeDate)) {
+    if (key === 'now') continue
+    Object.defineProperty(StoodDate, key, Object.getOwnPropertyDescriptor(NativeDate, key)!)
+  }
+  Object.defineProperty(StoodDate, 'now', { value: () => nativeNow() - stood, writable: true, configurable: true })
+  globalThis.Date = StoodDate as unknown as DateConstructor
+  performance.now = () => nativePerformanceNow() - stood
+  const bigint = () => nativeBigint() - BigInt(Math.round(stood * 1e6))
+  const hrtime = ((previous?: [number, number]) => {
+    const now = bigint()
+    const since = previous ? now - (BigInt(previous[0]) * 1_000_000_000n + BigInt(previous[1])) : now
+    return [Number(since / 1_000_000_000n), Number(since % 1_000_000_000n)]
+  }) as typeof process.hrtime
+  hrtime.bigint = bigint
+  process.hrtime = hrtime
+  process.uptime = () => nativeUptime() - stood / 1000
+}
+if (cloner) standClocks()
+
 /** What a copy that runs a test file ends with to be replaced by another, see `handOver`. */
 const RECYCLED = 75
 /**
@@ -586,12 +636,15 @@ const timerHook = createHook({
  * first timer is not due yet.
  */
 function stoodStill(ms: number): void {
+  stood += ms
   const by = Math.round(ms)
   for (const timer of loadTimers) if (!timer._destroyed && timer._idleStart !== undefined) timer._idleStart += by
 }
 
 /** Timers set while the file loaded, put off for now, with what was left of each when they were. */
 let frozen: [LoadTimer, number][] = []
+/** When `freeze` stopped the clocks of `standClocks`. */
+let frozenAt = 0
 
 /**
  * Puts every timer set while the file loaded off for good, keeping what
@@ -602,6 +655,7 @@ let frozen: [LoadTimer, number][] = []
  * timer made for the purpose.
  */
 function freeze(): void {
+  frozenAt = preciseNow()
   const probe = realSetTimeout(() => {}, 0) as unknown as LoadTimer
   const now = probe._idleStart
   clearTimeout(probe as unknown as NodeJS.Timeout)
@@ -620,6 +674,7 @@ function freeze(): void {
  * `_repeat`.
  */
 function thaw(): void {
+  stood += preciseNow() - frozenAt
   for (const [timer, left] of frozen) {
     if (timer._destroyed) continue
     timer._idleTimeout = left
