@@ -35,6 +35,12 @@ on:
         description: Keep what the workers wrote down in the last run of each tool, for reading a slow run
         type: boolean
         default: false
+      runners:
+        description: Runners to run on, separated by spaces
+        default: ubuntu-24.04 macos-15
+      jobs:
+        description: Jobs each scope is run in, each making its own runs; the applications take hours a run
+        default: '1'
   push:
     branches: [main]
     paths:
@@ -48,7 +54,7 @@ permissions:
 
 # A push ends the run of the push before it, and leaves alone a run started by hand, which is what the times in docs/benchmark.md are taken from.
 concurrency:
-  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}
+  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}-${{ inputs.runners }}-${{ inputs.jobs }}
   cancel-in-progress: true
 
 jobs:
@@ -60,10 +66,14 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       bench: ${{ steps.pick.outputs.bench }}
+      runners: ${{ steps.pick.outputs.runners }}
+      jobs: ${{ steps.pick.outputs.jobs }}
     steps:
       - id: pick
         env:
           ONLY: ${{ inputs.only }}
+          RUNNERS: ${{ inputs.runners || 'ubuntu-24.04 macos-15' }}
+          JOBS: ${{ inputs.jobs || '1' }}
           ALL: |
             ufo all
             zustand all
@@ -97,18 +107,22 @@ jobs:
             const all = process.env.ALL.trim().split("\n").map((line) => line.trim().split(" "))
             const bench = all.filter(([target]) => only.length === 0 || only.includes(target)).map(([target, scope]) => ({ target, scope }))
             console.log("bench=" + JSON.stringify(bench))
+            console.log("runners=" + JSON.stringify(process.env.RUNNERS.split(/\s+/).filter(Boolean)))
+            console.log("jobs=" + JSON.stringify(Array.from({ length: Number(process.env.JOBS) }, (_, i) => i + 1)))
           ' >> "$GITHUB_OUTPUT"
 
   run:
-    name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (${{ matrix.runner }})
+    name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (${{ matrix.runner }}, ${{ matrix.job }})
     needs: plan
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 350
+    # StrykerJS took 315 minutes on actual on macOS.
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15]
+        runner: ${{ fromJSON(needs.plan.outputs.runners) }}
         bench: ${{ fromJSON(needs.plan.outputs.bench) }}
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,7 +166,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
-          name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}
+          name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}-${{ matrix.job }}
           path: bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}
 
   long:
