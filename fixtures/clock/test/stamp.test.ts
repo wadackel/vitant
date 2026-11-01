@@ -16,4 +16,5 @@ test('labels', async () => {
 
 test('is fresh', () => {
   expect(Date.now() - loadedAt).toBeLessThan(1500)
+  expect(Number.isInteger(Date.now())).toBe(true)
 })

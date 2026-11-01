@@ -492,7 +492,9 @@ const cloner: Cloner | undefined =
  * leave it out, so that a copy reads the time it would have read in a run
  * of the suite: a test that checks how long has passed since the file
  * loaded, or since an earlier test, would otherwise see the copies before
- * it. Timers are put off by the same, see `stoodStill` and `thaw`.
+ * it. Timers are put off by the same, see `stoodStill` and `thaw`. In
+ * whole milliseconds, as `Date.now()` has them: formbricks makes a BigInt
+ * of it, which a fraction fails.
  */
 let stood = 0
 
@@ -683,8 +685,8 @@ const timerHook = createHook({
  * first timer is not due yet.
  */
 function stoodStill(ms: number): void {
-  stood += ms
   const by = Math.round(ms)
+  stood += by
   for (const timer of loadTimers) if (!timer._destroyed && timer._idleStart !== undefined) timer._idleStart += by
 }
 
@@ -721,7 +723,7 @@ function freeze(): void {
  * `_repeat`.
  */
 function thaw(): void {
-  stood += preciseNow() - frozenAt
+  stood += Math.round(preciseNow() - frozenAt)
   for (const [timer, left] of frozen) {
     if (timer._destroyed) continue
     timer._idleTimeout = left
