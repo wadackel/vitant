@@ -118,21 +118,21 @@ How each step was arrived at, what it costs, and what went wrong before it exist
 
 ## Benchmark
 
-StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every report of vitant agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts).
+StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every report of vitant agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts). The two ran in jobs of their own; the macOS runners are of one model, the Linux ones are not.
 
 | Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
 |---|---|---|---|---|
-| ufo `all` | 65.4 | 17.7 | 51.9 | 20.4 |
-| zustand `all` | 252.8 | 78.3 | 222.2 | 81.5 |
-| es-toolkit `array` | 346.3 | 89.5 | 362.5 | 100.1 |
-| es-toolkit `pr`: lines the pinned commit changed | 39.1 | 30.3 | 25.8 | 24.8 |
-| immer `all` | 692.4 | 549.7 | 521.7 | 362.3 |
-| jotai `vanilla` | 1,996.4 | 460.3 | 1,563.2 | 369.5 |
-| query `core` | 1,580.5 | 443.0 | 1,436.3 | 429.7 |
-| valibot `schemas` | 1,023.9 | 237.9 | 939.8 | 205.5 |
-| xstate `core` | 656.9 | 416.1 | 809.4 | 466.4 |
+| ufo `all` | 66.8 | 26.7 | 61.1 | 51.7 |
+| zustand `all` | 268.1 | 66.9 | 207.7 | 73.2 |
+| es-toolkit `array` | 328.4 | 153.7 | 259.8 | 221.8 |
+| es-toolkit `pr`: lines the pinned commit changed | 30.0 | 40.1 | 29.3 | 45.3 |
+| immer `all` | 695.4 | 547.4 | 471.9 | 385.9 |
+| jotai `vanilla` | 1,986.1 | 455.3 | 1,609.3 | 606.4 |
+| query `core` | 1,766.4 | 364.6 | 1,285.7 | 434.5 |
+| valibot `schemas` | 918.3 | 293.6 | 763.1 | 418.5 |
+| xstate `core` | 668.5 | 523.3 | 642.9 | 481.0 |
 
-On the eight whole-directory scopes that is 1.3 to 4.6 times as fast. The scopes where StrykerJS does not start or reports nothing usable, and the other targets, are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
+On the eight whole-directory scopes that is 1.2 to 3.0 times as fast on macOS. On the few changed lines of es-toolkit `pr`, StrykerJS is the faster: one of its 93 mutants makes a loop that never ends, and vitant lets it run to the test's own limit before it calls it a timeout. The application targets, the scopes where StrykerJS does not start or reports nothing usable, and the other targets are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
 
 ## Limits
 
