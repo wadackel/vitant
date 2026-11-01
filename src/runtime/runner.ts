@@ -1611,6 +1611,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       drainStaticHits()
       this.walked = true
       walking = true
+      // The walk runs the tests as they are, with no mutant on and no limit of this tool's.
+      runtime.l = Infinity
       this.template = false
       this.walking = new Map()
       for (const job of jobs) this.walking.set(job.before!, [...(this.walking.get(job.before!) ?? []), job])
@@ -1676,6 +1678,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (!this.open(job) || !claim(`whole.${job.id}`)) continue
         if (this.copy(job, 'copied before a test')) {
           thaw()
+          // The loops of the tests before are not the run's to count.
+          runtime.n = 0
           this.walking = undefined
           timerHook.disable()
           this.begin(job, false)
