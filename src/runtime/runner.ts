@@ -594,7 +594,11 @@ type CopiedBy = 'copied before load' | 'copied while loading' | 'copied after lo
 /** In `runtime.a`: no mutant is on, and none is to be probed for either. */
 const NO_MUTANT = 0x7fffffff
 
-let forkLock: number | undefined
+/**
+ * Held open from the start, so that it is among the descriptors a process
+ * had before it loaded the file, which are what a copy may share.
+ */
+let forkLock: number | undefined = cloner ? fs.openSync(paths.config, 'r') : undefined
 /** Calls to the main process that have not been answered. */
 let calls = 0
 let counting = false
@@ -1627,12 +1631,23 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             ? 'calls'
             : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
               ? 'descriptors'
-              : exceeds(new Map([...activeResources()].filter(([kind]) => kind !== 'Immediate' && kind !== 'Timeout')), this.heldBeforeLoad)
+              : // A close under way finishes in this process and never in the
+                // copy, which keeps the descriptor and is told nothing: in immer
+                // Vitest's reading of a file's snapshots left one under way for
+                // the whole file, in every file that has snapshots.
+                exceeds(new Map([...activeResources()].filter(([kind]) => kind !== 'Immediate' && kind !== 'Timeout' && kind !== 'CloseReq')), this.heldBeforeLoad)
                 ? 'held'
                 : undefined
       if (why) {
-        emit({ type: 'walk', file: this.wholeFile, why })
-        this.walking = new Map()
+        // What an earlier test failed or wrote stays for the tests after it;
+        // a call or a file under way, often Vitest's own reading of the
+        // file's snapshots as its suite begins, is over by a later test.
+        const lasting = why === 'failed' || why === 'wrote'
+        const held = why === 'held' ? [...activeResources()] : undefined
+        for (const job of lasting ? [...this.walking!.values()].flat().concat(jobs) : jobs) {
+          emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why, held })
+        }
+        if (lasting) this.walking = new Map()
         return false
       }
       freeze()
