@@ -1527,12 +1527,7 @@ function planPhase(
       // A copy that runs into a limit holds up the copies due after it for
       // as long as that takes, a second or more where a loop does not end;
       // started for the run, the workers of such mutants wait side by side.
-      plain:
-        status.plain.has(wholeKey(mutant, file)) ||
-        status.uncopied.has(file) ||
-        hung ||
-        state[mutant] === MUTANT_STALLED ||
-        state[mutant] === MUTANT_TIMEOUT,
+      plain: status.plain.has(wholeKey(mutant, file)) || status.uncopied.has(file) || hung,
     })
     const job = plan.whole[file].at(-1)!
     planned.set(wholeKey(mutant, file), job)
@@ -2708,6 +2703,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // left to claim ends at once.
       let roundWork = 0
       for (const work of next.workByFile.values()) roundWork += work.workMs
+      /** What a run whose mutant loops takes at the least: the time Vitest gives a test. */
+      const loopMs = (vitest.config as { testTimeout?: number }).testTimeout || 5000
       const unitMs = Math.min(options.budgetMs, Math.max(2000, roundWork / options.maxWorkers))
       const units: { spec: (typeof specs)[number]; workMs: number }[] = []
       let wholeWork = 0
@@ -2749,6 +2746,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // A run that a copy did not get through takes a worker of its own.
         const alone = cloning ? (next.plan.whole[spec.moduleId] ?? []).filter((job) => job.plain).length : 0
         for (let i = 0; i < alone; i++) units.push({ spec, workMs: work.wholeMs })
+        // So does one whose mutant blocked a worker before, a loop that is
+        // to run out a test's time: one after another in a worker, those of
+        // es-toolkit's `array` made the round longer by a fifth.
+        const looping = serial ? 0 : (next.plan.whole[spec.moduleId] ?? []).filter((job) => job.stalled && !job.plain).length
+        for (let i = 0; i < looping; i++) units.push({ spec, workMs: work.wholeMs + loopMs })
         if (trialing || (work.chunks === 0 && !(spec.moduleId in next.plan.probe))) continue
         // A worker stops at the first test a mutant leaves broken, and what
         // it had taken goes to whichever worker is still on the file. Where

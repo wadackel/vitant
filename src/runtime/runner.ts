@@ -578,6 +578,38 @@ function countWrites(): void {
 }
 if (cloner) countWrites()
 
+/**
+ * Where a copy notes the test it is in. The process that copied it stops it
+ * from outside, on its time on the processor or its memory, and a copy's
+ * memory is its own: read from here, the stop names the test, as one by the
+ * watchdog of a worker started for the run does, and a lead of that test
+ * vouches for it. Without it a mutant whose loop filled memory waited for a
+ * run made with nothing else running.
+ */
+const testSlot = cloner ? fs.openSync(path.join(sessionDir!, `slot.${process.pid}`), 'w+') : undefined
+
+/** Notes the test a run of a whole file is in, or that it is in none. */
+function noteTest(id?: string): void {
+  beatTest.fill(0)
+  const bytes = new TextEncoder().encode(id ?? '').subarray(0, 255)
+  beatTest.set(bytes)
+  if (testSlot !== undefined && cloned) {
+    const slot = Buffer.alloc(256)
+    slot.set(bytes)
+    fs.writeSync(testSlot, slot, 0, 256, 0)
+  }
+}
+
+/** The test the copy this process stopped was in, see `testSlot`. */
+function stoppedIn(): string | undefined {
+  if (testSlot === undefined) return undefined
+  const slot = Buffer.alloc(256)
+  fs.readSync(testSlot, slot, 0, 256, 0)
+  const end = slot.indexOf(0)
+  const id = slot.subarray(0, end === -1 ? 256 : end).toString('utf8')
+  return id === '' ? undefined : id
+}
+
 /** What a copy that runs a test file ends with to be replaced by another, see `handOver`. */
 const RECYCLED = 75
 /**
@@ -1543,11 +1575,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       } else if (ended === cloner!.Ended.Blocked) {
         const state = readState(job.mutant)
         if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
+        const test = stoppedIn()
         emit({
           type: 'whole',
           file: this.wholeFile,
           mutant: job.mutant,
           verdict: 'timeout',
+          ...(test ? { test, tests: [test] } : {}),
           knew: (job.witnesses?.length ?? 0) > 0,
           alone: job.exclusive || job.quiet,
           quiet: job.quiet,
@@ -1782,7 +1816,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       heartbeat()
       beatMutant[0] = job.mutant
       beatMutant[1] = 1
-      beatTest.fill(0)
+      noteTest()
       // No stretch of the run can take longer than the whole file does. A
       // mutant that blocked a worker before gets the plain limit: blocking
       // twice is what a timeout is.
@@ -1968,8 +2002,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       }
       if (this.whole) {
-        beatTest.fill(0)
-        beatTest.set(new TextEncoder().encode(test.id).subarray(0, 255))
+        noteTest(test.id)
         this.floorMs = deadline((test as { timeout?: number }).timeout ?? this.config.testTimeout)
         this.limitWhole()
         this.clockOn()
@@ -2146,8 +2179,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         heartbeat()
         beatMutant[0] = run.mutant
         beatMutant[1] = run.mode === 'planned' && run.attempts === 1 && !replays(test.file.filepath) ? 2 : 0
-        beatTest.fill(0)
-        beatTest.set(new TextEncoder().encode(test.id).subarray(0, 255))
+        noteTest(test.id)
         // CPU time does not stretch on a busy machine the way wall time does,
         // so one stretch without yielding ends at the plain limit. That only
         // hands the mutant to a whole-file run, which gives it the most a run
@@ -2302,7 +2334,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       }
       if (!this.whole) return
-      beatTest.fill(0)
+      noteTest()
       this.floorMs = deadline(this.config.hookTimeout)
       this.limitWhole()
       this.clockOn()
