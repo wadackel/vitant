@@ -1290,6 +1290,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private walking: Map<string, WholeJob[]> | undefined
     /** Tests the runs of the file leave out, which the process walking it leaves out too. */
     private walkIgnore: string[] = []
+    /** When Vitest began to load the file here, after any wait for the file to itself. */
+    private loadStart = 0
     /** This process walked the file, see `walk`. */
     private walked = false
     /** A test failed, or an error nothing handled came, while walking. */
@@ -1407,6 +1409,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           if (job.plain || !job.early || job.loading || !this.open(job) || !claim(`whole.${job.id}`)) continue
           if (await this.clone(job, true)) {
             this.begin(job, true)
+            this.loadStart = realNow()
             return super.onBeforeCollect?.(paths)
           }
         }
@@ -1434,6 +1437,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           loadTimers.length = 0
           timerHook.enable()
           if (this.waiting.length > 0) runtime.m = (first, end) => this.copyWhileLoading(first, end)
+          this.loadStart = realNow()
           return super.onBeforeCollect?.(paths)
         }
       } else {
@@ -1460,6 +1464,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       watch()
       workerResources = activeResources()
+      this.loadStart = realNow()
       return super.onBeforeCollect?.(paths)
     }
 
@@ -1489,6 +1494,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
+      // What the wait for the main process let run may have reached the
+      // mutant's code since it was looked at, and a copy from here would
+      // have had it off for that.
+      if (!beforeLoad && job.trial === undefined && (job.again ?? [job.site]).some((site) => runtime.h[site] === 1)) {
+        emit({ type: 'early', file: this.wholeFile, site: job.site })
+        return false
+      }
       return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
     }
 
@@ -1852,6 +1864,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onCollected(files: TaskLike[]): Promise<unknown> {
       if (this.away) return super.onCollected?.(files)
+      // How long the file took to load here, for reading where a run's time went: `bench/spent.ts`.
+      // A copy made while the file loaded has its loading from the process it was copied from.
+      if (this.wholeBy !== 'copied while loading') emit({ type: 'loaded', file: this.wholeFile, ms: realNow() - this.loadStart, template: this.template, whole: this.whole !== undefined })
       if (this.template) {
         runtime.m = undefined
         // Jobs whose modules did not begin while the file loaded.
@@ -1945,6 +1960,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (!this.measuring && !plan.replay.includes(file)) replayFiles.delete(file)
       }
       drainStaticHits()
+      // Said now, not only with the file's end: a worker of the first round
+      // replaced before that, for its memory, left the file with no record of
+      // what runs while it loads, and every run of four files of immich went
+      // to a copy made before loading, 466 loads of a file.
+      if (!plan) emit({ type: 'statics', file, sites: marked(staticHits) })
       loaded = true
       // One global holds the active mutant, so tests cannot interleave.
       forEachTask(files, (task) => {

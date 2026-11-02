@@ -492,6 +492,13 @@ export type SessionRecord = (
   | ApartRecord
   | CalmRecord
   | { type: 'worker' }
+  /** A process loaded a test file, for reading where a run's time went: `bench/spent.ts`. */
+  | { type: 'loaded'; file: string; ms: number; template: boolean; whole: boolean }
+  /**
+   * What ran while a file loaded in the first round, said as soon as it has
+   * loaded: a worker replaced before the file's end leaves no `file` record.
+   */
+  | { type: 'statics'; file: string; sites: number[] }
   /** A round ended, for reading where a run's time went: `bench/spent.ts`. */
   | { type: 'round'; round: number; startedAt: number; workers: number }
 ) & {
@@ -625,6 +632,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.type === 'file' && record.pristine && record.complete) {
       measured.set(record.file, (measured.get(record.file) ?? 0) + 1)
       leftOut.set(record.file, Math.max(leftOut.get(record.file) ?? 0, record.ignored ?? 0))
+    }
+    if (record.type === 'statics') {
+      const set = staticSites.get(record.file) ?? new Set()
+      for (const site of record.sites) set.add(site)
+      staticSites.set(record.file, set)
     }
     if (record.type === 'file' && record.staticSites) {
       const set = staticSites.get(record.file) ?? new Set()

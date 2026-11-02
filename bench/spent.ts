@@ -28,6 +28,8 @@ interface Row {
   workersStarted: number
   files: number
   filesMs: number
+  loads: number
+  loadsMs: number
 }
 
 const records = fs
@@ -48,6 +50,8 @@ const rounds: Row[] = records
     workersStarted: 0,
     files: 0,
     filesMs: 0,
+    loads: 0,
+    loadsMs: 0,
   }))
   .sort((a, b) => a.round - b.round)
 if (rounds.length === 0) {
@@ -60,6 +64,10 @@ for (const record of records) {
   const row = rounds.findLast((round) => record.at > round.startedAt)
   if (!row) continue
   if (record.type === 'worker') row.workersStarted++
+  if (record.type === 'loaded' && typeof record.ms === 'number') {
+    row.loads++
+    row.loadsMs += record.ms
+  }
   // A worker's time with a file, from taking it on to its end: loading, the tries and the copies it waited for.
   if (record.type === 'file' && typeof record.wallMs === 'number') {
     row.files++
@@ -81,7 +89,7 @@ for (const record of records) {
 }
 
 const seconds = (ms: number) => (ms / 1000).toFixed(1)
-const table = [['round', 'wall s', 'slots s', 'tries', 'tries s', 'whole runs by verdict: runs/s', 'workers started', 'files/s', 'rest s']]
+const table = [['round', 'wall s', 'slots s', 'tries', 'tries s', 'whole runs by verdict: runs/s', 'workers started', 'files/s', 'loads/s', 'rest s']]
 let total = { wall: 0, slots: 0, tries: 0, whole: 0 }
 for (const row of rounds) {
   const wall = row.at - row.startedAt
@@ -97,9 +105,10 @@ for (const row of rounds) {
     [...row.whole].map(([kind, entry]) => `${kind} ${entry.runs}/${seconds(entry.ms)}${entry.stopped ? ` (${entry.stopped} stopped)` : ''}`).join(', '),
     String(row.workersStarted),
     `${row.files}/${seconds(row.filesMs)}`,
+    `${row.loads}/${seconds(row.loadsMs)}`,
     seconds(slots - wholeMs - row.triesMs),
   ])
 }
-table.push(['all', seconds(total.wall), seconds(total.slots), '', seconds(total.tries), seconds(total.whole), '', '', seconds(total.slots - total.whole - total.tries)])
+table.push(['all', seconds(total.wall), seconds(total.slots), '', seconds(total.tries), seconds(total.whole), '', '', '', seconds(total.slots - total.whole - total.tries)])
 const widths = table[0].map((_, column) => Math.max(...table.map((row) => row[column].length)))
 for (const row of table) console.log(row.map((cell, column) => (column === 5 ? cell.padEnd(widths[column]) : cell.padStart(widths[column]))).join('  '))
