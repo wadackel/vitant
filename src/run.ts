@@ -1527,7 +1527,15 @@ function planPhase(
       // A copy that runs into a limit holds up the copies due after it for
       // as long as that takes, a second or more where a loop does not end;
       // started for the run, the workers of such mutants wait side by side.
-      plain: status.plain.has(wholeKey(mutant, file)) || status.uncopied.has(file) || hung,
+      // Where each file is not handed to a copy, a copy that runs into a
+      // limit holds up the copies due after it for as long as that takes;
+      // started for the run, the workers of such mutants wait side by side.
+      // Where it is, each such run gets a worker run of its own.
+      plain:
+        status.plain.has(wholeKey(mutant, file)) ||
+        status.uncopied.has(file) ||
+        hung ||
+        (!handing && (state[mutant] === MUTANT_STALLED || state[mutant] === MUTANT_TIMEOUT)),
     })
     const job = plan.whole[file].at(-1)!
     planned.set(wholeKey(mutant, file), job)
@@ -1771,6 +1779,8 @@ function cloneAddon(): string | undefined {
 }
 /** Whether whole-file runs are made in copies of a worker. */
 let cloning = false
+/** Workers hand each file to a copy, see `docs/design.md` item 14. */
+let handing = false
 /** How many workers a round may have at once. */
 let workers = 1
 // A copy of a process has none of its other threads, so a worker that is
@@ -2306,6 +2316,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const vitestStartedAt = performance.now()
   const addon = options.clone ? cloneAddon() : undefined
   cloning = addon !== undefined
+  handing = cloning && major >= 4 && !reusesEnded
   workers = options.maxWorkers
   workerArgv.length = 0
   if (addon) {
