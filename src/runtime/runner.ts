@@ -291,6 +291,9 @@ function trying(mutant: number): void {
   fs.writeSync(tryingFd, new Uint8Array(tryingMutant.buffer), 0, 4, 0)
 }
 
+/** In a process's word of the mutant it tries: it was stopped in a test's first try, see `cold` in the watchdog. */
+const STOPPED_COLD = -2
+
 /** The mutant the process with this id had on for a test when it last said, -1 for none. */
 function triedBy(pid: number): number {
   try {
@@ -367,7 +370,9 @@ for (;;) {
       fs.writeSync(fd, new Uint8Array([mutant[1] ? ${MUTANT_TIMEOUT} : ${MUTANT_STALLED}]), 0, 1, stalled)
     }
     // A worker that is gone with a mutant on is taken to have died of it.
-    if (cold) fs.writeFileSync(workerData.tryingPath, new Uint8Array(new Int32Array([-1]).buffer))
+    // One stopped cold names no mutant, and says it was stopped: a worker
+    // started for the file meets the same, and the copy is not at fault.
+    if (cold) fs.writeFileSync(workerData.tryingPath, new Uint8Array(new Int32Array([${STOPPED_COLD}]).buffer))
     process.kill(process.pid, 'SIGKILL')
   }
 }
@@ -1359,7 +1364,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // A copy can end over what a worker started for the file would not
           // meet, a thread it does not have for one. One that a mutant
           // took down says which.
-          if (!(triedBy(pid) >= 0)) emit({ type: 'unhanded', file })
+          // A copy stopped in a test's first try, slow for what the tests
+          // before it would have loaded, is not one of those: marked so, the
+          // file went to started workers for good, and on immich `utils` each
+          // worker's stop for its memory then took a round of its own,
+          // twenty-four rounds and a fifth of the run.
+          const tried = triedBy(pid)
+          if (tried === -1) emit({ type: 'unhanded', file })
           // However it ended, it may have done so in the middle of a message
           // to the main process, and no message of this process after that
           // would be read as one. The channel goes with this process, and the
