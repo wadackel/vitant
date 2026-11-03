@@ -2465,6 +2465,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return cloner!.exit(0)
       }
       if (this.wholeFailure) markFailed(this.whole!.mutant)
+      // A copy starts its counts at nought, so these are what the run itself
+      // cost, the pages it wrote of those it shares with its parent included.
+      const usage = cloned ? process.resourceUsage() : undefined
       emit({
         type: 'whole',
         file: this.wholeFile,
@@ -2477,6 +2480,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         quiet: this.whole!.quiet,
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
+        ...(usage ? { faults: usage.minorPageFault, userMs: usage.userCPUTime / 1000, systemMs: usage.systemCPUTime / 1000 } : {}),
       })
       cloner!.done()
       return cloner!.exit(0)
