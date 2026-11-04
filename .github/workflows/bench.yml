@@ -1,9 +1,5 @@
-# Runs the benchmark targets on the hosted runners: whether this tool's
-# verdicts are those the targets' own suites give, as recorded under
-# bench/truth, and how long it takes there. A push runs this tool alone;
-# StrykerJS and the tool without copies of a worker take several times as
-# long and run when the workflow is started by hand, which is also where the
-# times in docs/benchmark.md come from.
+# Full scopes occupy runners for hours; starting them on every main push
+# would delay pull-request checks on the same runners.
 name: bench
 
 on:
@@ -41,18 +37,11 @@ on:
       jobs:
         description: Jobs each scope is run in, each making its own runs; the applications take hours a run
         default: '1'
-  push:
-    branches: [main]
-    paths:
-      - src/**
-      - native/**
-      - bench/**
-      - .github/workflows/bench.yml
 
 permissions:
   contents: read
 
-# A push ends the run of the push before it, and leaves alone a run started by hand, which is what the times in docs/benchmark.md are taken from.
+# One group for every manual run would discard measurements of other commits or scopes.
 concurrency:
   group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}-${{ inputs.runners }}-${{ inputs.jobs }}
   cancel-in-progress: true

@@ -3,7 +3,7 @@
 Mutation testing for Vitest. Every verdict is what your own test suite would give; the run is faster than running it once per mutant.
 
 [![native](https://github.com/wadackel/vitant/actions/workflows/native.yml/badge.svg?branch=main)](https://github.com/wadackel/vitant/actions/workflows/native.yml)
-[![bench](https://github.com/wadackel/vitant/actions/workflows/bench.yml/badge.svg?branch=main&event=push)](https://github.com/wadackel/vitant/actions/workflows/bench.yml)
+[![bench](https://github.com/wadackel/vitant/actions/workflows/bench.yml/badge.svg?branch=main&event=workflow_dispatch)](https://github.com/wadackel/vitant/actions/workflows/bench.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Why vitant
