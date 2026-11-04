@@ -189,10 +189,11 @@ console.log(
 )
 {
   const { started, lost, ...copied } = result.wholeRuns
-  const copies = copied['copied before load'] + copied['copied while loading'] + copied['copied after load']
+  const copies = copied['copied before load'] + copied['copied while loading'] + copied['copied after load'] + copied['copied before a test']
   console.log(
     `whole-file runs ${started + copies}: ${copies} in copies of a worker ` +
-      `(${copied['copied before load']} made before the file loaded, ${copied['copied while loading']} while it loaded, ${copied['copied after load']} after), ` +
+      `(${copied['copied before load']} made before the file loaded, ${copied['copied while loading']} while it loaded, ${copied['copied after load']} after, ` +
+      `${copied['copied before a test']} after the tests before the first to reach the mutant), ` +
       `${started} in workers started for them` +
       (lost > 0 ? `; ${lost} copies ended without a verdict and were run again` : ''),
   )

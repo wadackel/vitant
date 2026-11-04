@@ -23,6 +23,7 @@ import { type Generated, generate, type GenerateOptions } from './mutate/generat
 import { RUNTIME_GLOBAL } from './mutate/instrument.ts'
 import { placeReads, reexports, type WatchedModule } from './mutate/reads.ts'
 import { addonTarget } from './platform.ts'
+import { mendPool } from './pool.ts'
 import {
   createRuntime,
   MUTANT_KILLED,
@@ -109,6 +110,7 @@ export interface WholeRuns {
   /** Made as a mutant's module began its own code, see `WholeJob.loading`. */
   'copied while loading': number
   'copied after load': number
+  'copied before a test': number
   /** Copies that ended without a verdict; each run was made again in a worker started for it. */
   lost: number
 }
@@ -481,9 +483,24 @@ export type SessionRecord = (
   | { type: 'loading'; file: string }
   /** A worker given the file's runs made none of them. */
   | { type: 'idle'; file: string }
+  /**
+   * A process that ran the file's tests to copy itself before one of them
+   * made no copy there: the mutant's code had run (`mutant`), or something
+   * would have been shared with the copies (no `mutant`, for every run of the file).
+   */
+  | { type: 'walk'; file: string; mutant?: number; why: string }
   | ApartRecord
   | CalmRecord
   | { type: 'worker' }
+  /** A process loaded a test file, for reading where a run's time went: `bench/spent.ts`. */
+  | { type: 'loaded'; file: string; ms: number; template: boolean; whole: boolean }
+  /**
+   * What ran while a file loaded in the first round, said as soon as it has
+   * loaded: a worker replaced before the file's end leaves no `file` record.
+   */
+  | { type: 'statics'; file: string; sites: number[] }
+  /** A round ended, for reading where a run's time went: `bench/spent.ts`. */
+  | { type: 'round'; round: number; startedAt: number; workers: number }
 ) & {
   at: number
 }
@@ -492,7 +509,16 @@ interface TestState {
   file: string
   name: string
   /** From the last passing unmutated run. */
-  coverage?: { sites: number; covered: number[]; cleanup: number[]; baselineMs: number; baselineLoops: number; rss: number }
+  coverage?: {
+    sites: number
+    covered: number[]
+    cleanup: number[]
+    /** The sites the test's runs reached, whether or not the value there would have differed under a mutant. */
+    reached: number[]
+    baselineMs: number
+    baselineLoops: number
+    rss: number
+  }
   /** No mutant had been on in the worker when that run was made. */
   pristine: boolean
   /** Mutants this test already ran to a verdict. */
@@ -589,8 +615,14 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
    */
   const controls = new Map<string, ControlRecord['verdict']>()
   const controlFailures = new Map<string, number>()
+  /** The tests of each file in the order of its last complete run. */
+  const order = new Map<string, string[]>()
+  /** Files whose runs are not made before a test, and runs of mutants whose code ran before the test: see `WholeJob.before`. */
+  const unwalked = new Set<string>()
   for (const record of records) {
+    if (record.type === 'walk') unwalked.add(record.mutant === undefined ? record.file : wholeKey(record.mutant, record.file))
     if (record.type === 'file' && record.complete) {
+      order.set(record.file, record.tests)
       finished.set(record.file, [...(finished.get(record.file) ?? []), record.tests])
       if (record.wallMs !== undefined) fileWall.set(record.file, Math.min(fileWall.get(record.file) ?? Infinity, record.wallMs))
     }
@@ -600,6 +632,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.type === 'file' && record.pristine && record.complete) {
       measured.set(record.file, (measured.get(record.file) ?? 0) + 1)
       leftOut.set(record.file, Math.max(leftOut.get(record.file) ?? 0, record.ignored ?? 0))
+    }
+    if (record.type === 'statics') {
+      const set = staticSites.get(record.file) ?? new Set()
+      for (const site of record.sites) set.add(site)
+      staticSites.set(record.file, set)
     }
     if (record.type === 'file' && record.staticSites) {
       const set = staticSites.get(record.file) ?? new Set()
@@ -729,12 +766,14 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       // reached, which left a mutant there with no file to pass.
       const covered = new Set([...(test.coverage?.covered ?? []), ...record.covered])
       const cleanup = [...new Set([...(test.coverage?.cleanup ?? []), ...record.cleanup])].filter((mutant) => !covered.has(mutant))
+      const reachedSites = [...new Set([...(test.coverage?.reached ?? []), ...record.sites])]
       if (!test.pristine || record.pristine) {
         test.pristine = record.pristine ?? false
         test.coverage = {
           sites: record.sites.length,
           covered: [...covered],
           cleanup,
+          reached: reachedSites,
           baselineMs: record.baselineMs,
           baselineLoops: record.baselineLoops,
           rss: record.rss ?? 0,
@@ -742,6 +781,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       } else if (test.coverage) {
         test.coverage.covered = [...covered]
         test.coverage.cleanup = cleanup
+        test.coverage.reached = reachedSites
       }
     } else if (record.baseline === 'fail') {
       test.retry = record.baselineRetry
@@ -1003,7 +1043,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1399,6 +1439,31 @@ function planPhase(
   // and as one the test that failed named, and a second run next to the first
   // settles nothing the first does not.
   const planned = new Map<string, WholeJob>()
+  /**
+   * Per file, the index in its order of the first test whose unmutated run
+   * reached each site, see `WholeJob.before`. A site, not a mutant: a test
+   * that went past a condition `true` already holds reached the code of the
+   * mutant `true` all the same, and a copy before a later test finds it ran.
+   */
+  const reaching = new Map<string, Map<number, number>>()
+  const firstReaching = (file: string, mutant: number): string | undefined => {
+    const order = status.order.get(file)
+    if (!order) return undefined
+    let first = reaching.get(file)
+    if (!first) {
+      first = new Map()
+      for (const [index, id] of order.entries()) {
+        const coverage = status.tests.get(id)?.coverage
+        // A test of which nothing is known may reach anything: nothing after it comes first.
+        if (!coverage) break
+        for (const site of coverage.reached) if (!first.has(site)) first.set(site, index)
+        for (const reached of coverage.cleanup) if (!first.has(siteOf[reached])) first.set(siteOf[reached], index)
+      }
+      reaching.set(file, first)
+    }
+    const index = first.get(siteOf[mutant])
+    return index !== undefined && index > 0 ? order[index] : undefined
+  }
   const wholeJob = (mutant: number, file: string, confirm: boolean, quiet = false) => {
     // Only while the lead is all there is: a mutant whose runs of a file failed
     // without settling anything is pending again, and the run that settles it
@@ -1467,15 +1532,22 @@ function planPhase(
       // the suite passes.
       loading: early && status.staticSites.has(file) && !status.unpaused.has(file) && !status.lost.has(file),
       again: remade ? again : undefined,
+      before:
+        cloning && !early && !remade && !status.unwalked.has(file) && !status.unwalked.has(wholeKey(mutant, file)) && !status.staticMutants.get(file)?.has(mutant)
+          ? firstReaching(file, mutant)
+          : undefined,
       // A copy that runs into a limit holds up the copies due after it for
       // as long as that takes, a second or more where a loop does not end;
       // started for the run, the workers of such mutants wait side by side.
+      // Where each file is not handed to a copy, a copy that runs into a
+      // limit holds up the copies due after it for as long as that takes;
+      // started for the run, the workers of such mutants wait side by side.
+      // Where it is, each such run gets a worker run of its own.
       plain:
         status.plain.has(wholeKey(mutant, file)) ||
         status.uncopied.has(file) ||
         hung ||
-        state[mutant] === MUTANT_STALLED ||
-        state[mutant] === MUTANT_TIMEOUT,
+        (!handing && (state[mutant] === MUTANT_STALLED || state[mutant] === MUTANT_TIMEOUT)),
     })
     const job = plan.whole[file].at(-1)!
     planned.set(wholeKey(mutant, file), job)
@@ -1719,6 +1791,8 @@ function cloneAddon(): string | undefined {
 }
 /** Whether whole-file runs are made in copies of a worker. */
 let cloning = false
+/** Workers hand each file to a copy, see `docs/design.md` item 14. */
+let handing = false
 /** How many workers a round may have at once. */
 let workers = 1
 // A copy of a process has none of its other threads, so a worker that is
@@ -2104,6 +2178,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const projectRequire = createRequire(path.join(options.root, 'package.json'))
   const vitestPackage = projectRequire.resolve('vitest/package.json')
   const vitestVersion: string = JSON.parse(fs.readFileSync(vitestPackage, 'utf8')).version
+  const vitestDist = fs.realpathSync(path.join(path.dirname(vitestPackage), 'dist'))
+  const mended = /^4\./.test(vitestVersion) ? mendPool(vitestDist) : () => false
   const { createVitest } = await import(
     pathToFileURL(path.join(path.dirname(vitestPackage), 'dist/node.js')).href
   )
@@ -2118,7 +2194,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // next file it could share one with, and waits for that file for good. A
   // worker that hands its files to copies ends when a copy is stopped in a
   // loop, so with more such files than workers a round of svelte never ended.
-  const reusesEnded = major === 4 && (minor < 1 || (minor === 1 && patch < 9))
+  // From 4.0.17 the pool is mended as it loads, see `mendPool`.
+  const reusesEnded = major === 4 && (minor < 1 || (minor === 1 && patch < 9)) && !mended()
   const config = writeSession(sessionDir, generated, options, major, vitestPackage)
   process.env.VITANT_SESSION = sessionDir
   // `globalSetup` files load in this process and may import instrumented code.
@@ -2251,6 +2328,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const vitestStartedAt = performance.now()
   const addon = options.clone ? cloneAddon() : undefined
   cloning = addon !== undefined
+  handing = cloning && major >= 4 && !reusesEnded
   workers = options.maxWorkers
   workerArgv.length = 0
   if (addon) {
@@ -2474,6 +2552,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
           clearInterval(sweeping)
         }
         rounds++
+        fs.appendFileSync(
+          path.join(paths.results, 'main.jsonl'),
+          `${JSON.stringify({ type: 'round', round: rounds, startedAt: Date.now() - (performance.now() - roundStartedAt), workers, at: Date.now() })}\n`,
+        )
         const seconds = ((performance.now() - roundStartedAt) / 1000).toFixed(1)
         const detected = fs.readFileSync(paths.state).filter((value) => value !== MUTANT_PENDING).length
         options.log(`round ${rounds} took ${seconds}s, ${detected} mutants detected so far`)
@@ -2644,6 +2726,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // left to claim ends at once.
       let roundWork = 0
       for (const work of next.workByFile.values()) roundWork += work.workMs
+      /** What a run whose mutant loops takes at the least: the time Vitest gives a test. */
+      const loopMs = (vitest.config as { testTimeout?: number }).testTimeout || 5000
       const unitMs = Math.min(options.budgetMs, Math.max(2000, roundWork / options.maxWorkers))
       const units: { spec: (typeof specs)[number]; workMs: number }[] = []
       let wholeWork = 0
@@ -2685,6 +2769,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // A run that a copy did not get through takes a worker of its own.
         const alone = cloning ? (next.plan.whole[spec.moduleId] ?? []).filter((job) => job.plain).length : 0
         for (let i = 0; i < alone; i++) units.push({ spec, workMs: work.wholeMs })
+        // So does one whose mutant blocked a worker before, a loop that is
+        // to run out a test's time: one after another in a worker, those of
+        // es-toolkit's `array` made the round longer by a fifth.
+        const looping = serial ? 0 : (next.plan.whole[spec.moduleId] ?? []).filter((job) => job.stalled && !job.plain).length
+        for (let i = 0; i < looping; i++) units.push({ spec, workMs: work.wholeMs + loopMs })
         if (trialing || (work.chunks === 0 && !(spec.moduleId in next.plan.probe))) continue
         // A worker stops at the first test a mutant leaves broken, and what
         // it had taken goes to whichever worker is still on the file. Where
@@ -2938,7 +3027,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     Static: 0,
     Pending: 0,
   }
-  const wholeRuns: WholeRuns = { started: 0, 'copied before load': 0, 'copied while loading': 0, 'copied after load': 0, lost: 0 }
+  const wholeRuns: WholeRuns = { started: 0, 'copied before load': 0, 'copied while loading': 0, 'copied after load': 0, 'copied before a test': 0, lost: 0 }
   const work = { trials: 0, trialCpuMs: 0, wholeMs: { passed: 0, detected: 0 }, workers: 0 }
   for (const record of records) {
     if (record.type === 'whole' && record.by) {

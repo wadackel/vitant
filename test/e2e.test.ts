@@ -104,7 +104,7 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(plain)).toEqual(verdicts(result))
-    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load']).toBe(0)
+    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load'] + plain.wholeRuns['copied before a test']).toBe(0)
     expect(plain.wholeRuns.started).toBeGreaterThan(0)
   }, 180_000)
 
@@ -499,6 +499,41 @@ describe('a mutant that keeps a test file from ever finishing to load', () => {
   }, 120_000)
 })
 
+describe('runs copied after the tests before the first to reach the mutant', () => {
+  it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file or the tests run at once', () => {
+    const walk = path.join(root, 'fixtures/walk')
+    const report = reportPath('walk')
+    const cli = tool(['--root', walk, '--report', report])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const run: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(run.wholeRuns['copied before a test']).toBeGreaterThan(0)
+    const results = path.join(walk, 'node_modules/.vitant/session/results')
+    const refused = fs
+      .readdirSync(results)
+      .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
+      .filter((line) => line.includes('"type":"walk"'))
+      .map((line) => JSON.parse(line) as { file: string; why: string })
+      .map((record) => `${path.basename(record.file)} ${record.why}`)
+    expect([...new Set(refused)].sort()).toEqual(['inbox.test.ts wrote', 'pair.test.ts concurrent'])
+    // Copied once after the first test, the file it leaves is there for one copy and gone for the next.
+    expect(run.mutants.find((mutant) => mutant.replacement === 'n / 2')?.status).toBe('Killed')
+  }, 60_000)
+})
+
+describe('copies of a worker made one after another', () => {
+  it('read the clock as a run of the suite would, not later by the copies before them', () => {
+    const report = reportPath('clock')
+    const cli = tool(['--root', path.join(root, 'fixtures/clock'), '--report', report, '--max-workers', '1'])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const clock: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    // With the clock as it runs, the test that checks how long has passed
+    // since the file loaded failed in later copies and was taken to fail now
+    // and then, and each failure was run again with nothing else running.
+    expect(clock.flakyTests).toEqual([])
+    expect(clock.quietRuns).toEqual({ failed: 0, passed: 0 })
+  }, 60_000)
+})
+
 describe('mocks a test file clears between its tests, on Vitest 3.2', () => {
   // The fixture resolves Vitest 3.2 from the root's `vitest3`: the mocks the
   // tool holds weakly exist only before Vitest 5, which keeps no Set of them.
@@ -517,16 +552,19 @@ describe('mocks a test file clears between its tests, on Vitest 3.2', () => {
     expect(mocks.vitestVersion).toMatch(/^3\.2\./)
     expect(mocks.failedBaselines).toEqual([])
     const detected = (status: string) => (status === 'Timeout' ? 'Killed' : status)
-    expect(mocks.mutants.map((m) => `${m.location.start.line}:${m.location.start.column} ${m.replacement} ${detected(m.status)}`)).toEqual([
-      '1:60 {} Killed',
-      '2:7 "" Killed',
+    expect(mocks.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${detected(m.status)}`)).toEqual([
+      // Only the teardown of a fixture scoped to the worker sees these, after the file's tests.
+      'src/box.ts:1:56 {} Killed',
+      'src/box.ts:2:14 box.value - 1 Killed',
+      'src/relay.ts:1:60 {} Killed',
+      'src/relay.ts:2:7 "" Killed',
       // Only the last test counts the calls of `burst`.
-      '5:76 {} Killed',
-      '6:18 i <= times Killed',
-      '6:18 i >= times Killed',
-      '6:18 false Killed',
-      '6:29 i-- Killed',
-      '6:39 "" Survived',
+      'src/relay.ts:5:76 {} Killed',
+      'src/relay.ts:6:18 i <= times Killed',
+      'src/relay.ts:6:18 i >= times Killed',
+      'src/relay.ts:6:18 false Killed',
+      'src/relay.ts:6:29 i-- Killed',
+      'src/relay.ts:6:39 "" Survived',
     ])
   }, 180_000)
 })

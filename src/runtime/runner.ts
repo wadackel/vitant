@@ -5,8 +5,9 @@
 
 import { createHook } from 'node:async_hooks'
 import fs from 'node:fs'
-import { createRequire } from 'node:module'
+import { createRequire, syncBuiltinESMExports } from 'node:module'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import v8 from 'node:v8'
 import { constants, PerformanceObserver } from 'node:perf_hooks'
 import { Worker } from 'node:worker_threads'
@@ -290,6 +291,9 @@ function trying(mutant: number): void {
   fs.writeSync(tryingFd, new Uint8Array(tryingMutant.buffer), 0, 4, 0)
 }
 
+/** In a process's word of the mutant it tries: it was stopped in a test's first try, see `cold` in the watchdog. */
+const STOPPED_COLD = -2
+
 /** The mutant the process with this id had on for a test when it last said, -1 for none. */
 function triedBy(pid: number): number {
   try {
@@ -366,7 +370,9 @@ for (;;) {
       fs.writeSync(fd, new Uint8Array([mutant[1] ? ${MUTANT_TIMEOUT} : ${MUTANT_STALLED}]), 0, 1, stalled)
     }
     // A worker that is gone with a mutant on is taken to have died of it.
-    if (cold) fs.writeFileSync(workerData.tryingPath, new Uint8Array(new Int32Array([-1]).buffer))
+    // One stopped cold names no mutant, and says it was stopped: a worker
+    // started for the file meets the same, and the copy is not at fault.
+    if (cold) fs.writeFileSync(workerData.tryingPath, new Uint8Array(new Int32Array([${STOPPED_COLD}]).buffer))
     process.kill(process.pid, 'SIGKILL')
   }
 }
@@ -483,6 +489,132 @@ const cloner: Cloner | undefined =
     ? createRequire(import.meta.url)(process.env.VITANT_FORK)
     : undefined
 
+/**
+ * How long this process, and those it was copied from, stood still for
+ * copies of themselves since the project's code began: a copy made after
+ * others starts that much later than the run it stands for, and a process
+ * that made copies goes on that much later. The clocks the project reads
+ * leave it out, so that a copy reads the time it would have read in a run
+ * of the suite: a test that checks how long has passed since the file
+ * loaded, or since an earlier test, would otherwise see the copies before
+ * it. Timers are put off by the same, see `stoodStill` and `thaw`. In
+ * whole milliseconds, as `Date.now()` has them: formbricks makes a BigInt
+ * of it, which a fraction fails.
+ */
+let stood = 0
+
+/**
+ * Puts clocks in place of `Date`, `performance.now`, `process.hrtime` and
+ * `process.uptime` that leave out `stood`, before the project's code reads
+ * them. `Date` is a function returning the engine's own dates, with its
+ * prototype, as fake timers make it: a class of its own would give
+ * `new Date()` another prototype and fail `instanceof` both ways.
+ */
+function standClocks(): void {
+  const NativeDate = Date
+  const nativeNow = NativeDate.now.bind(NativeDate)
+  const nativeBigint = process.hrtime.bigint.bind(process.hrtime)
+  const nativeUptime = process.uptime.bind(process)
+  const nativePerformanceNow = performance.now.bind(performance)
+  function StoodDate(this: unknown, ...args: unknown[]): unknown {
+    if (!new.target) return new NativeDate(nativeNow() - stood).toString()
+    const date = args.length === 0 ? new NativeDate(nativeNow() - stood) : new (NativeDate as unknown as new (...args: unknown[]) => Date)(...args)
+    if (new.target !== StoodDate) Object.setPrototypeOf(date, new.target.prototype)
+    return date
+  }
+  for (const key of Reflect.ownKeys(NativeDate)) {
+    if (key === 'now') continue
+    Object.defineProperty(StoodDate, key, Object.getOwnPropertyDescriptor(NativeDate, key)!)
+  }
+  Object.defineProperty(StoodDate, 'now', { value: () => nativeNow() - stood, writable: true, configurable: true })
+  globalThis.Date = StoodDate as unknown as DateConstructor
+  performance.now = () => nativePerformanceNow() - stood
+  const bigint = () => nativeBigint() - BigInt(Math.round(stood * 1e6))
+  const hrtime = ((previous?: [number, number]) => {
+    const now = bigint()
+    const since = previous ? now - (BigInt(previous[0]) * 1_000_000_000n + BigInt(previous[1])) : now
+    return [Number(since / 1_000_000_000n), Number(since % 1_000_000_000n)]
+  }) as typeof process.hrtime
+  hrtime.bigint = bigint
+  process.hrtime = hrtime
+  process.uptime = () => nativeUptime() - stood / 1000
+}
+if (cloner) standClocks()
+
+/** Calls that change the file system somewhere outside this tool's session, since the worker started, see `countWrites`. */
+let writes = 0
+
+/**
+ * Counts the calls of `fs` that change the file system. What one test
+ * writes and closes, a later one can read or remove: made once in a
+ * process that is copied before the later test, it is there for one copy
+ * and gone for the next, where every run of the suite makes its own.
+ * Nothing open is left to show for it, so the calls are counted. Through a
+ * descriptor opened before, a write needs no call counted here; the
+ * descriptor is left open, and that is seen.
+ */
+function countWrites(): void {
+  const session = path.resolve(sessionDir!)
+  const outside = (target: unknown) => {
+    const name =
+      typeof target === 'string' ? target : target instanceof URL ? fileURLToPath(target) : Buffer.isBuffer(target) ? target.toString() : undefined
+    return name === undefined || !path.resolve(name).startsWith(session)
+  }
+  const writing = (flags: unknown) =>
+    typeof flags === 'string'
+      ? /[wa+]/.test(flags)
+      : typeof flags === 'number' && (flags & (fs.constants.O_WRONLY | fs.constants.O_RDWR | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_TRUNC)) !== 0
+  const wrap = (object: Record<string, unknown>, name: string, counts: (args: unknown[]) => boolean) => {
+    const original = object[name]
+    if (typeof original !== 'function') return
+    object[name] = function (this: unknown, ...args: unknown[]) {
+      if (counts(args)) writes++
+      return original.apply(this, args)
+    }
+  }
+  const changes = ['writeFile', 'appendFile', 'mkdir', 'mkdtemp', 'rm', 'rmdir', 'unlink', 'rename', 'copyFile', 'cp', 'truncate', 'chmod', 'lchmod', 'chown', 'lchown', 'utimes', 'lutimes', 'symlink', 'link']
+  const modules = [fs as unknown as Record<string, unknown>, fs.promises as unknown as Record<string, unknown>]
+  for (const object of modules) {
+    for (const name of changes) for (const variant of object === modules[0] ? [name, `${name}Sync`] : [name]) wrap(object, variant, (args) => outside(args[0]))
+    for (const name of object === modules[0] ? ['open', 'openSync'] : ['open']) wrap(object, name, (args) => writing(args[1]) && outside(args[0]))
+  }
+  wrap(modules[0], 'createWriteStream', (args) => outside(args[0]))
+  syncBuiltinESMExports()
+}
+if (cloner) countWrites()
+
+/**
+ * Where a copy notes the test it is in. The process that copied it stops it
+ * from outside, on its time on the processor or its memory, and a copy's
+ * memory is its own: read from here, the stop names the test, as one by the
+ * watchdog of a worker started for the run does, and a lead of that test
+ * vouches for it. Without it a mutant whose loop filled memory waited for a
+ * run made with nothing else running.
+ */
+const testSlot = cloner ? fs.openSync(path.join(sessionDir!, `slot.${process.pid}`), 'w+') : undefined
+
+/** Notes the test a run of a whole file is in, or that it is in none. */
+function noteTest(id?: string): void {
+  beatTest.fill(0)
+  const bytes = new TextEncoder().encode(id ?? '').subarray(0, 255)
+  beatTest.set(bytes)
+  if (testSlot !== undefined && cloned) {
+    const slot = Buffer.alloc(256)
+    slot.set(bytes)
+    fs.writeSync(testSlot, slot, 0, 256, 0)
+  }
+}
+
+/** The test the copy this process stopped was in, see `testSlot`. */
+function stoppedIn(): string | undefined {
+  if (testSlot === undefined) return undefined
+  const slot = Buffer.alloc(256)
+  fs.readSync(testSlot, slot, 0, 256, 0)
+  const end = slot.indexOf(0)
+  const id = slot.subarray(0, end === -1 ? 256 : end).toString('utf8')
+  return id === '' ? undefined : id
+}
+
 /** What a copy that runs a test file ends with to be replaced by another, see `handOver`. */
 const RECYCLED = 75
 /**
@@ -496,15 +628,26 @@ const MAX_COPIES = 50
 /** How long a copy may go without a heartbeat while using no CPU time. */
 const STUCK_MS = 3000
 
-type CopiedBy = 'copied before load' | 'copied while loading' | 'copied after load'
+type CopiedBy = 'copied before load' | 'copied while loading' | 'copied after load' | 'copied before a test'
 
 /** In `runtime.a`: no mutant is on, and none is to be probed for either. */
 const NO_MUTANT = 0x7fffffff
 
-let forkLock: number | undefined
+/**
+ * Held open from the start, so that it is among the descriptors a process
+ * had before it loaded the file, which are what a copy may share.
+ */
+let forkLock: number | undefined = cloner ? fs.openSync(paths.config, 'r') : undefined
 /** Calls to the main process that have not been answered. */
 let calls = 0
 let counting = false
+/**
+ * This process runs a file's tests only to copy itself before some of
+ * them, see `walk`: nothing reads what they print, and a call to print it
+ * still out when a copy is due keeps the copy from being made, 575 times in
+ * a run of jotai on a Linux runner.
+ */
+let walking = false
 /**
  * Counts the calls this process has out. A copy shares the channel with the
  * process it was copied from: an answer to one would reach the other, and
@@ -524,7 +667,7 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       // copy stopped with half of it sent would leave the channel, which the
       // process it was copied from goes on using, with a message that never
       // ends. Nothing reads the output of a copy's run.
-      if (cloned && key === 'onUserConsoleLog') return () => {}
+      if ((cloned || walking) && key === 'onUserConsoleLog') return () => {}
       // The functions carry variants of themselves as properties, which stay reachable.
       return new Proxy(value, {
         apply(fn, self, args) {
@@ -584,11 +727,14 @@ const timerHook = createHook({
  */
 function stoodStill(ms: number): void {
   const by = Math.round(ms)
+  stood += by
   for (const timer of loadTimers) if (!timer._destroyed && timer._idleStart !== undefined) timer._idleStart += by
 }
 
 /** Timers set while the file loaded, put off for now, with what was left of each when they were. */
 let frozen: [LoadTimer, number][] = []
+/** When `freeze` stopped the clocks of `standClocks`. */
+let frozenAt = 0
 
 /**
  * Puts every timer set while the file loaded off for good, keeping what
@@ -599,6 +745,7 @@ let frozen: [LoadTimer, number][] = []
  * timer made for the purpose.
  */
 function freeze(): void {
+  frozenAt = preciseNow()
   const probe = realSetTimeout(() => {}, 0) as unknown as LoadTimer
   const now = probe._idleStart
   clearTimeout(probe as unknown as NodeJS.Timeout)
@@ -617,6 +764,7 @@ function freeze(): void {
  * `_repeat`.
  */
 function thaw(): void {
+  stood += Math.round(preciseNow() - frozenAt)
   for (const [timer, left] of frozen) {
     if (timer._destroyed) continue
     timer._idleTimeout = left
@@ -1139,6 +1287,24 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeWaits = new Set<string>()
     /** Tests of the run that Vitest's own time limit ended. */
     private wholeOverran = 0
+    /**
+     * While this process runs the file's tests with no mutant on to copy
+     * itself before some of them, the runs to copy for, by the test they
+     * are made before: see `walk`.
+     */
+    private walking: Map<string, WholeJob[]> | undefined
+    /** Tests the runs of the file leave out, which the process walking it leaves out too. */
+    private walkIgnore: string[] = []
+    /** When Vitest began to load the file here, after any wait for the file to itself. */
+    private loadStart = 0
+    /** This process walked the file, see `walk`. */
+    private walked = false
+    /** A test failed, or an error nothing handled came, while walking. */
+    private walkFailed = false
+    /** `writes` as the walk began. */
+    private walkWrites = 0
+    /** The teardowns of fixtures scoped to the worker, each made to run once, see `onCleanupWorkerContext`. */
+    private workerCleanups: (() => Promise<unknown>)[] = []
     /** This copy repeats a run that failed where no test had failed while trying the mutant. */
     /** How the process making the whole-file run came to be. */
     private wholeBy: 'started' | CopiedBy = 'started'
@@ -1198,7 +1364,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // A copy can end over what a worker started for the file would not
           // meet, a thread it does not have for one. One that a mutant
           // took down says which.
-          if (!(triedBy(pid) >= 0)) emit({ type: 'unhanded', file })
+          // A copy stopped in a test's first try, slow for what the tests
+          // before it would have loaded, is not one of those: marked so, the
+          // file went to started workers for good, and on immich `utils` each
+          // worker's stop for its memory then took a round of its own,
+          // twenty-four rounds and a fifth of the run.
+          const tried = triedBy(pid)
+          if (tried === -1) emit({ type: 'unhanded', file })
           // However it ended, it may have done so in the middle of a message
           // to the main process, and no message of this process after that
           // would be read as one. The channel goes with this process, and the
@@ -1248,6 +1420,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           if (job.plain || !job.early || job.loading || !this.open(job) || !claim(`whole.${job.id}`)) continue
           if (await this.clone(job, true)) {
             this.begin(job, true)
+            this.loadStart = realNow()
             return super.onBeforeCollect?.(paths)
           }
         }
@@ -1275,6 +1448,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           loadTimers.length = 0
           timerHook.enable()
           if (this.waiting.length > 0) runtime.m = (first, end) => this.copyWhileLoading(first, end)
+          this.loadStart = realNow()
           return super.onBeforeCollect?.(paths)
         }
       } else {
@@ -1301,6 +1475,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       watch()
       workerResources = activeResources()
+      this.loadStart = realNow()
       return super.onBeforeCollect?.(paths)
     }
 
@@ -1330,6 +1505,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
+      // What the wait for the main process let run may have reached the
+      // mutant's code since it was looked at, and a copy from here would
+      // have had it off for that.
+      if (!beforeLoad && job.trial === undefined && (job.again ?? [job.site]).some((site) => runtime.h[site] === 1)) {
+        emit({ type: 'early', file: this.wholeFile, site: job.site })
+        return false
+      }
       return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
     }
 
@@ -1416,11 +1598,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       } else if (ended === cloner!.Ended.Blocked) {
         const state = readState(job.mutant)
         if (state === MUTANT_PENDING || state === MUTANT_STALLED) writeState(job.mutant, MUTANT_TIMEOUT)
+        const test = stoppedIn()
         emit({
           type: 'whole',
           file: this.wholeFile,
           mutant: job.mutant,
           verdict: 'timeout',
+          ...(test ? { test, tests: [test] } : {}),
           knew: (job.witnesses?.length ?? 0) > 0,
           alone: job.exclusive || job.quiet,
           quiet: job.quiet,
@@ -1466,6 +1650,104 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private limitWhole(): void {
       const floor = this.floorMs && this.floorMs + LOOP_FIRST_MS
       limitStretch(Math.max(this.wholeBase, floor), floor)
+    }
+
+    /**
+     * Runs the file's tests on with no mutant on, to copy this process
+     * before the first test that reached each job's mutant: a process with
+     * the mutant on would have gone through the same steps up to there,
+     * the mutant's code not having run, and the copy saves the tests before.
+     */
+    private walk(jobs: WholeJob[]): void {
+      // What ran while the file loaded is noted now. What the tests reach
+      // from here on is not code that runs while it loads, and noted as such
+      // it sent immich's runs of those mutants to copies made before loading.
+      drainStaticHits()
+      this.walked = true
+      walking = true
+      // The walk runs the tests as they are, with no mutant on and no limit of this tool's.
+      runtime.l = Infinity
+      this.template = false
+      this.walking = new Map()
+      for (const job of jobs) this.walking.set(job.before!, [...(this.walking.get(job.before!) ?? []), job])
+      this.walkIgnore = jobs[0].ignore
+      this.walkWrites = writes
+      workerResources = this.heldBeforeLoad
+      // What the tests before set off is put off in the copies, as a timer set while the file loaded is.
+      timerHook.enable()
+      for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
+        for (const listener of process.listeners(event) as ((...args: unknown[]) => void)[]) {
+          process.off(event, listener)
+          process.on(event, (...args: unknown[]) => {
+            this.walkFailed = true
+            listener(...args)
+          })
+        }
+      }
+    }
+
+    /**
+     * Copies this process for the jobs to be made before the test, without
+     * a pause: an `await` here lets a chain of promises an earlier test left
+     * behind run ahead of the test, where the suite has it run later. Not
+     * where an earlier test failed or changed the file system, or anything
+     * is open or under way that was not before loading. Returns whether
+     * this is a copy.
+     */
+    private copyBefore(jobs: WholeJob[]): boolean {
+      const open = openDescriptors()
+      const why = this.walkFailed
+        ? 'failed'
+        : writes !== this.walkWrites
+          ? 'wrote'
+          : calls > 0 || unanswered.size > 0
+            ? 'calls'
+            : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
+              ? 'descriptors'
+              : // A close under way finishes in this process and never in the
+                // copy, which keeps the descriptor and is told nothing: in immer
+                // Vitest's reading of a file's snapshots left one under way for
+                // the whole file, in every file that has snapshots.
+                exceeds(new Map([...activeResources()].filter(([kind]) => kind !== 'Immediate' && kind !== 'Timeout' && kind !== 'CloseReq')), this.heldBeforeLoad)
+                ? 'held'
+                : undefined
+      if (why) {
+        // What an earlier test failed or wrote stays for the tests after it;
+        // a call or a file under way, often Vitest's own reading of the
+        // file's snapshots as its suite begins, is over by a later test.
+        const lasting = why === 'failed' || why === 'wrote'
+        const held = why === 'held' ? [...activeResources()] : undefined
+        // For the whole file where it lasts: a run refused here is not made
+        // this round, and with each refused in turn, the runs of actual's
+        // `main.test.ts`, one process at a time, went three rounds without
+        // a verdict and the run gave up on six files.
+        if (lasting) {
+          emit({ type: 'walk', file: this.wholeFile, why })
+          this.walking = new Map()
+        } else {
+          for (const job of jobs) emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why, held })
+        }
+        return false
+      }
+      freeze()
+      for (const job of jobs) {
+        if (runtime.h[job.site] === 1) {
+          emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why: 'ran' })
+          continue
+        }
+        if (!this.open(job) || !claim(`whole.${job.id}`)) continue
+        if (this.copy(job, 'copied before a test')) {
+          thaw()
+          // The loops of the tests before are not the run's to count.
+          runtime.n = 0
+          this.walking = undefined
+          timerHook.disable()
+          this.begin(job, false)
+          return true
+        }
+      }
+      thaw()
+      return false
     }
 
     /**
@@ -1557,7 +1839,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       heartbeat()
       beatMutant[0] = job.mutant
       beatMutant[1] = 1
-      beatTest.fill(0)
+      noteTest()
       // No stretch of the run can take longer than the whole file does. A
       // mutant that blocked a worker before gets the plain limit: blocking
       // twice is what a timeout is.
@@ -1593,6 +1875,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onCollected(files: TaskLike[]): Promise<unknown> {
       if (this.away) return super.onCollected?.(files)
+      // How long the file took to load here, for reading where a run's time went: `bench/spent.ts`.
+      // A copy made while the file loaded has its loading from the process it was copied from.
+      if (this.wholeBy !== 'copied while loading') emit({ type: 'loaded', file: this.wholeFile, ms: realNow() - this.loadStart, template: this.template, whole: this.whole !== undefined })
       if (this.template) {
         runtime.m = undefined
         // Jobs whose modules did not begin while the file loaded.
@@ -1620,6 +1905,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           if (job.trial !== undefined && claim(`whole.${job.id}`)) untold(job, this.wholeFile!)
         }
         let copied = false
+        // Tests that run at once leave no point between two of them where
+        // the earlier ones are through and the later not begun.
+        let concurrent = false
+        forEachTask(files, (task) => {
+          if ((task as { concurrent?: boolean }).concurrent) concurrent = true
+        })
+        if (concurrent && (plan?.whole[this.wholeFile!] ?? []).some((job) => job.before !== undefined)) emit({ type: 'walk', file: this.wholeFile, why: 'concurrent' })
         for (const job of shares ? [] : (plan?.whole[this.wholeFile!] ?? [])) {
           if (job.plain || (job.early && !job.loading) || !this.open(job)) continue
           // The mutant's code did run while this process loaded the file, so
@@ -1634,6 +1926,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             told.add(read)
             continue
           }
+          if (job.before !== undefined && !concurrent) continue
           if (!claim(`whole.${job.id}`)) continue
           if (await this.clone(job, false)) {
             thaw()
@@ -1644,6 +1937,16 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
         thaw()
         runtime.a = -1
+        const ahead =
+          shares || concurrent
+            ? []
+            : (plan?.whole[this.wholeFile!] ?? []).filter(
+                (job) => job.before !== undefined && !job.plain && !told.has(job.site) && runtime.h[job.site] !== 1 && this.open(job) && !claimed(`whole.${job.id}`),
+              )
+        if (ahead.length > 0) {
+          this.walk(ahead)
+          return super.onCollected?.(files)
+        }
         // Every worker a file is given takes it as a template while a run
         // asked for by name is open, whoever has claimed it. One left with
         // no job is, with no mutant on so far, a worker the file's tries
@@ -1668,6 +1971,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (!this.measuring && !plan.replay.includes(file)) replayFiles.delete(file)
       }
       drainStaticHits()
+      // Said now, not only with the file's end: a worker of the first round
+      // replaced before that, for its memory, left the file with no record of
+      // what runs while it loads, and every run of four files of immich went
+      // to a copy made before loading, 466 loads of a file.
+      if (!plan) emit({ type: 'statics', file, sites: marked(staticHits) })
       loaded = true
       // One global holds the active mutant, so tests cannot interleave.
       forEachTask(files, (task) => {
@@ -1715,9 +2023,17 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onBeforeRunTask(test: TaskLike): Promise<void> {
       await super.onBeforeRunTask?.(test)
+      if (this.walking) {
+        const jobs = this.walking.get(test.id)
+        this.walking.delete(test.id)
+        if (!(jobs && this.copyBefore(jobs))) {
+          // Nothing is left to copy for once the last such test is reached.
+          if (this.walking.size === 0 || this.walkIgnore.includes(test.id)) test.mode = 'skip'
+          return
+        }
+      }
       if (this.whole) {
-        beatTest.fill(0)
-        beatTest.set(new TextEncoder().encode(test.id).subarray(0, 255))
+        noteTest(test.id)
         this.floorMs = deadline((test as { timeout?: number }).timeout ?? this.config.testTimeout)
         this.limitWhole()
         this.clockOn()
@@ -1798,6 +2114,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     // next attempt is the one place, across versions, where the previous
     // attempt is known to be over and its result settled.
     onBeforeTryTask(test: TaskLike, options: TryOptions): unknown {
+      // Nothing of the trying of mutants: it clears what the tests reached, which the walk adds up.
+      if (this.walking) return super.onBeforeTryTask?.(test, options)
       if (this.whole) {
         this.clockOn()
         if (this.whole.trial === test.id && this.whole.mutant >= 0) {
@@ -1892,8 +2210,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         heartbeat()
         beatMutant[0] = run.mutant
         beatMutant[1] = run.mode === 'planned' && run.attempts === 1 && !replays(test.file.filepath) ? 2 : 0
-        beatTest.fill(0)
-        beatTest.set(new TextEncoder().encode(test.id).subarray(0, 255))
+        noteTest(test.id)
         // CPU time does not stretch on a busy machine the way wall time does,
         // so one stretch without yielding ends at the plain limit. That only
         // hands the mutant to a whole-file run, which gives it the most a run
@@ -2008,7 +2325,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     // Cleanup hooks run unmutated so a mutant cannot keep them from restoring
     // shared state.
     onTaskFinished(test: TaskLike): unknown {
-      if (this.whole) return super.onTaskFinished?.(test)
+      if (this.whole || this.walking) return super.onTaskFinished?.(test)
       runtime.a = -1
       limitStretch(0)
       // What only the cleanup hooks reach is not something a mutant run of
@@ -2032,6 +2349,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onAfterRunTask(test: TaskLike): Promise<void> {
       await super.onAfterRunTask?.(test)
+      if (this.walking) {
+        if (test.result?.state === 'fail') this.walkFailed = true
+        return
+      }
       if (!this.whole) {
         const driven = this.active?.test === test
         this.finishActive()
@@ -2044,7 +2365,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       }
       if (!this.whole) return
-      beatTest.fill(0)
+      noteTest()
       this.floorMs = deadline(this.config.hookTimeout)
       this.limitWhole()
       this.clockOn()
@@ -2144,6 +2465,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return cloner!.exit(0)
       }
       if (this.wholeFailure) markFailed(this.whole!.mutant)
+      // A copy starts its counts at nought, so these are what the run itself
+      // cost, the pages it wrote of those it shares with its parent included.
+      const usage = cloned ? process.resourceUsage() : undefined
       emit({
         type: 'whole',
         file: this.wholeFile,
@@ -2156,9 +2480,25 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         quiet: this.whole!.quiet,
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
+        ...(usage ? { faults: usage.minorPageFault, userMs: usage.userCPUTime / 1000, systemMs: usage.systemCPUTime / 1000 } : {}),
       })
       cloner!.done()
       return cloner!.exit(0)
+    }
+
+    /**
+     * Vitest 3.2 runs the teardown of a fixture scoped to the worker after
+     * the file, and fails the run where it throws: a mutant the teardown's
+     * assertion sees fails the suite with every test passing. A copy ends
+     * before that, and a worker started for the run has said its verdict, so
+     * a run of a whole file runs them itself, once. From Vitest 4 such a
+     * teardown failing fails nothing.
+     */
+    onCleanupWorkerContext(listener: () => unknown): void {
+      let ran: Promise<unknown> | undefined
+      const once = () => (ran ??= Promise.resolve().then(listener))
+      this.workerCleanups.push(once)
+      super.onCleanupWorkerContext?.(once)
     }
 
     async onAfterRunFiles(files: TaskLike[]): Promise<unknown> {
@@ -2174,10 +2514,20 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
     }
 
-    private afterRunFiles(files: TaskLike[]): unknown {
+    private async afterRunFiles(files: TaskLike[]): Promise<unknown> {
       // The file's tests and hooks are through, which is all another run of it could meet.
       release()
       if (this.whole) {
+        // With the mutant still on, as the suite has it.
+        if (vitest.major === 3) {
+          for (const cleanup of this.workerCleanups.splice(0)) {
+            try {
+              await cleanup()
+            } catch {
+              this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
+            }
+          }
+        }
         runtime.a = -1
         limitStretch(0)
         wallDeadline[0] = 0
@@ -2217,7 +2567,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return super.onAfterRunFiles?.(files)
       }
       this.finishActive()
-      drainStaticHits()
+      if (!this.walked) drainStaticHits()
       const sites: number[] = []
       for (let site = staticHits.indexOf(1); site !== -1; site = staticHits.indexOf(1, site + 1)) {
         sites.push(site)

@@ -56,7 +56,7 @@ const wrong = installed.mutants.filter((mutant) => detected(expected.get(key(mut
 const problems = wrong.map((mutant) => `${key(mutant)}: ${expected.get(key(mutant))} from the sources, ${mutant.status} installed`)
 if (installed.mutants.length !== sources.mutants.length) problems.push(`${installed.mutants.length} mutants installed, ${sources.mutants.length} from the sources`)
 if (installed.abandonedFiles.length > 0) problems.push(`gave up on ${installed.abandonedFiles.join(', ')}`)
-const copies = installed.wholeRuns['copied before load'] + installed.wholeRuns['copied while loading'] + installed.wholeRuns['copied after load']
+const copies = installed.wholeRuns['copied before load'] + installed.wholeRuns['copied while loading'] + installed.wholeRuns['copied after load'] + installed.wholeRuns['copied before a test']
 if (tarballs.length > 1 && copies === 0) problems.push('no run was made in a copy: the addon was not found through its package')
 
 console.log(`${installed.mutants.length} mutants from the packed tool, ${copies} of its runs in copies: ${problems.length === 0 ? 'as from the sources' : 'not as from the sources'}`)
