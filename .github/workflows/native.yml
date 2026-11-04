@@ -142,6 +142,13 @@ jobs:
             node bench/ci.ts stamp-addon "$TARGET"
             node bench/ci.ts run smoke "$TARGET"
           '
+      - name: Return Alpine reports to the runner
+        if: ${{ always() && matrix.musl }}
+        run: |
+          if [ -d build/test-reports ]; then
+            docker run --rm -v "$PWD/build":/artifacts -e REPORT_OWNER="$(id -u):$(id -g)" node:24-alpine \
+              sh -ec 'chown -R "$REPORT_OWNER" /artifacts/test-reports'
+          fi
       - name: Check platform package contents
         if: ${{ matrix.addon }}
         run: |
@@ -222,6 +229,13 @@ jobs:
             pnpm install --frozen-lockfile
             node bench/ci.ts run "$SUITE" "$TARGET"
           '
+      - name: Return Alpine reports to the runner
+        if: ${{ always() && matrix.musl }}
+        run: |
+          if [ -d build/test-reports ]; then
+            docker run --rm -v "$PWD/build":/artifacts -e REPORT_OWNER="$(id -u):$(id -g)" node:24-alpine \
+              sh -ec 'chown -R "$REPORT_OWNER" /artifacts/test-reports'
+          fi
       - name: Keep available truth sessions
         if: ${{ always() && matrix.suite == 'truth' }}
         run: node bench/ci.ts sessions
