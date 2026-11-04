@@ -115,21 +115,21 @@ In immich, 562 of the 4,280 mutants are in code that only runs while a module lo
 
 ## On hosted CI runners
 
-`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners, and these are the times that are kept up to date. In seconds, the median of three runs, from runs of 1 November 2026; every report of this tool agreed with the stored ground truth on both. StrykerJS and this tool ran in jobs of their own, so on Linux a row is two processors (StrykerJS on an EPYC 9V74 for ufo and es-toolkit `pr`, a Xeon 8370C for `array` and an 8573C for valibot, an EPYC 7763 for the rest; this tool on a 9V45 for ufo and query, a 9V74 for `pr`, an 8573C for jotai, a 7763 for the rest), and a job gets whichever is free: the same scope takes visibly longer on one than on another. The macOS runners are of one model.
+`.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners, and these are the times that are kept up to date. In seconds, the median of three runs, from runs of 3 and 4 November 2026; every report of this tool agreed with the stored ground truth on both. StrykerJS and this tool ran one after the other in one job, so a row has one processor for both: on Linux an EPYC 9V45 for ufo and immer, a 9V74 for es-toolkit `array`, jotai and xstate, a 7763 for query and valibot, a Xeon 8573C for zustand and an 8370C for es-toolkit `pr`. The macOS runners are of one model.
 
 | Target and scope | Linux: StrykerJS | This tool | macOS: StrykerJS | This tool |
 |---|---|---|---|---|
-| ufo `all` | 66.8 | 26.7 | 61.1 | 51.7 |
-| zustand `all` | 268.1 | 66.9 | 207.7 | 73.2 |
-| es-toolkit `array` | 328.4 | 153.7 | 259.8 | 221.8 |
-| es-toolkit `pr`: lines the pinned commit changed | 30.0 | 40.1 | 29.3 | 45.3 |
-| immer `all` | 695.4 | 547.4 | 471.9 | 385.9 |
-| jotai `vanilla` | 1,986.1 | 455.3 | 1,609.3 | 606.4 |
-| query `core` | 1,766.4 | 364.6 | 1,285.7 | 434.5 |
-| valibot `schemas` | 918.3 | 293.6 | 763.1 | 418.5 |
-| xstate `core` | 668.5 | 523.3 | 642.9 | 481.0 |
+| ufo `all` | 54.4 | 23.7 | 63.5 | 44.8 |
+| zustand `all` | 221.2 | 41.5 | 264.7 | 51.5 |
+| es-toolkit `array` | 330.5 | 140.0 | 359.7 | 193.0 |
+| es-toolkit `pr`: lines the pinned commit changed | 38.3 | 49.0 | 31.8 | 47.9 |
+| immer `all` | 402.4 | 214.5 | 597.3 | 340.3 |
+| jotai `vanilla` | 1,855.6 | 439.5 | 1,748.1 | 459.1 |
+| query `core` | 1,737.1 | 397.3 | 1,445.5 | 369.8 |
+| valibot `schemas` | 1,008.6 | 168.7 | 992.5 | 155.5 |
+| xstate `core` | 584.7 | 375.9 | 702.6 | 520.5 |
 
-On macOS that is 3.0 times as fast on query, 2.8 on zustand, 2.7 on jotai, 1.8 on valibot, 1.3 on xstate, 1.2 on immer, ufo and es-toolkit `array`; on Linux, where only zustand, immer and xstate had one processor for both, 4.0, 1.3 and 1.3 times as fast there. On the few changed lines of es-toolkit `pr` StrykerJS is the faster: this tool takes a third longer on one processor on Linux, half as long again on macOS.
+On Linux that is 6.0 times as fast on valibot, 5.3 on zustand, 4.4 on query, 4.2 on jotai, 2.4 on es-toolkit `array`, 2.3 on ufo, 1.9 on immer and 1.6 on xstate; on macOS 6.4, 5.1, 3.9, 3.8, 1.9, 1.4, 1.8 and 1.3. On the few changed lines of es-toolkit `pr` StrykerJS is the faster: this tool takes a quarter longer on Linux, half as long again on macOS.
 
 On 13 October this tool had taken 17.7 and 20.4 s on ufo, 89.5 and 100.1 s on `array`, 30.3 and 24.8 s on `pr`, 460.3 and 369.5 s on jotai and 237.9 and 205.5 s on valibot. Run in one job with that version, the version of these runs takes ufo from 17.5 to 36.5 s on macOS and `pr` from 20.6 to 37.3 s, with every verdict the same. Nearly all of it is runs that stop a test: a loop past its count now runs until the test's own limit has passed on the clock and in the processor's time, and a test that waits for good until Vitest's limit ends it, where the second of before also called a timeout a loop or a wait that ends in two seconds and passes the suite (see [Limits](limits.md), a timeout is a judgement). es-toolkit's `pr` has one such mutant: its run took 1.1 s, twice, and takes 10.1 s. What was looked at to cut that without a wrong verdict is in the [decisions](decisions.md).
 
@@ -145,6 +145,14 @@ The application targets, in runs of 31 October 2026 with the copies made while a
 | Roo-Code `utils` | does not start | 892.1 (9V45) | does not start | 2,110.0 |
 
 On macOS that is 1.8 times as fast on umami, 1.4 on formbricks, 1.7 on immich `utils`, 1.4 on `services` and 2.5 on actual. On Linux no row had both tools on one processor; every time of this tool is below StrykerJS's. immich `services` on Linux took 9,076 s on a 9V74 before the timers were put off: `detect-libc` leaves a request to Node's thread pool under way while those test files load, no copy is made while they do, and `exiftool-vendored`'s timer kept every copy from being made once they had. formbricks on Linux had given up on `proxy.test.ts` in two runs out of four, after three rounds in which no process said a word of the file, with every mutant it reaches reported as pending; such a file's runs now go to workers started for them, which happened twice in the three runs above, and each of the three ran to its end.
+
+Where the scopes short of twice StrykerJS's speed spend their time, from the records of these runs (`bench/run.ts --records`, read with `bench/spent.ts`) and of runs on this Mac with three workers:
+
+- ufo and es-toolkit `array`: runs that wait out Vitest's 5 s test limit, a loop of a mutant that does not end. They are 65 of ufo's 117 worker-seconds on a macOS runner and 254 of es-toolkit's 329 on this Mac, and a timeout has to take 5 s of the processor as well as of the clock, so its eleven and fifty-four take 18 s and 90 s of three cores at the least. The runs are packed with a gap of under four worker-seconds.
+- immer: a mutant that loops while a file loads waits out the 10 s hook limit (`produce.ts`, 10.1 s for one load), and a failure that a run next to others made is confirmed by one made with nothing else running, 146 runs and 12 s on this Mac.
+- xstate: what the verdicts need at the least, the runs that pass for the survivors, the timeouts at 5 s each, one failing run for each detection and the first round, comes to about 300 s on a macOS runner, against the 340 s that twice StrykerJS's speed would take; starting workers, loading files and the end of each round add the rest.
+- immich: the runs in copies spend a fifth of their time in the system, on the pages of the worker each copy writes to (`faults` on a copy's record), and they are under half of the run's worker time; see [decisions](decisions.md). Of thirteen runs of `services` on macOS runners, twelve took 2,869 s to 4,099 s and one 1,731 s; StrykerJS took 5,140 s to 6,087 s in the same jobs.
+- es-toolkit `pr`: one mutant loops while a file loads and waits out the 10 s hook limit, which with the start and the first round puts the run past the 15 s that twice StrykerJS's speed would take.
 
 The scopes StrykerJS does not start on, gives no usable verdicts for or was not run on, this tool alone:
 
