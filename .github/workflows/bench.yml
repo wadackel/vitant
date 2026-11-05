@@ -160,7 +160,7 @@ jobs:
         run: |
           if [ -f machine.log ]; then mv machine.log "bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}/"; fi
           node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}-${{ matrix.job }}
@@ -204,7 +204,7 @@ jobs:
       - name: Summary
         if: ${{ !cancelled() }}
         run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-ubuntu-24.04
