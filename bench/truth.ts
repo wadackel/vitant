@@ -26,6 +26,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { parseSync } from 'oxc-parser'
 import type { MutantResult, RunResult } from '../src/run.ts'
+import { partitionKeys, type Partition } from './truth-shards.ts'
 
 type Suite = 'pass' | 'fail' | 'timeout'
 
@@ -33,6 +34,7 @@ interface Truth {
   /** The Vitest arguments each run was made with, after the mutated file where `related`. */
   command: 'run' | 'related'
   mutants: TruthEntry[]
+  partition?: Partition
 }
 
 interface TruthEntry {
@@ -58,6 +60,7 @@ const { values, positionals } = parseArgs({
     timeout: { type: 'string' },
     // Check this many mutants, spread evenly over the report, in place of all.
     sample: { type: 'string' },
+    shard: { type: 'string' },
     // Further arguments for every Vitest run and for the tool: `--project` and test file filters.
     vitest: { type: 'string', multiple: true, default: [] },
     // Arguments for the tool alone, where it is run here.
@@ -72,6 +75,13 @@ if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root : !
       '       node bench/truth.ts check --report <report.json> --truth <truth.json>',
   )
   process.exit(2)
+}
+
+if (values.shard) {
+  partitionKeys([], values.shard)
+  if (mode !== 'make' || !values.out || values.sample || values.related || values.vitest!.length > 0 || values.statuses !== 'Killed,Timeout,Survived,NoCoverage,Static') {
+    throw new Error('--shard requires make --out with the full suite and default statuses, without --sample, --related or --vitest')
+  }
 }
 
 if (!values.report) {
@@ -249,7 +259,9 @@ async function make(): Promise<Truth> {
   const wanted = new Set(values.statuses!.split(','))
   const eligible = report.mutants.filter((mutant) => wanted.has(mutant.status))
   const step = values.sample ? Math.max(1, eligible.length / Number(values.sample)) : 1
-  const mutants = values.sample
+  const partition = values.shard ? partitionKeys(eligible.map((mutant) => keyOf(describe(mutant))), values.shard) : undefined
+  const selected = new Set(partition?.selected)
+  const mutants = partition ? eligible.filter((mutant) => selected.has(keyOf(describe(mutant)))) : values.sample
     ? Array.from({ length: Math.min(eligible.length, Number(values.sample)) }, (_, index) => eligible[Math.floor(index * step)])
     : eligible
 
@@ -360,7 +372,9 @@ async function make(): Promise<Truth> {
   } finally {
     restore()
   }
-  return { command, mutants: entries }
+  return { command, mutants: entries, ...(partition ? { partition: {
+    index: partition.index, total: partition.total, universe: partition.universe, checked: entries.map(keyOf),
+  } } : {}) }
 }
 
 function check(truth: Truth): boolean {
@@ -415,7 +429,8 @@ if (mode === 'make') {
   if (values.out) {
     fs.mkdirSync(path.dirname(path.resolve(values.out)), { recursive: true })
     const lines = truth.mutants.map((entry) => `    ${JSON.stringify(entry)}`).join(',\n')
-    fs.writeFileSync(values.out, `{\n  "command": "${truth.command}",\n  "mutants": [\n${lines}\n  ]\n}\n`)
+    const partition = truth.partition ? `,\n  "partition": ${JSON.stringify(truth.partition)}` : ''
+    fs.writeFileSync(values.out, `{\n  "command": "${truth.command}",\n  "mutants": [\n${lines}\n  ]${partition}\n}\n`)
   }
 } else {
   truth = JSON.parse(fs.readFileSync(values.truth!, 'utf8'))

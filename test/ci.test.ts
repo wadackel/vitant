@@ -6,64 +6,75 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { commandsFor, expectedChecks, profileFor, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
 
+import { partitionKeys } from '../bench/truth-shards.ts'
+
 const identity = { sha: 'a'.repeat(40), run: '1234' }
+const proofFor = (suite: string) => {
+  if (!suite.startsWith('truth-')) return undefined
+  const total = suite.startsWith('truth-basic-') ? 4 : 1
+  const index = suite.split('-').at(-1)
+  const { selected, ...partition } = partitionKeys(['a', 'b', 'c', 'd', 'e'], `${index}/${total}`)
+  return { ...partition, checked: selected }
+}
 const valid = (profile: 'docs' | 'standard' | 'full') => expectedChecks(profile).map((check) => ({
-  ...check, ...identity, status: 'success',
+  ...check, ...identity, status: 'success', truth: proofFor(check.suite),
 }))
 
 describe('CI profiles', () => {
   it.each([
-    ['docs', ['README.md', 'docs/design.md']],
-    ['standard', ['src/mutate/operators.ts', 'test/reads.test.ts', 'docs/limits.md']],
-    ['full', ['native/src/lib.rs']],
-    ['full', ['src/runtime/runner.ts']],
-    ['full', ['src/run.ts']],
-    ['full', ['test/turns.test.ts']],
-    ['full', ['fixtures/basic/src/math.ts']],
-    ['full', ['test/e2e/smoke.test.ts']],
-    ['full', ['bench/ci.ts']],
-    ['full', ['.github/workflows/native.yml']],
-    ['full', ['AGENTS.md']],
-    ['full', ['docs/AGENTS.md']],
-    ['full', ['docs/skills/SKILL.md']],
-    ['full', ['src/mutate/CLAUDE.md']],
-    ['full', ['pnpm-lock.yaml']],
-    ['full', ['README.md', 'unexpected-file']],
-    ['full', ['src/runtime/removed.ts', 'src/mutate/moved.ts']],
-    ['full', []],
-  ] as const)('selects %s for %j', (profile, paths) => {
-    expect(profileFor({ event: 'pull_request', paths: [...paths] }).profile).toBe(profile)
+    ['README.md', 'docs/design.md'],
+    ['CONTRIBUTING.md', 'LICENSE'],
+  ])('only skips code validation for proven user documentation %j', (...paths) => {
+    expect(profileFor({ event: 'pull_request', paths }).profile).toBe('docs')
   })
 
-  it.each([undefined, null, 'README.md', [null], ['../README.md'], ['docs/../src/run.ts'], ['docs/a.md\nREADME.md']].map((paths) => [paths]))(
-    'keeps full validation for invalid or unavailable changes %j', (paths) => {
-      expect(profileFor({ event: 'push', paths }).profile).toBe('full')
-    },
-  )
+  it.each([
+    ['native/src/lib.rs'], ['src/runtime/runner.ts'], ['src/run.ts'], ['src/mutate/operators.ts'],
+    ['fixtures/basic/src/math.ts'], ['.github/workflows/native.yml'], ['pnpm-lock.yaml'],
+    ['docs/AGENTS.md'], ['docs/skills/SKILL.md'], ['src/mutate/CLAUDE.md'], ['unexpected-file'],
+    [], undefined, null, ['../README.md'], ['docs/../src/run.ts'], ['docs/a.md\nREADME.md'],
+  ].map((paths) => [paths]))('keeps the same bounded PR checks for code or unavailable changes %j', (paths) => {
+    for (const event of ['pull_request', 'push']) expect(profileFor({ event, paths }).profile).toBe('standard')
+  })
 
-  it('only permits a manual standard override on dispatches', () => {
+  it('reserves full validation for scheduled and manual runs', () => {
     expect(profileFor({ event: 'workflow_dispatch', manual: 'standard' }).profile).toBe('standard')
     expect(profileFor({ event: 'workflow_dispatch' }).profile).toBe('full')
     expect(profileFor({ event: 'schedule', paths: ['README.md'], manual: 'standard' }).profile).toBe('full')
-    expect(profileFor({ event: 'pull_request', paths: ['native/src/lib.rs'], manual: 'standard' }).profile).toBe('full')
     expect(profileFor({ event: 'unknown', paths: ['README.md'] }).profile).toBe('full')
   })
 
-  it('keeps all targets in smoke and all tests in the full profile', () => {
+  it('keeps seven smoke environments and complete Linux truth in every code PR', () => {
     expect(targets).toHaveLength(7)
-    expect(expectedChecks('standard').filter((c) => c.suite === 'smoke').map((c) => c.target)).toEqual(targets.map((t) => t.target))
-    expect(expectedChecks('standard').filter((c) => c.suite === 'regression').map((c) => c.target)).toEqual(['darwin-arm64', 'linux-x64-gnu'])
+    const checks = expectedChecks('standard')
+    expect(checks.filter((c) => c.suite === 'smoke').map((c) => c.target)).toEqual(targets.map((t) => t.target))
+    for (const target of ['darwin-arm64', 'linux-x64-gnu']) {
+      expect(checks.filter((c) => c.target === target && !['quick', 'smoke'].includes(c.suite) && !c.suite.startsWith('truth-'))
+        .map((c) => c.suite)).toEqual(['e2e-basic', 'e2e-other', 'packed'])
+    }
+    expect(checks.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
+      ...['basic-default', 'basic-static'].flatMap((name) => [1, 2, 3, 4].map((shard) => ['linux-x64-gnu', `truth-${name}-${shard}`])),
+      ...['stuck', 'clash', 'walk'].map((name) => ['linux-x64-gnu', `truth-${name}-1`]),
+    ])
     for (const suite of ['regression', 'truth']) {
       expect(expectedChecks('full').filter((c) => c.suite === suite).map((c) => c.target)).toEqual(targets.map((t) => t.target))
     }
     expect(expectedChecks('docs')).toEqual([])
   })
 
-  it('runs the original units on every detailed platform and preserves typechecking', () => {
+  it('retains all e2e files, packed, units and typechecking across the PR lanes', () => {
     expect(commandsFor('linux-x64-gnu', 'quick').map((c) => c.name)).toEqual(['typecheck', 'unit'])
+    for (const target of ['linux-x64-gnu', 'darwin-arm64']) {
+      const commands = ['e2e-basic', 'e2e-other', 'packed'].flatMap((suite) => commandsFor(target, suite))
+      expect(commandsFor(target, 'e2e-basic')[0].args.slice(0, 2)).toEqual(['test:e2e', 'test/e2e/basic.test.ts'])
+      const files = commands.flatMap((command) => command.args.filter((arg) => arg.startsWith('test/e2e/')))
+      const inventory = fs.readdirSync(path.join(import.meta.dirname, 'e2e')).filter((file) => file.endsWith('.test.ts') && file !== 'smoke.test.ts').map((file) => `test/e2e/${file}`)
+      expect(files.sort()).toEqual(inventory.sort())
+      expect(commands.filter((c) => c.name === 'packed')).toHaveLength(1)
+      expect(commands.some((c) => c.name === 'unit')).toBe(target !== 'linux-x64-gnu')
+    }
     for (const target of targets) {
-      const commands = commandsFor(target.target, 'regression').map((c) => c.name)
-      expect(commands).toEqual(target.target === 'linux-x64-gnu' ? ['e2e', 'packed']
+      expect(commandsFor(target.target, 'regression').map((c) => c.name)).toEqual(target.target === 'linux-x64-gnu' ? ['e2e', 'packed']
         : target.musl ? ['unit', 'e2e', 'packed'] : ['typecheck', 'unit', 'e2e', 'packed'])
       expect(commandsFor(target.target, 'truth').map((c) => c.name)).toEqual(['truth'])
       expect(commandsFor(target.target, 'smoke').map((c) => c.name)).toEqual(['smoke'])
@@ -102,6 +113,26 @@ describe('required CI results', () => {
     expect(validateResults('docs', identity, results)).not.toEqual([])
   })
 
+  it('rejects successful lanes whose truth partitions omit or repeat mutants', () => {
+    const results = valid('standard')
+    const at = results.findIndex((row) => row.suite === 'truth-basic-default-1')
+    for (const truth of [undefined, { ...results[at].truth, checked: [] },
+      { ...results[at].truth, checked: ['a', 'a'] }, { ...results[at].truth, universe: ['different'] }]) {
+      const changed = results.map((row, index) => index === at ? { ...row, truth } : row)
+      expect(validateResults('standard', identity, changed)).not.toEqual([])
+    }
+  })
+
+  it('binds proof indices to their lanes and rejects vacuous fixed-fixture checks', () => {
+    const results = valid('standard')
+    const first = results.find((row) => row.suite === 'truth-basic-default-1')!
+    const second = results.find((row) => row.suite === 'truth-basic-default-2')!
+    const swapped = results.map((row) => row === first ? { ...row, truth: second.truth } : row === second ? { ...row, truth: first.truth } : row)
+    expect(validateResults('standard', identity, swapped)).not.toEqual([])
+    const empty = results.map((row) => row.truth ? { ...row, truth: { ...row.truth, universe: [], checked: [] } } : row)
+    expect(validateResults('standard', identity, empty)).not.toEqual([])
+  })
+
   it('rejects evidence from another commit, run or suite', () => {
     const results = valid('standard')
     for (const patch of [{ sha: 'b'.repeat(40) }, { run: '1233' }, { suite: 'not-run' }]) {
@@ -134,7 +165,7 @@ describe('CI command boundaries', () => {
     work = fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-ci-'))
     fs.mkdirSync(path.join(work, 'bench'))
     fs.mkdirSync(path.join(work, 'empty-hooks'))
-    fs.copyFileSync(path.join(import.meta.dirname, '../bench/ci.ts'), path.join(work, 'bench/ci.ts'))
+    for (const name of ['ci.ts', 'truth-shards.ts']) fs.copyFileSync(path.join(import.meta.dirname, '../bench', name), path.join(work, 'bench', name))
     fs.writeFileSync(path.join(work, 'package.json'), JSON.stringify({ type: 'module', scripts: {
       typecheck: 'node -e "process.exit(0)"', 'test:unit': 'node -e "process.exit(7)" --',
     } }))
@@ -149,7 +180,7 @@ describe('CI command boundaries', () => {
     cwd: work, encoding: 'utf8', env: { ...process.env, CI_SHA: source, GITHUB_RUN_ID: '1234', ...env },
   })
 
-  it('reads the actual committed diff and keeps failed diff resolution on full', () => {
+  it('reads the actual committed diff and keeps unavailable changes on the complete PR profile', () => {
     const before = source
     fs.writeFileSync(path.join(work, 'README.md'), 'documentation')
     git('add', 'README.md')
@@ -170,7 +201,7 @@ describe('CI command boundaries', () => {
     fs.writeFileSync(event, JSON.stringify({ before: '0'.repeat(40), after: source }))
     fs.writeFileSync(output, '')
     expect(command(['plan'], { GITHUB_EVENT_NAME: 'push', GITHUB_EVENT_PATH: event, GITHUB_OUTPUT: output }).status).toBe(0)
-    expect(fs.readFileSync(output, 'utf8')).toContain('profile=full\n')
+    expect(fs.readFileSync(output, 'utf8')).toContain('profile=standard\n')
     expect(fs.readFileSync(output, 'utf8')).toContain(`head=${source}\n`)
     expect(fs.readFileSync(output, 'utf8')).toContain('diff=invalid-refs\n')
     fs.writeFileSync(event, JSON.stringify({ before: 'b'.repeat(40), after: source }))
@@ -192,12 +223,14 @@ describe('CI command boundaries', () => {
   it('only lets the real gate pass with all result files from this checkout and successful jobs', () => {
     const directory = path.join(work, 'build/ci-results/checks')
     fs.mkdirSync(directory, { recursive: true })
-    const records = expectedChecks('standard').map((check) => ({ ...check, sha: source, run: '1234', status: 'success' }))
+    const records = valid('standard').map((record) => ({ ...record, sha: source }))
     for (const record of records) fs.writeFileSync(path.join(directory, `result-${record.target}-${record.suite}.json`), JSON.stringify(record))
     const env = { CI_PROFILE: 'standard', CI_NEEDS: JSON.stringify({
       plan: { result: 'success' }, quick: { result: 'success' }, build: { result: 'success' }, detail: { result: 'success' },
     }) }
-    expect(command(['gate'], env).status).toBe(0)
+    const passing = command(['gate'], env)
+    expect(passing.status, passing.stderr).toBe(0)
+    expect(passing.stdout).toContain('| darwin-arm64 | truth | not selected (standard) |')
     fs.rmSync(path.join(directory, 'result-linux-x64-gnu-quick.json'))
     const missing = command(['gate'], env)
     expect(missing.status).toBe(1)

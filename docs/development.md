@@ -26,23 +26,31 @@ Run full tests, truth and packed checks sequentially in one checkout. Private fi
 
 ## CI profiles
 
+PR validation targets about ten minutes from workflow creation until all required checks finish, including setup, dependencies and runner waits. Runtime and native changes use the same PR checks as other code changes. Environment-specific regressions can be found after merge; the complete platform matrix runs daily and must pass on the release commit before release.
+
 | Profile | Selection | Required validation |
 |---|---|---|
-| docs | Only README, CONTRIBUTING, LICENSE or Markdown under docs | Profile selection and lockfile validation; platform checks explicitly finish through the docs path |
-| standard | Only src/mutate, the listed platform-independent unit tests, and documentation | Build/smoke on all seven environments; complete detail on Linux x64 glibc and macOS arm64 |
-| full | Any other path, mixed high-risk changes, missing/invalid/empty diff, or the daily/manual full run | Every original unit, smoke, e2e, truth and packed check on every original environment |
+| docs | A resolved, nonempty diff containing only README, CONTRIBUTING, LICENSE or Markdown under docs, excluding agent instructions | Profile selection and lockfile validation; platform checks explicitly finish through the docs path |
+| standard | Every other PR or main push, including unknown paths and missing/invalid/empty diffs; explicit manual standard runs | Build/smoke on all seven environments; complete unit/e2e/packed checks on Linux x64 glibc and macOS arm64; all five full-suite truth cases on Linux x64 glibc |
+| full | Daily runs and manual runs unless standard is explicitly requested | Every original unit, smoke, e2e, truth and packed check on every original environment |
 
-`bench/ci.ts` contains the small allowlist. It does not infer test relevance from imports. Runtime, native, process-lock tests, fixtures, test helpers, dependency/config changes, CI and agent instructions all select full. AGENTS.md, CLAUDE.md and SKILL.md select full at any depth, including under docs or src/mutate. Renames include the old and new paths; a failed diff cannot select a cheaper profile. The summary records the comparison mode, base/head SHAs and whether the diff resolved, separately from the tested checkout SHA.
+`bench/ci.ts` only distinguishes proven documentation changes from code. AGENTS.md, CLAUDE.md and SKILL.md select standard at any depth. A failed diff cannot select docs. The summary records the comparison mode, base/head SHAs and whether the diff resolved, separately from the tested checkout SHA.
 
-The seven environments are macOS arm64/x64, Linux x64/arm64 with glibc/musl, and Windows x64. Typechecking remains on the five macOS/glibc/Windows targets that ran it before; musl retains its Alpine container boundary. Standard uses the full unit suite on both representative targets, not just native tests.
+The seven environments are macOS arm64/x64, Linux x64/arm64 with glibc/musl, and Windows x64. Typechecking remains on the five macOS/glibc/Windows targets in full runs; musl retains its Alpine container boundary. Every PR retains the full unit suite on both representative targets, including native supervision in smoke on all supported targets.
 
-The quick Linux job supplies its same-source typecheck/unit result once. Build/smoke jobs compile each addon once and upload it with source, workflow-run, platform and content identities. Detail jobs download only from that workflow run and verify the manifest before using the binary.
+The quick Linux job supplies its same-source typecheck/unit result once. Build/smoke jobs compile each addon and upload it with source, workflow-run, platform and content identities. Detail jobs download only from that workflow run and verify the manifest before using the binary.
 
-Detail has two lanes, each in its own checkout: regression (unit/typecheck where required, e2e, packed) and truth. At most four detail jobs run at once. Windows truth is queued first because delaying it would lengthen an already long critical path. A full run may still take as long as Windows truth.
+Standard detail runs in independent jobs and checkouts, with up to twenty jobs in flight:
 
-The gate checks the exact expected target/suite set, prerequisite job outcomes and source/run identity. Missing, duplicate, mismatched, failed, cancelled or unexpectedly skipped results fail it. A matrix job's last output is not evidence for the other matrix entries. The original platform check names remain, and `Required validation` is the single overall result; repository protection settings are not changed automatically.
+- On Linux and macOS, basic e2e, all other e2e files, and packed checks have separate lanes. macOS units and typechecking run beside the packed check.
+- On Linux, basic/default and basic/static truth each have four mutant partitions. Stuck, clash and walk each have one lane. Every partition runs the whole target suite for every assigned mutant, with the existing calibration and serial disagreement retries. The target suite itself is never sharded or sampled.
+- Each truth partition records its complete eligible mutant set and the identities it actually checked. The gate requires every partition exactly once, identical mutant sets across partitions of a case, and the exact assigned identities without omissions or duplicates. Reports from another source or workflow run cannot fill a missing partition.
 
-Main pushes and pull requests use automatic classification. A newer automatic run cancels only the older run for that event and ref. Scheduled full runs occur daily at 20:17 UTC; manual runs default to full and can explicitly request standard. Neither is cancelled by an automatic run. Investigate a failing full run before making further changes that could obscure it.
+Full detail retains the original regression and truth lanes, with at most four running together. Windows truth is queued first. Full runs can take more than two hours; their duration does not gate PR merges.
+
+The gate checks the exact expected target/suite set, prerequisite job outcomes and source/run identity. Missing, duplicate, mismatched, failed, cancelled or unexpectedly skipped results fail it. The original platform check names remain, and `Required validation` is the single overall result; repository protection settings are not changed automatically. A time budget never turns unfinished checks into success.
+
+Main pushes and pull requests use automatic selection. A newer automatic run cancels only the older run for that event and ref. Scheduled full runs occur daily at 20:17 UTC; manual runs default to full. Neither is cancelled by an automatic run. Investigate a failing full run and add a regression test where appropriate. Before release, run manual full validation on the release ref and verify that its checked-out source commit is exactly the commit being released; an earlier successful daily run is insufficient. There is no automated publishing workflow in this repository.
 
 ## Performance experiments
 

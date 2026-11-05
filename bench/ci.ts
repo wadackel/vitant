@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { validatePartitions } from './truth-shards.ts'
 
 export const targets = [
   { target: 'darwin-arm64', runner: 'macos-15', musl: false, addon: true, representative: true, label: 'darwin-arm64' },
@@ -18,7 +19,14 @@ type Profile = 'docs' | 'standard' | 'full'
 type Identity = { sha: string; run: string }
 type Check = { target: string; suite: string }
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
-const unitFiles = new Set(['test/elements.test.ts', 'test/instrument.test.ts', 'test/reads.test.ts', 'test/verdict.test.ts'])
+const truthCases = [
+  { name: 'basic-default', root: 'basic', shards: 4, jobs: 4, tool: [] as string[] },
+  { name: 'basic-static', root: 'basic', shards: 4, jobs: 4, tool: ['--tool=--static'] },
+  ...['stuck', 'clash', 'walk'].map((name) => ({ name, root: name, shards: 1, jobs: 1, tool: [] as string[] })),
+]
+const truthLanes = truthCases.flatMap((test) => Array.from({ length: test.shards }, (_, i) => ({
+  ...test, suite: `truth-${test.name}-${i + 1}`, shard: `${i + 1}/${test.shards}`,
+})))
 const docs = (file: string) => ['README.md', 'CONTRIBUTING.md', 'LICENSE'].includes(file) || /^docs\/.+\.md$/.test(file)
 
 export function profileFor(input: { event: string; paths?: unknown; manual?: unknown }): { profile: Profile; reason: string } {
@@ -26,20 +34,17 @@ export function profileFor(input: { event: string; paths?: unknown; manual?: unk
     ? { profile: 'standard', reason: 'Explicit manual representative validation' }
     : { profile: 'full', reason: 'Manual full validation' }
   if (!['pull_request', 'push'].includes(input.event)) return { profile: 'full', reason: 'Scheduled or unrecognized event' }
-  if (!Array.isArray(input.paths) || input.paths.length === 0) return { profile: 'full', reason: 'Changes are empty or unavailable' }
+  if (!Array.isArray(input.paths) || input.paths.length === 0) return { profile: 'standard', reason: 'Complete PR validation; changes are empty or unavailable' }
   const files: unknown[] = input.paths
   if (!files.every((file): file is string => typeof file === 'string' && file.length > 0 && !/[\x00-\x1f\x7f\\]/.test(file)
     && !path.posix.isAbsolute(file) && path.posix.normalize(file) === file && !file.startsWith('../'))) {
-    return { profile: 'full', reason: 'Changes contain invalid paths' }
+    return { profile: 'standard', reason: 'Complete PR validation; changes contain invalid paths' }
   }
   if (files.some((file) => /^(agents|claude|skill)\.md$/i.test(path.posix.basename(file)))) {
-    return { profile: 'full', reason: 'Agent instructions changed' }
+    return { profile: 'standard', reason: 'Complete PR validation; agent instructions changed' }
   }
   if (files.every(docs)) return { profile: 'docs', reason: 'Only user documentation changed' }
-  if (files.every((file) => docs(file) || file.startsWith('src/mutate/') || unitFiles.has(file))) {
-    return { profile: 'standard', reason: 'Only mutators and platform-independent unit tests changed' }
-  }
-  return { profile: 'full', reason: 'Platform-sensitive or unclassified changes' }
+  return { profile: 'standard', reason: 'Complete PR validation for every code change' }
 }
 
 export function expectedChecks(profile: Profile): Check[] {
@@ -47,8 +52,12 @@ export function expectedChecks(profile: Profile): Check[] {
   return [
     { target: 'linux-x64-gnu', suite: 'quick' },
     ...targets.map(({ target }) => ({ target, suite: 'smoke' })),
-    ...targets.filter((target) => profile === 'full' || target.representative)
-      .flatMap(({ target }) => ['regression', 'truth'].map((suite) => ({ target, suite }))),
+    ...(profile === 'full'
+      ? targets.flatMap(({ target }) => ['regression', 'truth'].map((suite) => ({ target, suite })))
+      : [
+        ...targets.filter((target) => target.representative).flatMap(({ target }) => ['e2e-basic', 'e2e-other', 'packed'].map((suite) => ({ target, suite }))),
+        ...truthLanes.map(({ suite }) => ({ target: 'linux-x64-gnu', suite })),
+      ]),
   ]
 }
 
@@ -65,6 +74,21 @@ export function commandsFor(name: string, suite: string): { name: string; args: 
   if (suite === 'quick' && name === 'linux-x64-gnu') return [typecheck, unit]
   if (suite === 'smoke') return [{ name: 'smoke', args: ['test:smoke', '--reporter=json', '--outputFile=build/test-reports/smoke.json'] }]
   if (suite === 'truth') return [{ name: 'truth', args: ['test:truth'] }]
+  if (suite === 'e2e-basic' || suite === 'e2e-other') {
+    const files = suite === 'e2e-basic' ? ['basic.test.ts'] : fs.readdirSync(path.join(root, 'test/e2e'))
+      .filter((file) => file.endsWith('.test.ts') && !['basic.test.ts', 'smoke.test.ts'].includes(file)).sort()
+    if (files.length === 0) throw new Error('No e2e files assigned to this lane')
+    return [{ name: 'e2e', args: ['test:e2e', ...files.map((file) => `test/e2e/${file}`),
+      '--reporter=json', '--outputFile=build/test-reports/e2e.json'] }]
+  }
+  if (suite === 'packed') return [
+    ...(name === 'linux-x64-gnu' ? [] : [typecheck, unit]),
+    { name: 'packed', args: ['test:packed'] },
+  ]
+  const truth = truthLanes.find((lane) => lane.suite === suite)
+  if (truth && name === 'linux-x64-gnu') return [{ name: 'truth', args: ['exec', 'node', 'bench/truth.ts', 'make',
+    '--root', `fixtures/${truth.root}`, '--jobs', String(truth.jobs), '--shard', truth.shard,
+    '--out', `build/test-reports/${suite}-truth.json`, ...truth.tool] }]
   if (suite === 'regression') return [
     ...(name === 'linux-x64-gnu' ? [] : [...(target.musl ? [] : [typecheck]), unit]),
     { name: 'e2e', args: ['test:e2e', '--reporter=json', '--outputFile=build/test-reports/e2e.json'] },
@@ -90,6 +114,18 @@ export function validateResults(profile: Profile, identity: Identity, results: u
     if (result.sha !== identity.sha || result.run !== identity.run) errors.push(`Wrong source or workflow run: ${key}`)
   }
   for (const key of expected) if (!seen.has(key)) errors.push(`Missing result: ${key}`)
+  if (profile === 'standard') for (const test of truthCases) {
+    const partitions = truthLanes.filter((lane) => lane.name === test.name).map((lane) => {
+      const result = results.find((row) => object(row) && row.target === 'linux-x64-gnu' && row.suite === lane.suite)
+      const proof = object(result) ? result.truth : undefined
+      if (object(proof)) {
+        if (proof.index !== Number(lane.shard.split('/')[0]) || proof.total !== lane.shards) errors.push(`Wrong truth partition for ${lane.suite}`)
+        if (Array.isArray(proof.universe) && proof.universe.length === 0) errors.push(`Empty truth mutant set for ${lane.suite}`)
+      }
+      return proof
+    })
+    errors.push(...validatePartitions(partitions, test.shards).map((error) => `${test.name}: ${error}`))
+  }
   return errors
 }
 
@@ -151,7 +187,7 @@ function plan() {
   const changed = changes(event)
   const selection = profileFor({ event, paths: changed.paths, manual: process.env.CI_PROFILE })
   const sha = git('rev-parse', 'HEAD').trim()
-  const detail = expectedChecks(selection.profile).filter((check) => ['regression', 'truth'].includes(check.suite))
+  const detail = expectedChecks(selection.profile).filter((check) => !['quick', 'smoke'].includes(check.suite))
     .map((check) => ({ ...targetFor(check.target), suite: check.suite }))
   // Queuing Windows truth after the shorter jobs would add their time to its long critical path.
   detail.sort((a, b) => Number(b.target === 'win32-x64' && b.suite === 'truth') - Number(a.target === 'win32-x64' && a.suite === 'truth')
@@ -203,7 +239,7 @@ async function run(suite: string, target: string) {
   fs.mkdirSync(ciDir, { recursive: true })
   const logs = path.join(root, 'build/test-reports')
   fs.mkdirSync(logs, { recursive: true })
-  const result = { ...source, target, suite, status: 'failure', steps: [] as { name: string; seconds: number; exit: number }[] }
+  const result = { ...source, target, suite, status: 'failure', truth: undefined as unknown, steps: [] as { name: string; seconds: number; exit: number }[] }
   const save = () => fs.writeFileSync(path.join(ciDir, `result-${target}-${suite}.json`), JSON.stringify(result, null, 2) + '\n')
   save()
   for (const command of commands) {
@@ -225,6 +261,11 @@ async function run(suite: string, target: string) {
     save()
     console.log(fs.readFileSync(file, 'utf8').split('\n').slice(-35).join('\n'))
     if (code !== 0) throw new Error(`${target}/${suite}: ${command.name} exited ${code}`)
+  }
+  if (truthLanes.some((lane) => lane.suite === suite)) {
+    const truth = readJson(path.join(logs, `${suite}-truth.json`))
+    if (!object(truth) || truth.command !== 'run' || !object(truth.partition)) throw new Error('Missing full-suite truth partition')
+    result.truth = truth.partition
   }
   result.status = 'success'
   save()
@@ -252,8 +293,13 @@ function gate() {
     rows.push(`| ${target} | ${suite} | ${object(result) ? String(result.status) : 'missing'} | ${times} |`)
   }
   for (const target of targets) {
-    if (!expectedChecks(profile).some((check) => check.target === target.target && check.suite === 'regression')) {
-      rows.push(`| ${target.target} | detailed validation | not selected (${profile}) | |`)
+    if (!expectedChecks(profile).some((check) => check.target === target.target && ['regression', 'e2e-basic'].includes(check.suite))) {
+      rows.push(`| ${target.target} | unit/e2e/packed | not selected (${profile}) | |`)
+    }
+  }
+  for (const target of targets) {
+    if (!expectedChecks(profile).some((check) => check.target === target.target && check.suite.startsWith('truth'))) {
+      rows.push(`| ${target.target} | truth | not selected (${profile}) | |`)
     }
   }
   rows.push('', ...errors.map((error) => `- ${error}`))

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: Validation profile (automatic PR classification cannot be overridden)
+        description: Full validation for daily/release checks; standard matches PR checks
         type: choice
         options: [full, standard]
         default: full
@@ -185,10 +185,10 @@ jobs:
     needs: [plan, build]
     if: ${{ needs.plan.outputs.profile != 'docs' }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 240
+    timeout-minutes: ${{ needs.plan.outputs.profile == 'full' && 240 || 30 }}
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: ${{ needs.plan.outputs.profile == 'full' && 4 || 20 }}
       matrix: ${{ fromJSON(needs.plan.outputs.detail) }}
     env:
       CI_SHA: ${{ needs.plan.outputs.sha }}
@@ -216,11 +216,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Validate
         if: ${{ !matrix.musl }}
-        timeout-minutes: 200
+        timeout-minutes: ${{ needs.plan.outputs.profile == 'full' && 200 || 25 }}
         run: node bench/ci.ts run "$SUITE" "$TARGET"
       - name: Validate on Alpine
         if: ${{ matrix.musl }}
-        timeout-minutes: 200
+        timeout-minutes: ${{ needs.plan.outputs.profile == 'full' && 200 || 25 }}
         run: |
           docker run --rm -e CI_SHA -e GITHUB_RUN_ID -e TARGET -e SUITE -v "$PWD":/work -w /work node:24-alpine sh -ec '
             apk add --no-cache bash git
@@ -237,7 +237,7 @@ jobs:
               sh -ec 'chown -R "$REPORT_OWNER" /artifacts/test-reports'
           fi
       - name: Keep available truth sessions
-        if: ${{ always() && matrix.suite == 'truth' }}
+        if: ${{ always() && startsWith(matrix.suite, 'truth') }}
         run: node bench/ci.ts sessions
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
