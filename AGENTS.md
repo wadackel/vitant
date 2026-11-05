@@ -25,8 +25,11 @@ Node 24 runs the TypeScript sources directly; only the package that would be pub
 ```sh
 pnpm install
 pnpm build:native    # the addon that copies a worker process; needs Rust 1.85+
-pnpm test            # unit tests and an end-to-end run against fixtures/basic
-pnpm test:truth      # every verdict on fixtures/basic against the suite with the mutant written in
+pnpm check:quick     # typecheck and unit tests for the editing loop
+pnpm test:smoke      # native supervision and small CLI fixtures
+pnpm test:e2e test/e2e/cache.test.ts  # one independent e2e group; no separating --
+pnpm test            # all unit, smoke and e2e tests
+pnpm test:truth      # full basic/default, basic/static, stuck, clash and walk truth checks
 pnpm test:packed     # the tool packed (pnpm build first, by itself), installed and run, against a run from the sources
 pnpm typecheck
 
@@ -65,11 +68,15 @@ node bench/conformance.ts bench/.work/test262   # instrumented code against test
 ## Verifying a change
 
 - Run `pnpm typecheck` and `pnpm test`.
+- Use `pnpm check:quick` and a selected e2e group while iterating; neither replaces the complete checks before finishing. Preserve the original test inventory and assertions when reorganizing tests.
+- Do not run `test`, `test:truth` or `test:packed` together in one checkout, or two vitant runs on one project root. Truth changes tracked files, and each vitant run replaces its root's session. CI parallelizes these operations only in separate jobs and checkouts. Do not edit tracked files while a test or benchmark uses them.
 - For anything that touches instrumentation, planning, the runner or the addon, also run at least two benchmark targets and compare every mutant's verdict with a report made before the change. A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference. `bench/run.ts` prints every mutant that is not as the last run of the scope on this machine had it. That holds between two runs of unchanged code as well: one of the two is wrong, so write the mutant into the source and run the suite before anything else.
 - Judge a change to how much work is done by the counts first: `bench/tier.ts` prints whole-file runs, trials and the time added up over the processes, which a busy machine changes by a few in a hundred between identical runs. Seconds come second and need a quiet machine: they vary by about a tenth between identical runs there, so one run does not show a small gain. The times in `docs/benchmark.md` are taken on CI runners; the table under Benchmark in `README.md` is a copy of its "On hosted CI runners" table and changes with it.
 - A trap that produced a wrong verdict gets a minimal reproduction in `fixtures/basic/`. `pnpm test:truth` must agree on every mutant there; it finds what nobody thought to assert.
+- A change to values the target's code observes through Date, performance, fs or process also needs truth comparisons on the full application scopes (umami lib, formbricks utils, actual server, immich utils and services). Small tier scopes missed a fractional Date.now result that broke an application using BigInt; passing them alone is insufficient.
 - Ground truth is the suite itself: `bench/truth.ts` writes each mutant into the source and runs Vitest. `bench/truth/` holds what that gave for the benchmark scopes, and `bench/run.ts` fails on a verdict that disagrees. An entry is changed only after running the suite by hand, never to match a report.
 - Say what was run and what was not. Do not report a platform, a target or a path as working without having run it.
+- CI targets about ten minutes for every code PR, including runner/native changes: all seven build/smoke environments, complete Linux/macOS unit/e2e/packed checks, and complete Linux truth partitioned by mutant. All seven environments receive complete detail in scheduled/manual full runs; a full run of the exact release commit is required before release. Missing or cancelled required results fail the gate. Benchmarks run manually; keep the required before/after benchmark evidence for relevant changes. See [Development workflow](docs/development.md).
 
 ## Conventions
 

@@ -8,20 +8,23 @@ import { addonTarget } from '../src/platform.ts'
 const target = addonTarget()
 const addon = target && path.join(import.meta.dirname, `../build/fork.${target.name}.node`)
 // A copy has one thread: with the threads V8 gives its garbage collector, it would wait for one it does not have.
-const watch = (takes: number, limit: number): string =>
-  spawnSync(process.execPath, ['--single-threaded', path.join(import.meta.dirname, 'supervise.mjs'), addon!, String(takes), String(limit)], { encoding: 'utf8' }).stdout.trim()
+const watch = (takes: number, limit: number) =>
+  spawnSync(process.execPath, ['--single-threaded', path.join(import.meta.dirname, 'supervise.mjs'), addon!, String(takes), String(limit)], { encoding: 'utf8' })
 
 describe.runIf(addon && fs.existsSync(addon))('watching a copy of a process', () => {
   it('stops a copy that takes memory without end', () => {
-    expect(watch(0, 512)).toBe('Blocked')
+    const result = watch(0, 512)
+    expect(result.stdout.trim(), result.stderr).toBe('Blocked')
   }, 90_000)
 
   it('lets a copy end that stays under what it may hold', () => {
-    expect(watch(128, 2048)).toBe('Done')
+    const result = watch(128, 2048)
+    expect(result.stdout.trim(), result.stderr).toBe('Done')
   }, 90_000)
 
   it('sets no limit on memory where none is given', () => {
-    expect(watch(768, 0)).toBe('Done')
+    const result = watch(768, 0)
+    expect(result.stdout.trim(), result.stderr).toBe('Done')
   }, 90_000)
 
   const host = (mode: string): string =>

@@ -12,14 +12,28 @@ node src/cli.ts --root ../my-app --mutate 'src/**/*.ts' --report report.json
 
 ## Checking a change
 
+Start with the short checks while editing, then run the e2e group that exercises the change:
+
 ```sh
-pnpm test           # unit tests and an end-to-end run against fixtures/basic
-pnpm test:truth     # every verdict on fixtures/basic against the suite run with the mutant written in
+pnpm check:quick                  # typecheck and unit tests
+pnpm test:smoke                   # native supervision and small CLI fixtures
+pnpm test:e2e test/e2e/cache.test.ts
+```
+
+Pass the file name directly, without a separating `--`: Vitest treats arguments after that separator differently and can run the entire project instead. A selected group does not establish that all tests pass.
+
+Before finishing a change, run the complete checks:
+
+```sh
+pnpm test           # all unit, smoke and e2e tests
+pnpm test:truth     # complete truth checks for basic (both modes), stuck, clash and walk
 pnpm test:packed    # the tool packed, installed into a copy of the fixture and run from there
 pnpm typecheck
 ```
 
 A verdict must equal what the plain suite gives with the mutant written into the source, so a change to instrumentation, planning, the runner or the addon is also run against benchmark targets and compared mutant by mutant. What to run, what counts as a defect, and how to say what was checked are under [Verifying a change](AGENTS.md#verifying-a-change) in AGENTS.md; the benchmark commands are under [Commands](AGENTS.md#commands) there.
+
+Run `test`, `test:truth` and `test:packed` one after another in a checkout. Truth writes mutants into tracked sources, and the other runs check those files for changes. The [development workflow](docs/development.md) describes the CI profiles, reports and measurements.
 
 ## Where things are
 
