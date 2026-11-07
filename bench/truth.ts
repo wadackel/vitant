@@ -183,12 +183,17 @@ function runSuite(
     // Its own process group: a mutant can leave workers the suite never ends.
     const unhandled = `${results}.errors`
     const reporter = path.join(import.meta.dirname, 'truth-reporter.mjs')
+    const keep = process.env.VITANT_TRUTH_KEEP
+    if (keep) fs.mkdirSync(keep, { recursive: true })
+    const captured = keep ? path.join(keep, path.basename(results).replace(/^\./, '')) : undefined
+    const output = captured ? fs.openSync(`${captured}.output.log`, 'w') : undefined
     const child = spawn(process.execPath, [vitestBin(root), ...args, '--reporter=json', `--reporter=${reporter}`, `--outputFile=${results}`], {
       cwd: root,
-      stdio: 'ignore',
+      stdio: output === undefined ? 'ignore' : ['ignore', output, output],
       detached: true,
       env: { ...process.env, CI: 'true', VITANT_TRUTH_ERRORS: unhandled },
     })
+    if (output !== undefined) fs.closeSync(output)
     let timedOut = false
     const timer = setTimeout(() => {
       timedOut = true
@@ -200,8 +205,9 @@ function runSuite(
         } catch {}
       }
     }, limitMs)
-    child.on('exit', (code) => {
+    child.on('exit', (code, signal) => {
       clearTimeout(timer)
+      if (captured) fs.writeFileSync(`${captured}.exit.json`, JSON.stringify({ code, signal, timedOut, ms: performance.now() - startedAt }))
       const failed: string[] = []
       let known = false
       try {
@@ -222,9 +228,7 @@ function runSuite(
       try {
         clean = fs.readFileSync(unhandled, 'utf8') === '0'
       } catch {}
-      const keep = process.env.VITANT_TRUTH_KEEP
       if (keep) {
-        fs.mkdirSync(keep, { recursive: true })
         for (const file of [results, unhandled]) {
           if (fs.existsSync(file)) fs.copyFileSync(file, path.join(keep, path.basename(file).replace(/^\./, '')))
         }
