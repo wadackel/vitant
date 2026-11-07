@@ -39,8 +39,8 @@ jobs:
         run: |
           git rev-parse HEAD > build/hook-identity.log
           node --version >> build/hook-identity.log
-          node node_modules/vitest/vitest.mjs run test/e2e/hooks.test.ts -t external --reporter=json --outputFile=build/hook-compat-result.json
-          node -e "const r=require('./build/hook-compat-result.json'); if(r.numPassedTests!==1 || r.numFailedTests!==0) throw Error('Expected one executed compatibility case')"
+          node node_modules/vitest/vitest.mjs run test/e2e/hooks.test.ts test/e2e/process-listeners.test.ts -t external --reporter=json --outputFile=build/hook-compat-result.json
+          node -e "const r=require('./build/hook-compat-result.json'); if(r.numPassedTests!==8 || r.numFailedTests!==0) throw Error('Expected eight executed compatibility cases')"
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:

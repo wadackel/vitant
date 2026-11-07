@@ -670,15 +670,22 @@ let walking = false
  * half of one, if a copy ended while reading it, the next copy.
  */
 /** The wrapped channels: Vitest hands the runner one state and keeps another for itself. */
-const wrapped = new WeakSet<object>()
-function trackCalls(state: { rpc?: object } | undefined): void {
-  if (!state?.rpc || wrapped.has(state.rpc)) return
+const wrapped = new WeakMap<object, { unhandled: () => void }>()
+function trackCalls(state: { rpc?: object } | undefined, unhandled: () => void): void {
+  if (!state?.rpc) return
+  const previous = wrapped.get(state.rpc)
+  if (previous) {
+    previous.unhandled = unhandled
+    return
+  }
+  const observer = { unhandled }
   counting = true
   const plain = state.rpc
   state.rpc = new Proxy(plain, {
     get(target, key, receiver) {
       const value = Reflect.get(target, key, receiver)
       if (typeof value !== 'function' || typeof key !== 'string' || key.startsWith('$')) return value
+      if (!cloner && key !== 'onUnhandledError') return value
       // What a test prints is the one long message a copy would send, and a
       // copy stopped with half of it sent would leave the channel, which the
       // process it was copied from goes on using, with a message that never
@@ -688,8 +695,9 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       // The functions carry variants of themselves as properties, which stay reachable.
       return new Proxy(value, {
         apply(fn, self, args) {
+          if (key === 'onUnhandledError') observer.unhandled()
           const result = Reflect.apply(fn, self, args) as { then?: (resolved: () => void, rejected: () => void) => unknown } | undefined
-          if (result && typeof result.then === 'function') {
+          if (cloner && result && typeof result.then === 'function') {
             calls++
             const done = () => void calls--
             result.then(done, done)
@@ -699,7 +707,7 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       })
     },
   })
-  wrapped.add(state.rpc)
+  wrapped.set(state.rpc, observer)
 }
 /**
  * How much longer than a loop past its count may keep the process busy the
@@ -1248,17 +1256,17 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           end: () => { scope.active = false },
         }
       }
-      // From the start, so that as few calls as possible are out uncounted
-      // when the first copy is made.
-      if (cloner) {
-        trackCalls(this.workerState as { rpc?: object })
-        // What a test prints is sent through the state Vitest keeps in a
-        // global, which is not always the one the runner is given: its
-        // calls went uncounted, and a copy made with one under way read
-        // the answer in place of the process that waits for it.
-        trackCalls((globalThis as { __vitest_worker__?: { rpc?: object } }).__vitest_worker__)
-        trackChannel()
+      // Replacing process listeners changes handlers owned by the project
+      // and can invoke its patched listener-management methods.
+      const unhandled = () => {
+        if (this.walking) this.walkFailed = true
+        if (this.whole && !config.dangerouslyIgnoreUnhandledErrors) this.wholeFailure ??= 'failed'
       }
+      trackCalls(this.workerState as { rpc?: object }, unhandled)
+      // Vitest's global state is not always the one the runner is given;
+      // uncounted calls can leave a reply for the wrong copy to read.
+      trackCalls((globalThis as { __vitest_worker__?: { rpc?: object } }).__vitest_worker__, unhandled)
+      if (cloner) trackChannel()
     }
 
     /** Tests admitted in `onBeforeRunTask`, waiting for their first attempt. */
@@ -1720,15 +1728,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       workerResources = this.heldBeforeLoad
       // What the tests before set off is put off in the copies, as a timer set while the file loaded is.
       timerHook.enable()
-      for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
-        for (const listener of process.listeners(event) as ((...args: unknown[]) => void)[]) {
-          process.off(event, listener)
-          process.on(event, (...args: unknown[]) => {
-            this.walkFailed = true
-            listener(...args)
-          })
-        }
-      }
     }
 
     /**
@@ -1866,21 +1865,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (beforeLoad) runtime.n = 0
       runtime.t = false
       runtime.l = job.fileLoops * config.loopFactor + config.loopSlack
-      // An error nothing handles fails the run with every test passing.
-      // Vitest reports one only while its own listener is the only one,
-      // taking any other for the project handling such errors itself, so
-      // a listener added here would silence it. Its listener is wrapped
-      // instead, and counts what it would report.
-      for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
-        for (const listener of process.listeners(event) as ((...args: unknown[]) => void)[]) {
-          process.off(event, listener)
-          process.on(event, (...args: unknown[]) => {
-            const reported = process.listeners(event).length === 1 && !this.config.dangerouslyIgnoreUnhandledErrors
-            if (reported && this.whole) this.wholeFailure ??= 'failed'
-            listener(...args)
-          })
-        }
-      }
       heartbeat()
       beatMutant[0] = job.mutant
       beatMutant[1] = 1

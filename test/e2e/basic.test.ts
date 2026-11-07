@@ -97,6 +97,13 @@ describe('running the fixture project', () => {
     expect(statusOf('src/math.ts', 19, 'value % 2 !== 0')).toBe('Survived')
   })
 
+  it('preserves application error-listener management during whole-file runs', () => {
+    const mutants = result.mutants.filter((mutant) => mutant.file === 'src/process-listeners.ts')
+    expect(mutants).toHaveLength(10)
+    expect(mutants.filter((mutant) => mutant.status === 'Killed')).toHaveLength(2)
+    expect(mutants.filter((mutant) => mutant.status === 'Survived')).toHaveLength(8)
+  })
+
   it('credits every test that reaches a mutant, not just the first', () => {
     const mutant = result.mutants.find(
       (m) => m.file === 'src/math.ts' && m.location.start.line === 4 && m.replacement === 'value >= min',

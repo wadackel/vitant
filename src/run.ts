@@ -2420,6 +2420,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
     },
   )
 
+  // Reading the worker's configuration loses this main-process-only option.
+  config.dangerouslyIgnoreUnhandledErrors = vitest.config.dangerouslyIgnoreUnhandledErrors === true
+  fs.writeFileSync(paths.config, JSON.stringify(config))
+
   // Outside CI Vitest writes any snapshot it has not seen before and passes,
   // which would let a mutant that reaches a new snapshot survive and leave
   // the file on disk.
