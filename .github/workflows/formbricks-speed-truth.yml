@@ -15,7 +15,7 @@ defaults:
 jobs:
   truth:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -33,7 +33,7 @@ jobs:
           git rev-parse HEAD > build/identity.log
           git -C bench/.work/formbricks rev-parse HEAD >> build/identity.log
           node --version >> build/identity.log
-          VITANT_TRUTH_KEEP="$PWD/build/raw" VITANT_WITNESS_RECORDS="$PWD/build/witness-events.jsonl" node bench/truth.ts make --root bench/.work/formbricks/apps/web --report bench/formbricks-speed-truth.json --out build/formbricks-speed-truth.json --jobs 1 --timeout 180 --vitest="--reporter=$PWD/bench/witness-reporter.mjs" 2>&1 | tee build/formbricks-speed-truth.log
+          VITANT_TRUTH_KEEP="$PWD/build/raw" VITANT_WITNESS_RECORDS="$PWD/build/witness-events.jsonl" node bench/truth.ts make --root bench/.work/formbricks/apps/web --report bench/formbricks-speed-truth.json --out build/formbricks-speed-truth.json --jobs 1 --vitest="--reporter=$PWD/bench/witness-reporter.mjs" 2>&1 | tee build/formbricks-speed-truth.log
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
