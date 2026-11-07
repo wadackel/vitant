@@ -1609,6 +1609,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           knew: (job.witnesses?.length ?? 0) > 0,
           alone: job.exclusive || job.quiet,
           quiet: job.quiet,
+          group: job.group,
           by,
           ms: preciseNow() - copiedAt,
         })
@@ -2456,7 +2457,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return cloner!.exit(0)
       }
       if (this.whole!.calm) {
-        emit({ type: 'calm', file: this.wholeFile, verdict: this.wholeFailure ? 'failed' : 'passed', tests: this.wholeTests })
+        emit({ type: 'calm', group: this.whole!.group, file: this.wholeFile, verdict: this.wholeFailure ? 'failed' : 'passed', tests: this.wholeTests })
         cloner!.done()
         return cloner!.exit(0)
       }
@@ -2479,6 +2480,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         knew: (this.whole!.witnesses?.length ?? 0) > 0,
         alone: this.whole!.exclusive || this.whole!.quiet,
         quiet: this.whole!.quiet,
+        group: this.whole!.group,
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
         ...(usage ? { faults: usage.minorPageFault, userMs: usage.userCPUTime / 1000, systemMs: usage.systemCPUTime / 1000 } : {}),
@@ -2541,7 +2543,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         })
         if (cloned) return this.leave()
         for (const file of this.whole.calm ? files : []) {
-          emit({ type: 'calm', file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', tests: this.wholeTests })
+          emit({ type: 'calm', group: this.whole.group, file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', tests: this.wholeTests })
         }
         for (const file of this.whole.pair && !this.whole.calm ? files : []) {
           emit({ type: 'pair', file: file.file.filepath, verdict: this.wholeFailure ? 'failed' : 'passed', met: this.pairMet, test: this.wholeTest })
@@ -2558,6 +2560,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             knew: (this.whole.witnesses?.length ?? 0) > 0,
             alone: this.whole.exclusive || this.whole.quiet,
             quiet: this.whole.quiet,
+            group: this.whole.group,
             by: this.wholeBy,
             ms: preciseNow() - this.wholeStartedAt,
           })

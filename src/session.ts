@@ -81,6 +81,7 @@ export interface RoundPlan {
 }
 
 export interface WholeJob {
+  group?: number
   id: number
   mutant: number
   /** Tests that fail without any mutant. */

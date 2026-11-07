@@ -320,6 +320,7 @@ interface StallRecord {
 /** Outcome of running a whole file with a mutant always on, see `RoundPlan.whole`. */
 interface WholeRecord {
   type: 'whole'
+  group?: number
   file: string
   mutant: number
   verdict: 'failed' | 'timeout' | 'passed'
@@ -426,6 +427,7 @@ interface ApartRecord {
 /** How a run of a file went with no mutant on and nothing else running, see `WholeJob.calm`. */
 interface CalmRecord {
   type: 'calm'
+  group?: number
   file: string
   verdict: 'failed' | 'passed'
   /** The tests that failed in it. */
@@ -480,6 +482,7 @@ export type SessionRecord = (
   | UnhandedRecord
   | ControlRecord
   | PairRecord
+  | { type: 'uncalm'; file: string; group: number }
   | { type: 'pairing'; file: string }
   /** A copy could not be made as a mutant's module began its own code while the file loaded. */
   | { type: 'loading'; file: string }
@@ -537,8 +540,23 @@ interface TestState {
   failed: boolean
 }
 
+export function admittedRecords(records: SessionRecord[]): SessionRecord[] {
+  const rejected = new Set(records.flatMap((record) => record.type === 'uncalm' ? [`${record.group}\n${record.file}`] : []))
+  if (rejected.size === 0) return records
+  return records.filter((record) => record.type !== 'whole' || record.group === undefined || !rejected.has(`${record.group}\n${record.file}`))
+}
+
+export function incompleteConfirmations(records: SessionRecord[], groups: { file: string; group?: number }[]) {
+  return groups.flatMap(({ file, group }) => group !== undefined &&
+    records.filter((record) => record.type === 'calm' && record.file === file && record.group === group).length < 3
+      ? [{ type: 'uncalm' as const, file, group }] : [])
+}
+
 /** Works out from what the workers wrote what each test still has to do. */
 export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
+  const physicalRecords = records
+  const earlyExcluded = new Set(records.flatMap((record) => record.type === 'uncalm' ? [record.file] : []))
+  records = admittedRecords(records)
   const tests = new Map<string, TestState>()
   const replay = new Set<string>()
   const retried = new Set<string>()
@@ -1048,7 +1066,27 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  if (records !== physicalRecords) {
+    const runs = new Map<string, number>()
+    wholeTook.clear()
+    for (const record of physicalRecords) {
+      if (record.type !== 'whole') continue
+      const key = wholeKey(record.mutant, record.file)
+      runs.set(key, (runs.get(key) ?? 0) + 1)
+      if (record.ms !== undefined) {
+        const took = wholeTook.get(record.file) ?? { ms: 0, runs: 0 }
+        took.ms += record.ms
+        took.runs++
+        wholeTook.set(record.file, took)
+      }
+    }
+    for (const [key, count] of runs) {
+      const entry = whole.get(key) ?? { runs: 0, repeated: 0, beside: 0, quiet: 0, knowing: 0, died: 0, failed: 0, timedOut: 0, passed: 0, doubted: 0, quietDoubted: 0 }
+      entry.runs = count
+      whole.set(key, entry)
+    }
+  }
+  return { earlyExcluded, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1144,14 +1182,17 @@ type Planned = {
  * what makes what they find count; then, for what is still open, a run of
  * the file with nothing else running.
  */
-export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
+export function planRound(
+  status: ReturnType<typeof inspect>, state: Uint8Array, files: string[], killers: Map<number, Set<string>>,
+  siteOf: ArrayLike<number>, sourceOf: ArrayLike<number>, earlyFiles: ReadonlySet<string> = new Set(),
+): Planned {
   besideOnly.clear()
-  const usual = planPhase(...given, false)
+  const usual = planPhase(status, state, files, killers, siteOf, sourceOf, false, earlyFiles)
   // With `--led` what these rounds settle is left at that, unconfirmed: the
   // tries made with a file to itself one after another were a quarter of a
   // run of rea's `ExecFileOutput.ts`.
   if (takeLeads) return usual
-  return usual.workByFile.size > 0 ? usual : planPhase(...given, true)
+  return usual.workByFile.size > 0 ? usual : planPhase(status, state, files, killers, siteOf, sourceOf, true, earlyFiles)
 }
 
 function planPhase(
@@ -1166,6 +1207,7 @@ function planPhase(
   sourceOf: ArrayLike<number>,
   /** Nothing else is left to do: the round is for what settles failures that settled nothing. */
   settling: boolean,
+  earlyFiles: ReadonlySet<string>,
 ): Planned {
   // A mutant whose runs of a file failed without settling anything is back
   // among the pending ones for one purpose: the tests that failed are to
@@ -1603,6 +1645,32 @@ function planPhase(
     const took = status.wholeTook.get(file)
     workByFile.get(file)!.wholeMs = Math.max(testMs.get(file) ?? 0, took ? took.ms / took.runs : 0)
   }
+  const addCalms = (file: string) => {
+    const list = plan.whole[file]
+    const calm = (): WholeJob => ({
+      id: jobs++,
+      mutant: -1,
+      ignore: failing.get(file) ?? [],
+      fileMs: fileMs.get(file) ?? 0,
+      fileLoops: fileLoops.get(file) ?? 0,
+      fileRss: fileRss.get(file) ?? 0,
+      stalled: false,
+      control: true,
+      quiet: true,
+      calm: true,
+      site: -1,
+      early: status.sharing.has(file) || !status.staticSites.has(file),
+      plain: status.uncopied.has(file),
+    })
+    const mixed: WholeJob[] = [calm(), calm()]
+    list.forEach((job, index) => {
+      mixed.push(job)
+      if ((index + 1) % 6 === 0 && index + 1 < list.length) mixed.push(calm())
+    })
+    mixed.push(calm())
+    addWork(file, 0, 0, mixed.length - list.length)
+    plan.whole[file] = mixed
+  }
   if (workByFile.size === 0) {
     const covering = new Map<number, Set<string>>()
     for (const test of status.tests.values()) {
@@ -1753,31 +1821,7 @@ function planPhase(
     // the first of a file, one after every six and one at the end. One such
     // run passes one time in five for a test that fails four times in five
     // when left alone; a test is left out once any of them fails in it.
-    for (const [file, list] of Object.entries(plan.whole)) {
-      const calm = (): WholeJob => ({
-        id: jobs++,
-        mutant: -1,
-        ignore: failing.get(file) ?? [],
-        fileMs: fileMs.get(file) ?? 0,
-        fileLoops: fileLoops.get(file) ?? 0,
-        fileRss: fileRss.get(file) ?? 0,
-        stalled: false,
-        control: true,
-        quiet: true,
-        calm: true,
-        site: -1,
-        early: status.sharing.has(file) || !status.staticSites.has(file),
-        plain: status.uncopied.has(file),
-      })
-      const mixed: WholeJob[] = [calm(), calm()]
-      list.forEach((job, index) => {
-        mixed.push(job)
-        if ((index + 1) % 6 === 0 && index + 1 < list.length) mixed.push(calm())
-      })
-      mixed.push(calm())
-      addWork(file, 0, 0, mixed.length - list.length)
-      plan.whole[file] = mixed
-    }
+    for (const file of Object.keys(plan.whole)) addCalms(file)
     plan.quiet = Object.keys(plan.whole).length > 0
     // What two files can do to each other in a plain run they do here too,
     // and a busy machine is what the runs that pass with no mutant on are
@@ -1807,6 +1851,29 @@ function planPhase(
     }
     addWork(file, 0, 0, 2)
     workByFile.get(file)!.wholeMs ||= testMs.get(file) ?? 0
+  }
+  if (!settling && earlyFiles.size > 0 && workByFile.size > 0 && [...workByFile.keys()].every((file) => earlyFiles.has(file))) {
+    const chosen = new Map<number, WaitingConfirmation>()
+    const queued = waiting().sort((a, b) => (fileMs.get(a.file) ?? 0) - (fileMs.get(b.file) ?? 0))
+    for (const entry of queued) {
+      if (!entry.restless && !chosen.has(entry.mutant)) chosen.set(entry.mutant, entry)
+    }
+    const eligible = [...chosen.values()].filter((entry) =>
+      entry.pending && entry.loading && entry.timedOut && earlyFiles.has(entry.file) &&
+      !entry.named && !entry.busy && !entry.exclusive && !entry.beside && !entry.otherWork &&
+      !status.uncopied.has(entry.file) && !status.unhanded.has(entry.file) &&
+      !status.lost.has(entry.file) && !status.unpaused.has(entry.file) &&
+      !status.pairWanted.has(entry.file) && !status.earlyExcluded.has(entry.file) && !failing.has(entry.file),
+    )
+    const counts = new Map<string, number>()
+    for (const entry of eligible) counts.set(entry.file, (counts.get(entry.file) ?? 0) + 1)
+    eligible.sort((a, b) => counts.get(b.file)! - counts.get(a.file)! || a.file.localeCompare(b.file) || a.mutant - b.mutant)
+    const first = eligible[0]
+    if (first) {
+      wholeJob(first.mutant, first.file, false, true)
+      addCalms(first.file)
+      plan.exclusive.push(first.file)
+    }
   }
   return { plan, workByFile, waiting: waiting() }
 }
@@ -2035,6 +2102,7 @@ export function doubts(
   records: SessionRecord[],
   label: (test: TestState) => string,
 ): { leftOutOf: Map<number, string[]>; everywhere: string[]; waveredIn: Map<number, Set<string>> } {
+  records = admittedRecords(records)
   // A test that fails by itself is left out of the runs of its file, and a
   // mutant it reaches has then passed the file without the one test that
   // may be what detects it: in h3 two tests that time out now and then on a
@@ -2518,8 +2586,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
     let handed = new Set<string>()
     /** How many runs of the round in flight stand first for pairs, see `WholeJob.pair`. */
     let leading = 0
+    let overlapping = false
     /** The whole-file runs of the round in flight, with how many records each pair had before it. */
-    let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
+    let planned: { id: number; mutant: number; file: string; group?: number; had: number; plain: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
     let plannedAt = 0
     let stalled = 0
     // Round one runs every test once, unmutated, and lets only fast tests try
@@ -2576,7 +2645,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
               if (failedCalm() > before) break
             }
           }
-          else if (reusesEnded || handed.size === 0) {
+          else if (overlapping || reusesEnded || handed.size === 0) {
             // Where both parts take the same config they go in one call, the
             // files with a run in a worker started for it first: such a run is
             // where a copy did not get through or a mutant blocked or looped, the
@@ -2654,10 +2723,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
         return stop && stop.by !== 'clock' && stop.id !== '' ? { test: stop.id, tests: [stop.id] } : {}
       }
       const lines = [
-        ...stopped.map(({ mutant, file, alone, quiet, knew }) => ({ type: 'whole', file, mutant, verdict: 'timeout', ...stoppedIn(mutant, file), alone, quiet, knew, by: 'started' })),
-        ...silent.map(({ mutant, file, plain, alone, quiet, knew }) =>
+        ...stopped.map(({ mutant, file, group, alone, quiet, knew }) => ({ group, type: 'whole', file, mutant, verdict: 'timeout', ...stoppedIn(mutant, file), alone, quiet, knew, by: 'started' })),
+        ...silent.map(({ mutant, file, group, plain, alone, quiet, knew }) =>
           plain
-            ? { type: 'whole', file, mutant, verdict: 'failed', died: true, alone, quiet, knew, by: 'started' }
+            ? { type: 'whole', file, group, mutant, verdict: 'failed', died: true, alone, quiet, knew, by: 'started' }
             : { type: 'plain', file, mutant },
         ),
         ...unreached.map(({ mutant, file }) => ({ type: 'plain', file, mutant })),
@@ -2666,6 +2735,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
       if (lines.length > 0) {
         fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
         status = inspect(readRecords(), siteOf)
+      }
+      if (overlapping) {
+        const missing = incompleteConfirmations(readRecords(), planned)
+        if (missing.length > 0) {
+          fs.appendFileSync(path.join(paths.results, 'main.jsonl'), missing.map((record) => JSON.stringify({ ...record, at: Date.now() })).join('\n') + '\n')
+          status = inspect(readRecords(), siteOf)
+        }
       }
       // A worker that died with a mutant on for a test is taken to have died
       // of it, which a test cannot be asked about again; like a mutant that
@@ -2732,17 +2808,30 @@ export async function run(options: RunOptions): Promise<RunResult> {
           if (entry.kind !== 'lead' && entry.test) killers.set(mutant, (killers.get(mutant) ?? new Set()).add(entry.test))
         }
       }
-      const next = planRound(status, state, files, killers, siteOf, sourceOf)
+      const earlyFiles = new Set<string>()
+      if (cloning && major >= 4 && options.maxWorkers >= 3 && !strictQuiet && !takeLeads && !process.env.NODE_OPTIONS && !vitest.config.env?.NODE_OPTIONS && process.execArgv.length === 0) {
+        for (const spec of specs) {
+          const config = spec.project.config as { environment?: string; execArgv?: string[]; env?: Record<string, unknown> }
+          if ((config.environment === undefined || config.environment === 'node') && !config.env?.NODE_OPTIONS &&
+              !(config.execArgv ?? []).some((argument) => !workerArgv.includes(argument)) &&
+              !/@(?:vitest|jest)-environment\b/.test(fs.readFileSync(spec.moduleId, 'utf8'))) earlyFiles.add(spec.moduleId)
+        }
+      }
+      const next = planRound(status, state, files, killers, siteOf, sourceOf, earlyFiles)
       const pairing = Object.entries(next.plan.whole).filter(([, jobs]) => jobs.some((job) => job.pair))
       if (pairing.length > 0) {
         const lines = pairing.map(([file]) => JSON.stringify({ type: 'pairing', file, at: Date.now() }))
         fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
       }
+      if (!next.plan.quiet) {
+        for (const jobs of Object.values(next.plan.whole)) for (const job of jobs) if (job.quiet) job.group = rounds + 1
+      }
       plannedAt = Date.now()
       planned = Object.entries(next.plan.whole).flatMap(([file, jobs]) =>
-        jobs.filter((job) => !job.control && job.trial === undefined).map(({ id, mutant, plain, exclusive, quiet, witnesses }) => ({
+        jobs.filter((job) => !job.control && job.trial === undefined).map(({ id, mutant, group, plain, exclusive, quiet, witnesses }) => ({
           id,
           mutant,
+          group,
           file,
           plain,
           alone: exclusive === true || quiet === true,
@@ -2798,7 +2887,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // while they wait their turn.
         // A test trying a mutant in a copy is to have its file to itself, as one trying it in a worker has.
         const trialing = (next.plan.whole[spec.moduleId] ?? []).some((job) => job.trial !== undefined)
-        const serial = status.exclusive.has(spec.moduleId) || trialing
+        const serial = next.plan.exclusive.includes(spec.moduleId) || trialing
         const wholeUnits =
           !cloning || work.wholeRuns === 0
             ? work.wholeRuns
@@ -2887,6 +2976,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       units.unshift(...paired.flatMap((spec) => [{ spec, workMs: 0 }, { spec, workMs: 0 }]))
       leading = paired.length * 2
       plan = units.map((unit) => unit.spec)
+      overlapping = !next.plan.quiet && Object.values(next.plan.whole).some((jobs) => jobs.some((job) => job.quiet))
       oneAtATime = next.plan.quiet
       together = new Set(next.plan.together)
       const unitsOf = new Map<string, number>()
