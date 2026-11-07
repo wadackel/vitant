@@ -4,464 +4,30 @@
   "cases": [
     {
       "mutant": {
-        "id": 571,
+        "id": 669,
         "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[\"Stryker was here\"]",
         "location": {
           "start": {
-            "line": 687,
-            "column": 66
+            "line": 899,
+            "column": 11
           },
           "end": {
-            "line": 696,
-            "column": 1
+            "line": 899,
+            "column": 13
           }
         },
         "status": "Timeout",
         "static": true,
-        "coveredBy": 867,
-        "killedBy": 1,
-        "timeoutCause": "fresh worker",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actor.test.ts",
-            "test": "should spawn referenced machines"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actor.test.ts",
-            "test": "should spawn machines",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actor.test.ts",
-      "expectedKinds": [
-        "timeout"
-      ],
-      "tests": [
-        "should spawn machines"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 571,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 687,
-            "column": 66
-          },
-          "end": {
-            "line": 696,
-            "column": 1
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 867,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/guards.test.ts",
-            "test": "should transition if condition based on event is met"
-          },
-          {
-            "kind": "failed",
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/guards.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should transition only if condition is met"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 599,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 797,
-            "column": 66
-          },
-          "end": {
-            "line": 810,
-            "column": 1
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 1,
-        "timeoutCause": "fresh worker",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actor.test.ts",
-            "test": "should spawn referenced machines"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actor.test.ts",
-            "test": "should spawn machines",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actor.test.ts",
-      "expectedKinds": [
-        "timeout"
-      ],
-      "tests": [
-        "should spawn machines"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 599,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 797,
-            "column": 66
-          },
-          "end": {
-            "line": 810,
-            "column": 1
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/guards.test.ts",
-            "test": "should transition if condition based on event is met"
-          },
-          {
-            "kind": "failed",
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/guards.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should transition only if condition is met"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 576,
-        "file": "src/stateUtils.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "next.length",
-        "location": {
-          "start": {
-            "line": 691,
-            "column": 15
-          },
-          "end": {
-            "line": 691,
-            "column": 27
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 684,
-        "killedBy": 1,
-        "timeoutCause": "fresh worker",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actor.test.ts",
-            "test": "should spawn referenced machines"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actor.test.ts",
-            "test": "should spawn machines",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actor.test.ts",
-      "expectedKinds": [
-        "timeout"
-      ],
-      "tests": [
-        "should spawn machines"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 576,
-        "file": "src/stateUtils.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "next.length",
-        "location": {
-          "start": {
-            "line": 691,
-            "column": 15
-          },
-          "end": {
-            "line": 691,
-            "column": 27
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 684,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/guards.test.ts",
-            "test": "should transition if condition based on event is met"
-          },
-          {
-            "kind": "failed",
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/guards.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should transition only if condition is met"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 573,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 691,
-            "column": 6
-          },
-          "end": {
-            "line": 691,
-            "column": 27
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 864,
-        "killedBy": 1,
-        "timeoutCause": "fresh worker",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actor.test.ts",
-            "test": "should spawn referenced machines"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actor.test.ts",
-            "test": "should spawn machines",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actor.test.ts",
-      "expectedKinds": [
-        "timeout"
-      ],
-      "tests": [
-        "should spawn machines"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 573,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 691,
-            "column": 6
-          },
-          "end": {
-            "line": 691,
-            "column": 27
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 864,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/guards.test.ts",
-            "test": "should transition if condition based on event is met"
-          },
-          {
-            "kind": "failed",
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/guards.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should transition only if condition is met"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 253,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 168,
-            "column": 30
-          },
-          "end": {
-            "line": 180,
-            "column": 3
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1277,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition"
-          },
-          {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should return the entry and exit actions of a transition"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 235,
-        "file": "src/stateUtils.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "childStateNodes",
-        "location": {
-          "start": {
-            "line": 140,
-            "column": 6
-          },
-          "end": {
-            "line": 140,
-            "column": 22
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1276,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition"
-          },
-          {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should return the entry and exit actions of a transition"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 837,
-        "file": "src/stateUtils.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "completedNodes.has(ancestorMarker)",
-        "location": {
-          "start": {
-            "line": 1254,
-            "column": 8
-          },
-          "end": {
-            "line": 1254,
-            "column": 43
-          }
-        },
-        "status": "Timeout",
-        "static": false,
-        "coveredBy": 27,
+        "coveredBy": 173,
         "killedBy": 0,
-        "timeoutCause": "idle",
+        "timeoutCause": "fresh worker",
         "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should be able to reuse the same promise logic multiple times and create unique promise for each created actor"
-          },
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should work with invocations defined in orthogonal state nodes"
-          },
           {
             "kind": "timeout",
             "file": "test/invoke.test.ts",
-            "test": "should work with invocations defined in orthogonal state nodes",
+            "test": "xstate.done.actor events should have unique names when invokee is a machine with an id property",
             "by": "started"
           }
         ]
@@ -471,223 +37,49 @@
         "timeout"
       ],
       "tests": [
-        "should work with invocations defined in orthogonal state nodes"
+        "xstate.done.actor events should have unique names when invokee is a machine with an id property"
       ]
     },
     {
       "mutant": {
-        "id": 837,
+        "id": 669,
         "file": "src/stateUtils.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "completedNodes.has(ancestorMarker)",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[\"Stryker was here\"]",
         "location": {
           "start": {
-            "line": 1254,
-            "column": 8
+            "line": 899,
+            "column": 11
           },
           "end": {
-            "line": 1254,
-            "column": 43
+            "line": 899,
+            "column": 13
           }
         },
         "status": "Killed",
-        "static": false,
-        "coveredBy": 27,
+        "static": true,
+        "coveredBy": 173,
         "killedBy": 1,
         "evidence": [
           {
             "kind": "lead",
-            "file": "test/final.test.ts",
-            "test": "should emit the \"xstate.done.state.*\" event when all nested states are in their final states"
+            "file": "test/parallel.test.ts",
+            "test": "targetless transition on a parallel state should not enter nor exit any states"
           },
           {
             "kind": "failed",
-            "file": "test/final.test.ts",
-            "test": "should emit the \"xstate.done.state.*\" event when all nested states are in their final states",
+            "file": "test/parallel.test.ts",
+            "test": "targetless transition on a parallel state should not enter nor exit any states",
             "by": "copied before a test"
           }
         ]
       },
-      "file": "test/final.test.ts",
+      "file": "test/parallel.test.ts",
       "expectedKinds": [
         "failed"
       ],
       "tests": [
-        "should emit the \"xstate.done.state.*\" event when all nested states are in their final states"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 260,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 173,
-            "column": 8
-          },
-          "end": {
-            "line": 173,
-            "column": 16
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1277,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition"
-          },
-          {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should return the entry and exit actions of a transition"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 236,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 140,
-            "column": 6
-          },
-          "end": {
-            "line": 140,
-            "column": 22
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1276,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition"
-          },
-          {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should return the entry and exit actions of a transition"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 836,
-        "file": "src/stateUtils.ts",
-        "mutator": "StringLiteral",
-        "replacement": "\"\"",
-        "location": {
-          "start": {
-            "line": 1253,
-            "column": 33
-          },
-          "end": {
-            "line": 1253,
-            "column": 43
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 248,
-        "killedBy": 0,
-        "timeoutCause": "idle",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should be able to reuse the same promise logic multiple times and create unique promise for each created actor"
-          },
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should work with invocations defined in orthogonal state nodes"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/invoke.test.ts",
-            "test": "should work with invocations defined in orthogonal state nodes",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedKinds": [
-        "timeout"
-      ],
-      "tests": [
-        "should work with invocations defined in orthogonal state nodes"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 836,
-        "file": "src/stateUtils.ts",
-        "mutator": "StringLiteral",
-        "replacement": "\"\"",
-        "location": {
-          "start": {
-            "line": 1253,
-            "column": 33
-          },
-          "end": {
-            "line": 1253,
-            "column": 43
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 248,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/final.test.ts",
-            "test": "should emit the \"xstate.done.state.*\" event when all nested states are in their final states"
-          },
-          {
-            "kind": "failed",
-            "file": "test/final.test.ts",
-            "test": "should emit the \"xstate.done.state.*\" event when all nested states are in their final states",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/final.test.ts",
-      "expectedKinds": [
-        "failed"
-      ],
-      "tests": [
-        "should emit the \"xstate.done.state.*\" event when all nested states are in their final states"
+        "targetless transition on a parallel state should not enter nor exit any states"
       ]
     }
   ]
