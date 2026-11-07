@@ -1,0 +1,42 @@
+name: yaml-speed-truth
+
+on:
+  push:
+    branches: [experiment/yaml-speed-truth]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  truth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts yaml > setup.log 2>&1
+      - run: |
+          mkdir -p build
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/yaml rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          node bench/truth.ts make --root bench/.work/yaml --report bench/yaml-speed-truth.json --out build/yaml-speed-truth.json --jobs 1 2>&1 | tee build/yaml-speed-truth.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: yaml-speed-truth-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/yaml-speed-truth.json
+            build/yaml-speed-truth.log
+          if-no-files-found: error
