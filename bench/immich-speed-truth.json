@@ -1,0 +1,105 @@
+{
+  "mutants": [
+    {
+      "id": 863,
+      "file": "src/utils/database.ts",
+      "mutator": "EqualityOperator",
+      "replacement": "i <= text.length",
+      "location": {
+        "start": {
+          "line": 383,
+          "column": 9
+        },
+        "end": {
+          "line": 383,
+          "column": 24
+        }
+      },
+      "status": "Timeout",
+      "static": false,
+      "coveredBy": 10,
+      "killedBy": 0,
+      "timeoutCause": "loop",
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/services/ocr.service.spec.ts",
+          "test": "should save the returned objects"
+        },
+        {
+          "kind": "timeout",
+          "file": "src/services/ocr.service.spec.ts",
+          "test": "should save the returned objects",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 867,
+      "file": "src/utils/database.ts",
+      "mutator": "EqualityOperator",
+      "replacement": "c < 32",
+      "location": {
+        "start": {
+          "line": 385,
+          "column": 8
+        },
+        "end": {
+          "line": 385,
+          "column": 15
+        }
+      },
+      "status": "Killed",
+      "static": false,
+      "coveredBy": 10,
+      "killedBy": 0,
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/services/ocr.service.spec.ts",
+          "test": "should save the returned objects"
+        },
+        {
+          "kind": "failed",
+          "file": "src/services/ocr.service.spec.ts",
+          "test": "should save the returned objects",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4081,
+      "file": "src/utils/transform.ts",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "location": {
+        "start": {
+          "line": 55,
+          "column": 13
+        },
+        "end": {
+          "line": 55,
+          "column": 21
+        }
+      },
+      "status": "Timeout",
+      "static": false,
+      "coveredBy": 6,
+      "killedBy": 1,
+      "timeoutCause": "fresh worker",
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply all operations: crop, rotate, mirror"
+        },
+        {
+          "kind": "timeout",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    }
+  ]
+}

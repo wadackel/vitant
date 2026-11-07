@@ -1,0 +1,48 @@
+name: immich-speed-truth
+
+on:
+  push:
+    branches: [experiment/yaml-speed-immich-truth]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  truth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts immich > setup.log 2>&1
+      - run: |
+          mkdir -p build
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/immich rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          VITANT_TRUTH_KEEP="$PWD/build/raw" VITANT_WITNESS_RECORDS="$PWD/build/witness-events.jsonl" node bench/truth.ts make --root bench/.work/immich/server --report bench/immich-speed-truth.json --out build/immich-speed-truth.json --jobs 1 --vitest="--reporter=$PWD/bench/witness-reporter.mjs" 2>&1 | tee build/immich-speed-truth.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: immich-speed-truth-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/immich-speed-truth.json
+            build/immich-speed-truth.log
+            build/raw/
+            build/witness-events.jsonl
+          if-no-files-found: error
