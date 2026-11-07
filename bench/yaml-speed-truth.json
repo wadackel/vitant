@@ -1,167 +1,69 @@
 {
   "mutants": [
     {
-      "id": 348,
+      "id": 732,
       "file": "src/parse/lexer.ts",
       "mutator": "BlockStatement",
       "replacement": "{}",
       "location": {
         "start": {
-          "line": 344,
-          "column": 26
+          "line": 591,
+          "column": 55
         },
         "end": {
-          "line": 348,
-          "column": 9
-        }
-      },
-      "status": "Killed",
-      "static": false,
-      "coveredBy": 47,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "unstyle"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/cli.ts",
-          "test": "unstyle",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 263,
-      "file": "src/parse/lexer.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "nl + sp >= 0",
-      "location": {
-        "start": {
-          "line": 280,
-          "column": 13
-        },
-        "end": {
-          "line": 280,
-          "column": 24
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 824,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/visit.ts",
-          "test": "Function as visitor"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "singlequote"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "unstyle"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/cli.ts",
-          "test": "unstyle",
-          "by": "copied before a test"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/visit.ts",
-          "test": "Map",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 330,
-      "file": "src/parse/lexer.ts",
-      "mutator": "StringLiteral",
-      "replacement": "\"\"",
-      "location": {
-        "start": {
-          "line": 329,
-          "column": 11
-        },
-        "end": {
-          "line": 329,
-          "column": 14
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 814,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/visit.ts",
-          "test": "Function as visitor"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "singlequote"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "unstyle"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/visit.ts",
-          "test": "Map",
-          "by": "copied after load"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/cli.ts",
-          "test": "unstyle",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 49,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ConditionalExpression",
-      "replacement": "case 'flow':",
-      "location": {
-        "start": {
-          "line": 72,
-          "column": 6
-        },
-        "end": {
-          "line": 74,
-          "column": 13
+          "line": 596,
+          "column": 3
         }
       },
       "status": "Timeout",
-      "static": true,
-      "coveredBy": 824,
+      "static": false,
+      "coveredBy": 145,
       "killedBy": 0,
       "timeoutCause": "loop",
       "evidence": [
         {
           "kind": "lead",
-          "file": "tests/visit.ts",
-          "test": "Map"
+          "file": "tests/collection-access.ts",
+          "test": "set scalar node with anchor"
         },
         {
           "kind": "timeout",
-          "file": "tests/visit.ts",
-          "test": "Map",
-          "by": "copied after load"
+          "file": "tests/collection-access.ts",
+          "test": "set scalar node with anchor",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 695,
+      "file": "src/parse/lexer.ts",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "location": {
+        "start": {
+          "line": 569,
+          "column": 8
+        },
+        "end": {
+          "line": 569,
+          "column": 19
+        }
+      },
+      "status": "Killed",
+      "static": true,
+      "coveredBy": 2209,
+      "killedBy": 1,
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "tests/lexer.ts",
+          "test": "plain scalar + CRLF + comment"
+        },
+        {
+          "kind": "failed",
+          "file": "tests/lexer.ts",
+          "test": "plain scalar + CRLF + comment",
+          "by": "copied before a test"
         }
       ]
     }
