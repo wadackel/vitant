@@ -168,6 +168,11 @@ describe('running the fixture project', () => {
     expect(statusOf('src/caught-finalizer.ts', 2, '{}')).toBe('Timeout')
   })
 
+  it('preserves caller interruption within explicit and disabled hook deadlines', () => {
+    expect(statusOf('src/hook-vm.ts', 2, '{}')).toBe('Survived')
+    expect(statusOf('src/untimed-hook-vm.ts', 2, '{}')).toBe('Survived')
+  })
+
   it('detects a mutant that makes a test run out of its time, though no control follows the try', () => {
     expect(statusOf('src/delay.ts', 2, 'false')).toBe('Timeout')
     expect(statusOf('src/delay.ts', 2, 'true')).toBe('Survived')

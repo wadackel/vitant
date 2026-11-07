@@ -24,6 +24,7 @@ import { RUNTIME_GLOBAL } from './mutate/instrument.ts'
 import { placeReads, reexports, type WatchedModule } from './mutate/reads.ts'
 import { addonTarget } from './platform.ts'
 import { mendPool } from './pool.ts'
+import { writeHookObserver } from './hooks.ts'
 import {
   createRuntime,
   MUTANT_KILLED,
@@ -495,6 +496,7 @@ export type SessionRecord = (
   | ApartRecord
   | CalmRecord
   | { type: 'worker' }
+  | { type: 'hookObserver'; module: string; hash: string }
   /** A process loaded a test file, for reading where a run's time went: `bench/spent.ts`. */
   | { type: 'loaded'; file: string; ms: number; template: boolean; whole: boolean }
   /**
@@ -2231,6 +2233,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // From 4.0.17 the pool is mended as it loads, see `mendPool`.
   const reusesEnded = major === 4 && (minor < 1 || (minor === 1 && patch < 9)) && !mended()
   const config = writeSession(sessionDir, generated, options, major, vitestPackage)
+  const hookObserver = writeHookObserver(vitestPackage, sessionDir)
   process.env.VITANT_SESSION = sessionDir
   // `globalSetup` files load in this process and may import instrumented code.
   ;(globalThis as Record<string, unknown>)[RUNTIME_GLOBAL] = createRuntime(
@@ -2269,9 +2272,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
           ? { ...test, fsModuleCache: false }
           : { ...test, experimental: { ...(test.experimental as object | undefined), fsModuleCache: false } }
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
-        if (major >= 4) return uncached({ ...test, execArgv: [...((test.execArgv as string[]) ?? []), ...workerArgv] })
+        if (major >= 4) return uncached({ ...test, execArgv: [`--require=${hookObserver}`, ...((test.execArgv as string[]) ?? []), ...workerArgv] })
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
-        const forks = { ...pools.forks, isolate: true, execArgv: [...(pools.forks?.execArgv ?? []), ...workerArgv] }
+        const forks = { ...pools.forks, isolate: true, execArgv: [`--require=${hookObserver}`, ...(pools.forks?.execArgv ?? []), ...workerArgv] }
         return { ...test, poolOptions: { ...pools, forks } }
       }
       for (const project of config.test?.projects ?? []) {

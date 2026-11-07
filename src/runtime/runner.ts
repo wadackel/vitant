@@ -3,7 +3,7 @@
 // project, so this file works with whichever Vitest version that project
 // resolves.
 
-import { createHook } from 'node:async_hooks'
+import { AsyncLocalStorage, createHook } from 'node:async_hooks'
 import fs from 'node:fs'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
 import path from 'node:path'
@@ -1207,6 +1207,31 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
   return class MutationRunner extends Base {
     constructor(...args: any[]) {
       super(...args)
+      const global = globalThis as Record<string, unknown>
+      const observed = global.__vitant_hookPatched as { module?: string; hash?: string } | undefined
+      if (!observed?.module || !observed.hash) throw new Error('Vitest hook deadline observer was not loaded in this worker')
+      if (process.env.VITANT_DEBUG) emit({ type: 'hookObserver', module: observed.module, hash: observed.hash })
+      global.__vitant_hookStart = (timeout: number) => {
+        if (!this.whole || this.whole.trial !== undefined || !(timeout > 0) || !Number.isFinite(timeout)) return undefined
+        const scope = { job: this.whole, timeout, active: false, clock: 0, cpu: 0, exceeded: () => false }
+        return {
+          run: (invoke: () => unknown) => this.hookContext.run(scope, invoke),
+          start: (exceeded: () => boolean) => {
+            scope.clock = preciseNow()
+            scope.cpu = cpuMs()
+            scope.exceeded = exceeded
+            scope.active = true
+            // A shorter parallel hook must not lower another hook's bound.
+            this.hookFloorMs = Math.max(this.hookFloorMs, timeout)
+            this.wholeClockMs = Math.max(this.wholeClockMs, this.wholeBase + timeout + LOOP_FIRST_MS)
+            if (bodyClockMs > 0) bodyClockMs = Math.max(bodyClockMs, this.wholeClockMs)
+            this.limitWhole()
+            this.clockOn()
+            heartbeat()
+          },
+          end: () => { scope.active = false },
+        }
+      }
       // From the start, so that as few calls as possible are out uncounted
       // when the first copy is made.
       if (cloner) {
@@ -1248,6 +1273,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private measuring = false
     /** In a run of a whole file, the shortest stretch, on the processor and by the clock, that ends it: the suite's own limit for what is running. */
     private floorMs = 0
+    private hookFloorMs = 0
+    private hookContext = new AsyncLocalStorage<{ job: WholeJob; timeout: number; active: boolean; clock: number; cpu: number; exceeded: () => boolean }>()
     /** In a run of a whole file, the limit on a stretch that comes from what the file takes. */
     private wholeBase = 0
     /** In a run of a whole file, how long by the clock it may go without moving on, see `clockOn`. */
@@ -1649,7 +1676,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     /** The limits on a stretch of a run of a whole file, for what is running now. */
     private limitWhole(): void {
-      const floor = this.floorMs && this.floorMs + LOOP_FIRST_MS
+      const minimum = Math.max(this.floorMs, this.hookFloorMs)
+      const floor = minimum && minimum + LOOP_FIRST_MS
       limitStretch(Math.max(this.wholeBase, floor), floor)
     }
 
@@ -1850,6 +1878,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // where the project gives a test 60 s passes the suite, and was
       // reported as a timeout.
       this.wholeBase = job.stalled ? limitMs(file) : hardLimitMs(file)
+      this.hookFloorMs = 0
       this.floorMs = deadline(this.config.hookTimeout)
       this.limitWhole()
       heartbeat()
@@ -1866,7 +1895,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // loop of the file is likely to.
       const busyMs = Math.min(beat[1], Math.max(1000, job.fileMs * 2))
       runtime.x = (() => {
-        if (cpuMs() - beat[0] < Math.max(busyMs, this.floorMs) || realNow() - stretch[0] < this.floorMs) {
+        const stored = this.hookContext.getStore()
+        // Async descendants retain their store after the hook has settled.
+        const hook = stored?.active && stored.job === this.whole ? stored : undefined
+        const floor = hook?.timeout ?? this.floorMs
+        const elapsed = hook ? preciseNow() - hook.clock : realNow() - stretch[0]
+        if (cpuMs() - (hook?.cpu ?? beat[0]) < Math.max(busyMs, floor) || elapsed < floor || (hook && !hook.exceeded())) {
           runtime.l += config.loopSlack
           return
         }

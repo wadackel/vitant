@@ -1,0 +1,53 @@
+name: hook-compat
+
+on:
+  push:
+    branches: [experiment/yaml-speed-retained]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hooks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        vitest: ['3.0.9', '3.2.6', '4.1.11', '4.1.12', '5.0.3', '5.1.0']
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: stable
+      - run: |
+          pnpm install --frozen-lockfile
+          pnpm build:native
+          node -e "const fs=require('node:fs'); fs.mkdirSync('build/hook-vitest',{recursive:true}); fs.writeFileSync('build/hook-vitest/package.json',JSON.stringify({name:'hook-compatibility',private:true,type:'module'}))"
+          npm install --prefix build/hook-vitest --ignore-scripts --no-audit --no-fund --save-exact 'vitest@${{ matrix.vitest }}'
+      - env:
+          VITANT_TEST_VITEST: ${{ github.workspace }}/build/hook-vitest/node_modules/vitest
+        run: |
+          git rev-parse HEAD > build/hook-identity.log
+          node --version >> build/hook-identity.log
+          node node_modules/vitest/vitest.mjs run test/e2e/hooks.test.ts -t external --reporter=json --outputFile=build/hook-compat-result.json
+          node -e "const r=require('./build/hook-compat-result.json'); if(r.numPassedTests!==1 || r.numFailedTests!==0) throw Error('Expected one executed compatibility case')"
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: hook-compat-${{ matrix.vitest }}-${{ github.run_id }}
+          path: |
+            build/hook-identity.log
+            build/hook-compat-result.json
+            build/hook-vitest/package-lock.json
+            build/test-reports/
+          if-no-files-found: error
