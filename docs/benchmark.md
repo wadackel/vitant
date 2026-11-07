@@ -140,7 +140,7 @@ The benchmark refuses to continue when Stryker leaves a `backup-*` directory und
 
 StrykerJS 10 gives no usable comparison on i18next and date-fns with these Vitest versions. It joins nested test names with spaces when making a mutant's test filter, while Vitest joins them with ` > `. Every covered survivor has `testsCompleted: 0`: 691 on i18next and 531 on date-fns. A three-mutant i18next run with `coverageAnalysis: all` and `ignoreStatic: false` still completed no tests for any mutant. Their times are not evidence of mutation-testing speed; their vitant verdicts are checked against source-written ground truth.
 
-Seconds from the last completed run of each tool on the machine above, not medians or hosted-CI measurements:
+Seconds at [d3967ce](https://github.com/wadackel/vitant/commit/d3967ce78e10644cd55e4bbbdc2e4d9c93929946), from one completed run of each tool on the machine above, not medians or hosted-CI measurements:
 
 | Target and scope | vitant mutants | StrykerJS | vitant |
 |---|---|---|---|
@@ -182,6 +182,29 @@ node bench/run.ts commitlint lint
 ```
 
 ## On hosted CI runners
+
+### Additional scopes, 7 November 2026
+
+[Run 42335023200](https://github.com/wadackel/vitant/actions/runs/42335023200) measured the six additions at [d3967ce](https://github.com/wadackel/vitant/commit/d3967ce78e10644cd55e4bbbdc2e4d9c93929946). The workflow used `tools=stryker,vitant`, `runs=1`, `jobs=3` and `only=i18next yaml date-fns secretlint cspell commitlint`: three independent jobs per scope and OS, with StrykerJS and vitant run sequentially on the same machine in each job. All used Node 24.22.2. Linux was x64 with four cores; macOS was arm64 with three cores on an Apple M1 (Virtual).
+
+All 36 benchmark jobs succeeded and all 36 vitant reports passed the stored ground-truth check. No mutant changed status between the repeats or operating systems when Killed and Timeout were treated as one detected status. Every report had zero Pending and Unconfirmed mutants and used worker copies. This checks 1,399 stored entries per full set of six scopes, including all survivors; Static entries remain unjudged in the default mode.
+
+Seconds, the median of the three runs for each tool and OS:
+
+| Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
+|---|---|---|---|---|
+| i18next `translation` | not comparable | 84.4 | not comparable | 119.6 |
+| yaml `lexer` | 727.3 | 649.2 | 714.3 | 681.0 |
+| date-fns `dates` | not comparable | 18.0 | not comparable | 24.4 |
+| Secretlint `messages` | 10.4 | 3.7 | 8.5 | 4.6 |
+| CSpell `distance` | 138.1 | 92.6 | 133.5 | 113.5 |
+| commitlint `lint` | 26.6 | 5.9 | 26.3 | 7.6 |
+
+StrykerJS completed no tests for its covered survivors on i18next and date-fns on either OS, as in the local runs above; those timings are not comparable. Secretlint, CSpell and commitlint were faster with vitant in every pair. YAML varied: the lower median times do not mean it was faster in every run. Its three Linux pairs, StrykerJS / vitant, were 524.0 / 542.7, 727.3 / 649.2 and 796.7 / 929.8 seconds; on macOS they were 714.3 / 681.0, 948.7 / 808.1 and 540.8 / 649.2 seconds.
+
+Linux jobs were assigned EPYC 7763, 9V45 and 9V74 processors and Xeon 8370C and 8573C processors. Each pair shares one machine, but the three pairs need not share a model. The macOS model was the same throughout, yet times still varied: CSpell took 101.0–190.5 seconds with StrykerJS and 84.8–114.3 with vitant. The run's 36 artifacts retain each machine description, timing, report and worker record; these measurements are separate from the earlier cohorts below.
+
+### Earlier library scopes, 3 and 4 November 2026
 
 `.github/workflows/bench.yml` runs the same scopes on GitHub's Linux (x64, 4 cores) and macOS (arm64, 3 cores) runners, and these are the times that are kept up to date. In seconds, the median of three runs, from runs of 3 and 4 November 2026; every report of this tool agreed with the stored ground truth on both. StrykerJS and this tool ran one after the other in one job, so a row has one processor for both: on Linux an EPYC 9V45 for ufo and immer, a 9V74 for es-toolkit `array`, jotai and xstate, a 7763 for query and valibot, a Xeon 8573C for zustand and an 8370C for es-toolkit `pr`. The macOS runners are of one model.
 

@@ -9,7 +9,7 @@ Mutation testing for Vitest. Every verdict is what your own test suite would giv
 ## Why vitant
 
 - **Verdicts you can trust.** A mutant is Killed or Survived only on what your test files do when run whole, in a fresh process, with the mutant on from before the file is imported. The verdicts on the benchmark scopes are checked against the suite with the mutant written into the source: every mutant on some scopes, a sample and every survivor on others. [Limits](#limits) lists what cannot be judged that way. `--strict` makes every detection rest on a run made with nothing else on the machine, for a project to be held to that from the start; the default lets those runs go beside other test files', which is faster and has given the same verdicts on every benchmark scope.
-- **Faster than a run per mutant.** On GitHub's hosted runners vitant is as fast as or faster than StrykerJS on every scope both ran. See [Benchmark](#benchmark).
+- **Faster than a run per mutant.** See [Benchmark](#benchmark) for StrykerJS comparisons on pinned projects and the limits of each comparison.
 - **Any Vitest from 3.0.** Run against 3.0, 3.2, 4.1 and 5.0.
 - **Nothing to configure.** No plugin, no config change, no code added to your tests. vitant finds the Vitest config and the sources under `src`.
 
@@ -118,7 +118,7 @@ How each step was arrived at, what it costs, and what went wrong before it exist
 
 ## Benchmark
 
-StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every report of vitant agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts). The two ran one after the other in one job; the macOS runners are of one model, the Linux ones are not.
+StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every judged mutant checked in each vitant report agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts). The first table is from 3 and 4 November 2026, with both tools run sequentially in one job; the macOS runners are of one model, the Linux ones are not.
 
 | Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
 |---|---|---|---|---|
@@ -132,7 +132,20 @@ StrykerJS 10 and vitant over the same files of real projects at pinned commits, 
 | valibot `schemas` | 1,008.6 | 168.7 | 992.5 | 155.5 |
 | xstate `core` | 584.7 | 375.9 | 702.6 | 520.5 |
 
-On the eight whole-directory scopes that is 1.2 to 3.0 times as fast on macOS. On the few changed lines of es-toolkit `pr`, StrykerJS is the faster: one of its 93 mutants makes a loop that never ends, and vitant lets it run to the test's own limit before it calls it a timeout. The application targets, the scopes where StrykerJS does not start or reports nothing usable, and the other targets are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
+On the eight whole-directory scopes that is 1.3 to 6.4 times as fast on macOS. On the few changed lines of es-toolkit `pr`, StrykerJS is the faster: one of its 93 mutants makes a loop that never ends, and vitant lets it run to the test's own limit before it calls it a timeout. The application targets, the scopes where StrykerJS does not start or reports nothing usable, and the other targets are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
+
+The six added scopes, measured on 7 November 2026 at [d3967ce](https://github.com/wadackel/vitant/commit/d3967ce78e10644cd55e4bbbdc2e4d9c93929946), use three independent jobs per OS with both tools in the same job. All 36 vitant reports passed the stored-truth check and agreed across runs and OSes, treating Killed and Timeout as detected. [CI run and artifacts](https://github.com/wadackel/vitant/actions/runs/42335023200).
+
+| Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
+|---|---|---|---|---|
+| i18next `translation` | not comparable | 84.4 | not comparable | 119.6 |
+| yaml `lexer` | 727.3 | 649.2 | 714.3 | 681.0 |
+| date-fns `dates` | not comparable | 18.0 | not comparable | 24.4 |
+| Secretlint `messages` | 10.4 | 3.7 | 8.5 | 4.6 |
+| CSpell `distance` | 138.1 | 92.6 | 133.5 | 113.5 |
+| commitlint `lint` | 26.6 | 5.9 | 26.3 | 7.6 |
+
+StrykerJS selected no tests for the covered survivors of i18next and date-fns, so their timings are omitted. YAML's paired results were mixed: vitant was faster in one of three Linux runs and two of three macOS runs. [Measurement conditions and individual times](docs/benchmark.md#additional-scopes-7-november-2026) explain the spread.
 
 ## Limits
 
