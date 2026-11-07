@@ -3,6 +3,7 @@ import path from 'node:path'
 import { afterAll, expect, it } from 'vitest'
 import { createE2E, root } from '../helpers/e2e.ts'
 import type { RunResult } from '../../src/run.ts'
+import { addonTarget } from '../../src/platform.ts'
 
 const owner = createE2E('hook-deadlines')
 afterAll(() => owner.cleanup())
@@ -40,14 +41,20 @@ it('collects cleanup', () => expect(typeof finish).toBe('function'))
 ${hooks}
 `)
   }
+  fs.copyFileSync(path.join(root, 'fixtures/basic/src/hook-context.ts'), path.join(project, 'src/hook-context.ts'))
+  fs.copyFileSync(path.join(root, 'fixtures/basic/test/hook-context.test.ts'), path.join(project, 'test/hook-context.test.ts'))
   for (const mode of [[], ['--no-clone']]) {
     const report = owner.reportPath(`${version}-${mode.length}`)
     const cli = owner.tool(['--root', project, '--report', report, ...mode], { env: { ...process.env, VITANT_DEBUG: '1' } })
     expect(cli.status, cli.stdout + cli.stderr).toBe(0)
     const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
     expect(result.vitestVersion).toBe(JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version)
-    expect(result.mutants).toHaveLength(8)
+    expect(result.mutants).toHaveLength(10)
     expect(result.mutants.every((mutant) => mutant.status === 'Survived')).toBe(true)
+    const copied = result.wholeRuns['copied before load'] + result.wholeRuns['copied while loading'] +
+      result.wholeRuns['copied after load'] + result.wholeRuns['copied before a test']
+    if (mode.length > 0) expect(copied).toBe(0)
+    else if (addonTarget()) expect(copied).toBeGreaterThan(0)
     const records = fs.readdirSync(path.join(project, 'node_modules/.vitant/session/results'))
       .flatMap((file) => fs.readFileSync(path.join(project, 'node_modules/.vitant/session/results', file), 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)))
     expect(records.filter((record) => record.type === 'hookObserver').length).toBeGreaterThan(0)

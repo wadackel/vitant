@@ -173,6 +173,11 @@ describe('running the fixture project', () => {
     expect(statusOf('src/untimed-hook-vm.ts', 2, '{}')).toBe('Survived')
   })
 
+  it('keeps internal hook contexts out of application spies', () => {
+    expect(statusOf('src/hook-context.ts', 1, '{}')).toBe('Survived')
+    expect(statusOf('src/hook-context.ts', 1, 'false')).toBe('Survived')
+  })
+
   it('detects a mutant that makes a test run out of its time, though no control follows the try', () => {
     expect(statusOf('src/delay.ts', 2, 'false')).toBe('Timeout')
     expect(statusOf('src/delay.ts', 2, 'true')).toBe('Survived')

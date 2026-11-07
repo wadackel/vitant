@@ -209,6 +209,22 @@ const realClearTimeout = clearTimeout
 const realSetInterval = setInterval
 const realClearInterval = clearInterval
 const preciseNow = performance.now.bind(performance)
+const resourceCpuUsage = process.cpuUsage.bind(process)
+const maximum = Math.max
+const finiteNumber = Number.isFinite
+const HookStorage = AsyncLocalStorage
+const runHookContext = HookStorage.prototype.run
+const readHookContext = HookStorage.prototype.getStore
+
+function hookStorage<T>(): AsyncLocalStorage<T> {
+  const storage = new HookStorage<T>()
+  // Application spies on the shared prototype must not observe the runner's contexts.
+  Object.defineProperties(storage, {
+    run: { value: runHookContext },
+    getStore: { value: readHookContext },
+  })
+  return storage
+}
 
 const sessionDir = process.env.VITANT_SESSION
 if (!sessionDir) throw new Error('VITANT_SESSION is not set')
@@ -438,7 +454,7 @@ function watch(): void {
   }).unref()
 }
 const heartbeat = () => {
-  const usage = process.cpuUsage()
+  const usage = resourceCpuUsage()
   beat[0] = (usage.user + usage.system) / 1000
   stretch[0] = realNow()
   // A copy whose watcher is gone has nobody to hand a verdict to, and one
@@ -1025,7 +1041,7 @@ function loadedModules(state: {
 }
 
 function cpuMs(): number {
-  const usage = process.cpuUsage()
+  const usage = resourceCpuUsage()
   return (usage.user + usage.system) / 1000
 }
 
@@ -1212,7 +1228,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (!observed?.module || !observed.hash) throw new Error('Vitest hook deadline observer was not loaded in this worker')
       if (process.env.VITANT_DEBUG) emit({ type: 'hookObserver', module: observed.module, hash: observed.hash })
       global.__vitant_hookStart = (timeout: number) => {
-        if (!this.whole || this.whole.trial !== undefined || !(timeout > 0) || !Number.isFinite(timeout)) return undefined
+        if (!this.whole || this.whole.trial !== undefined || !(timeout > 0) || !finiteNumber(timeout)) return undefined
         const scope = { job: this.whole, timeout, active: false, clock: 0, cpu: 0, exceeded: () => false }
         return {
           run: (invoke: () => unknown) => this.hookContext.run(scope, invoke),
@@ -1222,9 +1238,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             scope.exceeded = exceeded
             scope.active = true
             // A shorter parallel hook must not lower another hook's bound.
-            this.hookFloorMs = Math.max(this.hookFloorMs, timeout)
-            this.wholeClockMs = Math.max(this.wholeClockMs, this.wholeBase + timeout + LOOP_FIRST_MS)
-            if (bodyClockMs > 0) bodyClockMs = Math.max(bodyClockMs, this.wholeClockMs)
+            this.hookFloorMs = maximum(this.hookFloorMs, timeout)
+            this.wholeClockMs = maximum(this.wholeClockMs, this.wholeBase + timeout + LOOP_FIRST_MS)
+            if (bodyClockMs > 0) bodyClockMs = maximum(bodyClockMs, this.wholeClockMs)
             this.limitWhole()
             this.clockOn()
             heartbeat()
@@ -1274,7 +1290,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     /** In a run of a whole file, the shortest stretch, on the processor and by the clock, that ends it: the suite's own limit for what is running. */
     private floorMs = 0
     private hookFloorMs = 0
-    private hookContext = new AsyncLocalStorage<{ job: WholeJob; timeout: number; active: boolean; clock: number; cpu: number; exceeded: () => boolean }>()
+    private hookContext = hookStorage<{ job: WholeJob; timeout: number; active: boolean; clock: number; cpu: number; exceeded: () => boolean }>()
     /** In a run of a whole file, the limit on a stretch that comes from what the file takes. */
     private wholeBase = 0
     /** In a run of a whole file, how long by the clock it may go without moving on, see `clockOn`. */
@@ -1676,9 +1692,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     /** The limits on a stretch of a run of a whole file, for what is running now. */
     private limitWhole(): void {
-      const minimum = Math.max(this.floorMs, this.hookFloorMs)
+      const minimum = maximum(this.floorMs, this.hookFloorMs)
       const floor = minimum && minimum + LOOP_FIRST_MS
-      limitStretch(Math.max(this.wholeBase, floor), floor)
+      limitStretch(maximum(this.wholeBase, floor), floor)
     }
 
     /**
@@ -1900,7 +1916,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const hook = stored?.active && stored.job === this.whole ? stored : undefined
         const floor = hook?.timeout ?? this.floorMs
         const elapsed = hook ? preciseNow() - hook.clock : realNow() - stretch[0]
-        if (cpuMs() - (hook?.cpu ?? beat[0]) < Math.max(busyMs, floor) || elapsed < floor || (hook && !hook.exceeded())) {
+        if (cpuMs() - (hook?.cpu ?? beat[0]) < maximum(busyMs, floor) || elapsed < floor || (hook && !hook.exceeded())) {
           runtime.l += config.loopSlack
           return
         }
