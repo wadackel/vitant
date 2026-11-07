@@ -232,6 +232,7 @@ export interface Runtime {
   /** Whether the limit was exceeded during the attempt. */
   t: boolean
   x: () => never
+  q: () => never
 }
 
 /**
@@ -326,6 +327,10 @@ export function createRuntime(siteCount: number, mutantCount: number): Runtime {
     x() {
       runtime.t = true
       throw new Error('[vitant] loop iteration limit exceeded')
+    },
+    q() {
+      runtime.t = true
+      throw new Error('[vitant] proven nonterminating loop')
     },
   }
   return runtime

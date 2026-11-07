@@ -86,6 +86,7 @@ interface Site {
   call?: { callee: [number, number]; args: [number, number][]; receiver?: string }
   /** The block is the body of a function. */
   functionBody?: boolean
+  nonterminating?: boolean
   /**
    * Object range and key, a name or a range, when the site is a property read
    * inside a condition that a mutant replaces. The read goes through a check
@@ -497,6 +498,7 @@ export function instrument(
         : []
       const site = siteFor('block', node, directives.at(-1)?.end ?? node.start + 1)
       site.functionBody = Boolean(isFunctionBody)
+      site.nonterminating = parent?.type === 'WhileStatement' && parent.test.type === 'Literal' && parent.test.value === true
       return site
     }
     if (node.type === 'SwitchCase') {
@@ -911,7 +913,7 @@ export function instrument(
         )
       }
       return (
-        `${source.slice(site.start, site.bodyStart)}if(${active}===${site.firstMutant}){${reached}}else{${hit(site)};` +
+        `${source.slice(site.start, site.bodyStart)}if(${active}===${site.firstMutant}){${reached}${site.nonterminating ? `;${RUNTIME_GLOBAL}.q()` : ''}}else{${hit(site)};` +
         `${range(site.bodyStart, site.end - 1, site.children)}}}`
       )
     }

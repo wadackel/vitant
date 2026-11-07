@@ -1,0 +1,66 @@
+name: loop-proof
+
+on:
+  push:
+    branches: [experiment/yaml-speed-h2-01]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Baseline tool commit for the interruption counterexample
+        required: true
+        default: '4909b596203bd72cd6db587bf28db216e86c8793'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loop-proof-${{ github.run_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: stable
+      - run: |
+          pnpm install --frozen-lockfile
+          pnpm build:native
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.base || '4909b596203bd72cd6db587bf28db216e86c8793' }}
+          path: base
+          persist-credentials: false
+      - run: |
+          ln -s ../node_modules base/node_modules
+          cd base
+          pnpm build:native
+      - run: node bench/loop-proof.ts --base base --out build/loop-proof | tee build/loop-proof.log
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: loop-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/loop-proof.log
+            build/loop-proof/*.json
+            build/loop-proof/*.log
+            build/loop-proof/*/src/
+            build/loop-proof/*/test/
+            build/loop-proof/*/vitest.config.mjs
+            build/loop-proof/*/package.json
+          if-no-files-found: error
