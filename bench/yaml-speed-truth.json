@@ -1,659 +1,166 @@
 {
   "mutants": [
     {
-      "id": 717,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ConditionalExpression",
-      "replacement": "true",
-      "location": {
-        "start": {
-          "line": 579,
-          "column": 10
-        },
-        "end": {
-          "line": 579,
-          "column": 27
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 2399,
-      "killedBy": 1,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "basic"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/cli.ts",
-          "test": "basic",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 727,
-      "file": "src/parse/lexer.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "n <= 0",
-      "location": {
-        "start": {
-          "line": 583,
-          "column": 8
-        },
-        "end": {
-          "line": 583,
-          "column": 13
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 2425,
-      "killedBy": 2,
-      "timeoutCause": "fresh worker",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/cst.ts",
-          "test": "break visit"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/visit.ts",
-          "test": "Seq"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/visit.ts",
-          "test": "Map",
-          "by": "copied after load"
-        },
-        {
-          "kind": "timeout",
-          "quiet": true,
-          "file": "tests/visit.ts",
-          "test": "Map",
-          "by": "started"
-        }
-      ]
-    },
-    {
-      "id": 119,
-      "file": "src/parse/lexer.ts",
-      "mutator": "AssignmentOperator",
-      "replacement": "this.pos -= line.length",
-      "location": {
-        "start": {
-          "line": 151,
-          "column": 6
-        },
-        "end": {
-          "line": 151,
-          "column": 29
-        }
-      },
-      "status": "Killed",
-      "static": false,
-      "coveredBy": 140,
-      "killedBy": 1,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/comments.ts",
-          "test": "directives"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/doc/comments.ts",
-          "test": "directives",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 676,
-      "file": "src/parse/lexer.ts",
-      "mutator": "AssignmentOperator",
-      "replacement": "this.pos -= s.length",
-      "location": {
-        "start": {
-          "line": 552,
-          "column": 6
-        },
-        "end": {
-          "line": 552,
-          "column": 26
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 2311,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/visit.ts",
-          "test": "Seq"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/cli.ts",
-          "test": "basic"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/collection-access.ts",
-          "test": "set scalar node with anchor"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/cli.ts",
-          "test": "basic",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 318,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ConditionalExpression",
-      "replacement": "true",
-      "location": {
-        "start": {
-          "line": 315,
-          "column": 8
-        },
-        "end": {
-          "line": 315,
-          "column": 25
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 818,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/parse.ts",
-          "test": "empty scalar as last flow collection value (#550)"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/doc/parse.ts",
-          "test": "empty scalar as last flow collection value (#550)"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/doc/parse.ts",
-          "test": "empty scalar as last flow collection value (#550)",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 721,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ConditionalExpression",
-      "replacement": "false",
-      "location": {
-        "start": {
-          "line": 579,
-          "column": 33
-        },
-        "end": {
-          "line": 579,
-          "column": 61
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 2399,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/cst.ts",
-          "test": "replace value with flow scalar in map"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/cst.ts",
-          "test": "replace value with flow scalar in map",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 23,
-      "file": "src/parse/lexer.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "ch !== CHAR_CR",
-      "location": {
-        "start": {
-          "line": 28,
-          "column": 4
-        },
-        "end": {
-          "line": 28,
-          "column": 18
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 1810,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/YAML-1.2.spec.ts",
-          "test": "Example 2.2. Mapping Scalars to Scalars"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/doc/types.ts",
-          "test": "plain string"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/doc/types.ts",
-          "test": "plain string",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 374,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ConditionalExpression",
-      "replacement": "false",
-      "location": {
-        "start": {
-          "line": 373,
-          "column": 12
-        },
-        "end": {
-          "line": 373,
-          "column": 43
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 2393,
-      "killedBy": 1,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/anchors.ts",
-          "test": "re-defined anchor"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "reported (#57)"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "reported",
-          "by": "copied before a test"
-        },
-        {
-          "kind": "timeout",
-          "quiet": true,
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "reported",
-          "by": "started"
-        }
-      ]
-    },
-    {
-      "id": 594,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ArithmeticOperator",
-      "replacement": "this.pos + 1",
-      "location": {
-        "start": {
-          "line": 503,
-          "column": 12
-        },
-        "end": {
-          "line": 503,
-          "column": 24
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 1810,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/errors.ts",
-          "test": "block sequence with leading tab"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/doc/errors.ts",
-          "test": "fail on map value indented with tab"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/doc/errors.ts",
-          "test": "fail on map value indented with tab",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 668,
+      "id": 348,
       "file": "src/parse/lexer.ts",
       "mutator": "BlockStatement",
       "replacement": "{}",
       "location": {
         "start": {
-          "line": 539,
-          "column": 15
+          "line": 344,
+          "column": 26
         },
         "end": {
-          "line": 544,
-          "column": 5
+          "line": 348,
+          "column": 9
         }
       },
       "status": "Killed",
-      "static": true,
-      "coveredBy": 2338,
-      "killedBy": 1,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/parse.ts",
-          "test": "empty block scalar at end of document"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/doc/parse.ts",
-          "test": "empty block scalar at end of document",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 561,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ArithmeticOperator",
-      "replacement": "nl + 1",
-      "location": {
-        "start": {
-          "line": 487,
-          "column": 16
-        },
-        "end": {
-          "line": 487,
-          "column": 22
-        }
-      },
-      "status": "Timeout",
-      "static": true,
-      "coveredBy": 320,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/yaml-test-suite.ts",
-          "test": "cst stringify"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/yaml-test-suite.ts",
-          "test": "lexer completes"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/yaml-test-suite.ts",
-          "test": "test.event"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/yaml-test-suite.ts",
-          "test": "lexer completes"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/yaml-test-suite.ts",
-          "test": "cst stringify"
-        },
-        {
-          "kind": "lead",
-          "file": "tests/yaml-test-suite.ts",
-          "test": "test.event"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/yaml-test-suite.ts",
-          "by": "copied while loading"
-        },
-        {
-          "kind": "timeout",
-          "file": "tests/yaml-test-suite.ts",
-          "by": "started"
-        },
-        {
-          "kind": "timeout",
-          "quiet": true,
-          "file": "tests/yaml-test-suite.ts",
-          "by": "started"
-        }
-      ]
-    },
-    {
-      "id": 661,
-      "file": "src/parse/lexer.ts",
-      "mutator": "ArithmeticOperator",
-      "replacement": "end - 1",
-      "location": {
-        "start": {
-          "line": 535,
-          "column": 17
-        },
-        "end": {
-          "line": 535,
-          "column": 24
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 1810,
+      "static": false,
+      "coveredBy": 47,
       "killedBy": 0,
       "evidence": [
         {
           "kind": "lead",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "reported (#57)"
+          "file": "tests/cli.ts",
+          "test": "unstyle"
         },
         {
           "kind": "failed",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "reported",
+          "file": "tests/cli.ts",
+          "test": "unstyle",
           "by": "copied before a test"
         }
       ]
     },
     {
-      "id": 262,
+      "id": 263,
       "file": "src/parse/lexer.ts",
-      "mutator": "BooleanLiteral",
-      "replacement": "false",
+      "mutator": "EqualityOperator",
+      "replacement": "nl + sp >= 0",
       "location": {
         "start": {
-          "line": 279,
-          "column": 24
+          "line": 280,
+          "column": 13
         },
         "end": {
-          "line": 279,
-          "column": 28
+          "line": 280,
+          "column": 24
         }
       },
       "status": "Killed",
       "static": true,
       "coveredBy": 824,
-      "killedBy": 2,
+      "killedBy": 0,
       "evidence": [
         {
           "kind": "lead",
-          "file": "tests/doc/YAML-1.2.spec.ts",
-          "test": "Example 6.1. Indentation Spaces"
+          "file": "tests/visit.ts",
+          "test": "Function as visitor"
         },
         {
           "kind": "lead",
-          "file": "tests/doc/YAML-1.2.spec.ts",
-          "test": "Example 6.1. Indentation Spaces"
+          "file": "tests/cli.ts",
+          "test": "singlequote"
+        },
+        {
+          "kind": "lead",
+          "file": "tests/cli.ts",
+          "test": "unstyle"
         },
         {
           "kind": "failed",
-          "file": "tests/doc/YAML-1.2.spec.ts",
-          "test": "Example 6.1. Indentation Spaces",
+          "file": "tests/cli.ts",
+          "test": "unstyle",
           "by": "copied before a test"
+        },
+        {
+          "kind": "timeout",
+          "file": "tests/visit.ts",
+          "test": "Map",
+          "by": "copied after load"
         }
       ]
     },
     {
-      "id": 569,
+      "id": 330,
       "file": "src/parse/lexer.ts",
-      "mutator": "LogicalOperator",
-      "replacement": "cc === CHAR_LF && i >= this.pos || i + 1 + indent > lastChar",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
       "location": {
         "start": {
-          "line": 492,
-          "column": 12
+          "line": 329,
+          "column": 11
         },
         "end": {
-          "line": 492,
-          "column": 72
+          "line": 329,
+          "column": 14
         }
       },
       "status": "Killed",
       "static": true,
-      "coveredBy": 320,
-      "killedBy": 1,
+      "coveredBy": 814,
+      "killedBy": 0,
       "evidence": [
         {
           "kind": "lead",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "more-indented folded block"
+          "file": "tests/visit.ts",
+          "test": "Function as visitor"
+        },
+        {
+          "kind": "lead",
+          "file": "tests/cli.ts",
+          "test": "singlequote"
+        },
+        {
+          "kind": "lead",
+          "file": "tests/cli.ts",
+          "test": "unstyle"
+        },
+        {
+          "kind": "timeout",
+          "file": "tests/visit.ts",
+          "test": "Map",
+          "by": "copied after load"
         },
         {
           "kind": "failed",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "more-indented folded block",
+          "file": "tests/cli.ts",
+          "test": "unstyle",
           "by": "copied before a test"
         }
       ]
     },
     {
-      "id": 573,
+      "id": 49,
       "file": "src/parse/lexer.ts",
       "mutator": "ConditionalExpression",
-      "replacement": "true",
+      "replacement": "case 'flow':",
       "location": {
         "start": {
-          "line": 492,
-          "column": 12
+          "line": 72,
+          "column": 6
         },
         "end": {
-          "line": 492,
-          "column": 43
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 320,
-      "killedBy": 1,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "more-indented folded block"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/doc/foldFlowLines.ts",
-          "test": "more-indented folded block",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 462,
-      "file": "src/parse/lexer.ts",
-      "mutator": "UnaryOperator",
-      "replacement": "+1",
-      "location": {
-        "start": {
-          "line": 419,
-          "column": 16
-        },
-        "end": {
-          "line": 419,
-          "column": 18
+          "line": 74,
+          "column": 13
         }
       },
       "status": "Timeout",
       "static": true,
-      "coveredBy": 637,
+      "coveredBy": 824,
       "killedBy": 0,
       "timeoutCause": "loop",
       "evidence": [
         {
           "kind": "lead",
-          "file": "tests/doc/types.ts",
-          "test": "invalid tag: !t\"ag x"
+          "file": "tests/visit.ts",
+          "test": "Map"
         },
         {
           "kind": "timeout",
-          "file": "tests/doc/types.ts",
-          "test": "invalid tag: !t\"ag x",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 590,
-      "file": "src/parse/lexer.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "this.flowLevel <= 0",
-      "location": {
-        "start": {
-          "line": 501,
-          "column": 19
-        },
-        "end": {
-          "line": 501,
-          "column": 37
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 1810,
-      "killedBy": 1,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "tests/compat.ts",
-          "test": "single-line flow collection"
-        },
-        {
-          "kind": "failed",
-          "file": "tests/compat.ts",
-          "test": "single-line flow collection",
+          "file": "tests/visit.ts",
+          "test": "Map",
           "by": "copied after load"
         }
       ]

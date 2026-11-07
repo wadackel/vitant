@@ -1,0 +1,45 @@
+name: source-witness
+
+on:
+  push:
+    branches: [experiment/yaml-speed-truth]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts xstate > setup.log 2>&1
+      - run: |
+          mkdir -p build/witness
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/xstate rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          node bench/source-witness.mjs bench/witness-cases.json build/witness '${{ matrix.shard }}/3'
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: source-witness-${{ matrix.shard }}-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/witness
+          if-no-files-found: error

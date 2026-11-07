@@ -222,6 +222,13 @@ function runSuite(
       try {
         clean = fs.readFileSync(unhandled, 'utf8') === '0'
       } catch {}
+      const keep = process.env.VITANT_TRUTH_KEEP
+      if (keep) {
+        fs.mkdirSync(keep, { recursive: true })
+        for (const file of [results, unhandled]) {
+          if (fs.existsSync(file)) fs.copyFileSync(file, path.join(keep, path.basename(file)))
+        }
+      }
       fs.rmSync(results, { force: true })
       fs.rmSync(unhandled, { force: true })
       // What failed is known to be only tests that fail by themselves: not a failure of the mutant's.

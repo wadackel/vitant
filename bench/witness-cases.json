@@ -1,0 +1,2391 @@
+{
+  "target": "xstate",
+  "root": "bench/.work/xstate/packages/core",
+  "cases": [
+    {
+      "mutant": {
+        "id": 61,
+        "file": "src/StateMachine.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 368,
+            "column": 12
+          },
+          "end": {
+            "line": 369,
+            "column": 8
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 995,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 61,
+        "file": "src/StateMachine.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 368,
+            "column": 12
+          },
+          "end": {
+            "line": 369,
+            "column": 8
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 995,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 60,
+        "file": "src/StateMachine.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 368,
+            "column": 12
+          },
+          "end": {
+            "line": 369,
+            "column": 8
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 995,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 60,
+        "file": "src/StateMachine.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 368,
+            "column": 12
+          },
+          "end": {
+            "line": 369,
+            "column": 8
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 995,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 59,
+        "file": "src/StateMachine.ts",
+        "mutator": "LogicalOperator",
+        "replacement": "transitionNode(this.root, snapshot.value, snapshot, event) &&\n      []",
+        "location": {
+          "start": {
+            "line": 368,
+            "column": 12
+          },
+          "end": {
+            "line": 369,
+            "column": 8
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 995,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 59,
+        "file": "src/StateMachine.ts",
+        "mutator": "LogicalOperator",
+        "replacement": "transitionNode(this.root, snapshot.value, snapshot, event) &&\n      []",
+        "location": {
+          "start": {
+            "line": 368,
+            "column": 12
+          },
+          "end": {
+            "line": 369,
+            "column": 8
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 995,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 310,
+        "file": "src/stateUtils.ts",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[]",
+        "location": {
+          "start": {
+            "line": 228,
+            "column": 6
+          },
+          "end": {
+            "line": 228,
+            "column": 44
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 667,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 310,
+        "file": "src/stateUtils.ts",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[]",
+        "location": {
+          "start": {
+            "line": 228,
+            "column": 6
+          },
+          "end": {
+            "line": 228,
+            "column": 44
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 667,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 348,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 326,
+            "column": 27
+          },
+          "end": {
+            "line": 341,
+            "column": 3
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 794,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 348,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 326,
+            "column": 27
+          },
+          "end": {
+            "line": 341,
+            "column": 3
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 794,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 349,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 327,
+            "column": 63
+          },
+          "end": {
+            "line": 340,
+            "column": 5
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 787,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 349,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 327,
+            "column": 63
+          },
+          "end": {
+            "line": 340,
+            "column": 5
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 787,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 446,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 484,
+            "column": 43
+          },
+          "end": {
+            "line": 522,
+            "column": 1
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 902,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 446,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 484,
+            "column": 43
+          },
+          "end": {
+            "line": 522,
+            "column": 1
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 902,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1030,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1627,
+            "column": 36
+          },
+          "end": {
+            "line": 1634,
+            "column": 5
+          }
+        },
+        "status": "Killed",
+        "static": false,
+        "coveredBy": 414,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned"
+          },
+          {
+            "kind": "failed",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/transition.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "delayed raise actions should be returned"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1030,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1627,
+            "column": 36
+          },
+          "end": {
+            "line": 1634,
+            "column": 5
+          }
+        },
+        "status": "Timeout",
+        "static": false,
+        "coveredBy": 414,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1070,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1731,
+            "column": 38
+          },
+          "end": {
+            "line": 1744,
+            "column": 5
+          }
+        },
+        "status": "Timeout",
+        "static": false,
+        "coveredBy": 19,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/errors.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "unhandled sync errors thrown when starting a child actor should be reported globally"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1070,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1731,
+            "column": 38
+          },
+          "end": {
+            "line": 1744,
+            "column": 5
+          }
+        },
+        "status": "Killed",
+        "static": false,
+        "coveredBy": 19,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/rehydration.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should error on a rehydrated error state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1069,
+        "file": "src/stateUtils.ts",
+        "mutator": "BooleanLiteral",
+        "replacement": "transitions.length",
+        "location": {
+          "start": {
+            "line": 1731,
+            "column": 17
+          },
+          "end": {
+            "line": 1731,
+            "column": 36
+          }
+        },
+        "status": "Timeout",
+        "static": false,
+        "coveredBy": 33,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/errors.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "unhandled sync errors thrown when starting a child actor should be reported globally"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1069,
+        "file": "src/stateUtils.ts",
+        "mutator": "BooleanLiteral",
+        "replacement": "transitions.length",
+        "location": {
+          "start": {
+            "line": 1731,
+            "column": 17
+          },
+          "end": {
+            "line": 1731,
+            "column": 36
+          }
+        },
+        "status": "Killed",
+        "static": false,
+        "coveredBy": 33,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/rehydration.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should error on a rehydrated error state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 347,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 326,
+            "column": 6
+          },
+          "end": {
+            "line": 326,
+            "column": 25
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1403,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 347,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 326,
+            "column": 6
+          },
+          "end": {
+            "line": 326,
+            "column": 25
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1403,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 808,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1230,
+            "column": 8
+          },
+          "end": {
+            "line": 1230,
+            "column": 41
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1262,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": "can send an event after a delay (expression)"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": "can send an event after a delay (expression)",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "can send an event after a delay (expression)"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 808,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1230,
+            "column": 8
+          },
+          "end": {
+            "line": 1230,
+            "column": 41
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1262,
+        "killedBy": 1,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": "can send an event after a delay (expression)"
+          },
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should allow bidirectional communication between parent/child actors"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 858,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1295,
+            "column": 9
+          },
+          "end": {
+            "line": 1298,
+            "column": 29
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1261,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/guards.test.ts",
+            "test": "should transition if condition based on event is met"
+          },
+          {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/guards.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should transition only if condition is met"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 858,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1295,
+            "column": 9
+          },
+          "end": {
+            "line": 1298,
+            "column": 29
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1261,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1028,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1627,
+            "column": 8
+          },
+          "end": {
+            "line": 1627,
+            "column": 34
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 516,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned"
+          },
+          {
+            "kind": "failed",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/transition.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "delayed raise actions should be returned"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1028,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1627,
+            "column": 8
+          },
+          "end": {
+            "line": 1627,
+            "column": 34
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 516,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1068,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1731,
+            "column": 8
+          },
+          "end": {
+            "line": 1731,
+            "column": 36
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 928,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/errors.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "unhandled sync errors thrown when starting a child actor should be reported globally"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1068,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1731,
+            "column": 8
+          },
+          "end": {
+            "line": 1731,
+            "column": 36
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 928,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/rehydration.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should error on a rehydrated error state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 448,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 485,
+            "column": 6
+          },
+          "end": {
+            "line": 485,
+            "column": 27
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 902,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 448,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 485,
+            "column": 6
+          },
+          "end": {
+            "line": 485,
+            "column": 27
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 902,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition"
+          },
+          {
+            "kind": "failed",
+            "file": "test/actions.test.ts",
+            "test": "should return the entry and exit actions of a transition",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/actions.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should return the entry and exit actions of a transition"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1098,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 1779,
+            "column": 10
+          },
+          "end": {
+            "line": 1779,
+            "column": 31
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1244,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/parallel.test.ts",
+            "test": "should properly transition according to entry events on an initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/parallel.test.ts",
+            "test": "should properly transition according to entry events on an initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/parallel.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should properly transition according to entry events on an initial state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1098,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 1779,
+            "column": 10
+          },
+          "end": {
+            "line": 1779,
+            "column": 31
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1244,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should allow bidirectional communication between parent/child actors"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should allow bidirectional communication between parent/child actors",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should allow bidirectional communication between parent/child actors"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1106,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 1799,
+            "column": 6
+          },
+          "end": {
+            "line": 1799,
+            "column": 38
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1260,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/system.test.ts",
+            "test": "should register a spawned actor"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/system.test.ts",
+            "test": "should register a spawned actor",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/system.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should register a spawned actor"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1106,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 1799,
+            "column": 6
+          },
+          "end": {
+            "line": 1799,
+            "column": 38
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1260,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": "should stop activities"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": "should stop activities",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should stop activities"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1105,
+        "file": "src/stateUtils.ts",
+        "mutator": "EqualityOperator",
+        "replacement": "nextSnapshot.status === 'active'",
+        "location": {
+          "start": {
+            "line": 1799,
+            "column": 6
+          },
+          "end": {
+            "line": 1799,
+            "column": 38
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1260,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/system.test.ts",
+            "test": "should register a spawned actor"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/system.test.ts",
+            "test": "should register a spawned actor",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/system.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should register a spawned actor"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1105,
+        "file": "src/stateUtils.ts",
+        "mutator": "EqualityOperator",
+        "replacement": "nextSnapshot.status === 'active'",
+        "location": {
+          "start": {
+            "line": 1799,
+            "column": 6
+          },
+          "end": {
+            "line": 1799,
+            "column": 38
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1260,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": "should stop activities"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": "should stop activities",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should stop activities"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1031,
+        "file": "src/stateUtils.ts",
+        "mutator": "ObjectLiteral",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1628,
+            "column": 32
+          },
+          "end": {
+            "line": 1633,
+            "column": 7
+          }
+        },
+        "status": "Killed",
+        "static": false,
+        "coveredBy": 414,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned"
+          },
+          {
+            "kind": "failed",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/transition.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "delayed raise actions should be returned"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1031,
+        "file": "src/stateUtils.ts",
+        "mutator": "ObjectLiteral",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1628,
+            "column": 32
+          },
+          "end": {
+            "line": 1633,
+            "column": 7
+          }
+        },
+        "status": "Timeout",
+        "static": false,
+        "coveredBy": 414,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1071,
+        "file": "src/stateUtils.ts",
+        "mutator": "ObjectLiteral",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1735,
+            "column": 69
+          },
+          "end": {
+            "line": 1738,
+            "column": 7
+          }
+        },
+        "status": "Timeout",
+        "static": false,
+        "coveredBy": 19,
+        "killedBy": 0,
+        "timeoutCause": "idle",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/errors.test.ts",
+            "test": "unhandled sync errors thrown when starting a child actor should be reported globally",
+            "by": "started"
+          }
+        ]
+      },
+      "file": "test/errors.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "unhandled sync errors thrown when starting a child actor should be reported globally"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1071,
+        "file": "src/stateUtils.ts",
+        "mutator": "ObjectLiteral",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1735,
+            "column": 69
+          },
+          "end": {
+            "line": 1738,
+            "column": 7
+          }
+        },
+        "status": "Killed",
+        "static": false,
+        "coveredBy": 19,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/rehydration.test.ts",
+            "test": "should error on a rehydrated error state",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "test/rehydration.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "should error on a rehydrated error state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1029,
+        "file": "src/stateUtils.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 1627,
+            "column": 8
+          },
+          "end": {
+            "line": 1627,
+            "column": 17
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 516,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned"
+          },
+          {
+            "kind": "failed",
+            "file": "test/transition.test.ts",
+            "test": "delayed raise actions should be returned",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/transition.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "delayed raise actions should be returned"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 1029,
+        "file": "src/stateUtils.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 1627,
+            "column": 8
+          },
+          "end": {
+            "line": 1627,
+            "column": 17
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 516,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 253,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 168,
+            "column": 30
+          },
+          "end": {
+            "line": 180,
+            "column": 3
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1277,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 253,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 168,
+            "column": 30
+          },
+          "end": {
+            "line": 180,
+            "column": 3
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1277,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        ".getSnapshot returns the initial state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 261,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 173,
+            "column": 18
+          },
+          "end": {
+            "line": 179,
+            "column": 5
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1052,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 261,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 173,
+            "column": 18
+          },
+          "end": {
+            "line": 179,
+            "column": 5
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1052,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        ".getSnapshot returns the initial state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 235,
+        "file": "src/stateUtils.ts",
+        "mutator": "BooleanLiteral",
+        "replacement": "childStateNodes",
+        "location": {
+          "start": {
+            "line": 140,
+            "column": 6
+          },
+          "end": {
+            "line": 140,
+            "column": 22
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1276,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 235,
+        "file": "src/stateUtils.ts",
+        "mutator": "BooleanLiteral",
+        "replacement": "childStateNodes",
+        "location": {
+          "start": {
+            "line": 140,
+            "column": 6
+          },
+          "end": {
+            "line": 140,
+            "column": 22
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1276,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        ".getSnapshot returns the initial state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 245,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 146,
+            "column": 8
+          },
+          "end": {
+            "line": 146,
+            "column": 22
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1049,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 245,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 146,
+            "column": 8
+          },
+          "end": {
+            "line": 146,
+            "column": 22
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1049,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        ".getSnapshot returns the initial state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 260,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 173,
+            "column": 8
+          },
+          "end": {
+            "line": 173,
+            "column": 16
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1277,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 260,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 173,
+            "column": 8
+          },
+          "end": {
+            "line": 173,
+            "column": 16
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1277,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        ".getSnapshot returns the initial state"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 236,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 140,
+            "column": 6
+          },
+          "end": {
+            "line": 140,
+            "column": 22
+          }
+        },
+        "status": "Timeout",
+        "static": true,
+        "coveredBy": 1276,
+        "killedBy": 1,
+        "timeoutCause": "fresh worker",
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/actor.test.ts",
+            "test": "should spawn referenced machines"
+          },
+          {
+            "kind": "timeout",
+            "file": "test/actor.test.ts",
+            "test": "should spawn machines",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/actor.test.ts",
+      "expectedKinds": [
+        "timeout"
+      ],
+      "tests": [
+        "should spawn machines"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 236,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
+        "location": {
+          "start": {
+            "line": 140,
+            "column": 6
+          },
+          "end": {
+            "line": 140,
+            "column": 22
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1276,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state"
+          },
+          {
+            "kind": "failed",
+            "file": "test/interpreter.test.ts",
+            "test": ".getSnapshot returns the initial state",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/interpreter.test.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        ".getSnapshot returns the initial state"
+      ]
+    }
+  ]
+}
