@@ -584,7 +584,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const cold = new Set<string>()
   /** Per test file, how long its whole-file runs have taken and how many there were. */
   const wholeTook = new Map<string, { ms: number; runs: number }>()
-  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; failedAgain?: boolean; slow?: boolean }[] = []
+  const leads: { mutant: number; file: string; test: string; passedAgain: boolean; copied?: boolean; failedAgain?: boolean; slow?: boolean; timedOut?: boolean }[] = []
   /** Tests that failed in a run with no mutant on and nothing else running. */
   const restive = new Set<string>()
   /** Files such a run failed in with no test to name. */
@@ -731,6 +731,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         passedAgain: record.sole === true,
         copied: record.copied,
         slow: record.overran === true,
+        timedOut: record.timedOut.includes(mutant),
       })
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
     }
@@ -912,6 +913,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const note = (mutant: number, entry: Evidence) => evidence.set(mutant, [...(evidence.get(mutant) ?? []), entry])
   /** Per mutant, the tests that failed with it and passed again without it, with no other run of their file about. */
   const witnesses = new Map<number, Set<string>>()
+  const failedLeads = new Map<number, Set<string>>()
   // A test that fails by chance when the machine is busy fails with
   // whatever mutant it happens to be trying, passes again without it, and
   // makes a lead. Nearly all such leads come to nothing, the file passing
@@ -940,7 +942,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   for (const { mutant, file, test, failedAgain } of leads) if (!failedAgain && passedWith.has(wholeKey(mutant, file))) refuted.add(test)
   /** Per mutant, the tests whose failing with it, and passing again without it, a run made with `led` takes at its word. */
   const led = new Map<number, { tests: Set<string>; sole: boolean }>()
-  for (const { mutant, file, test, passedAgain, copied, slow, failedAgain } of leads) {
+  for (const { mutant, file, test, passedAgain, copied, slow, failedAgain, timedOut } of leads) {
     if (flaky.has(test)) continue
     // What a copy does to the test is not the mutant's doing: without a copy
     // in which the test passed with no mutant on, its failing in one is no lead.
@@ -958,6 +960,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (passedAgain && !refuted.has(test)) {
       witnesses.set(mutant, (witnesses.get(mutant) ?? new Set()).add(test))
       if (slow) overrun.set(mutant, (overrun.get(mutant) ?? new Set()).add(test))
+      if (!timedOut && !slow) failedLeads.set(mutant, (failedLeads.get(mutant) ?? new Set()).add(file))
     }
   }
   for (const record of wholeRecords) {
@@ -1046,7 +1049,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, failedLeads, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1127,7 +1130,7 @@ type Planned = {
  * what makes what they find count; then, for what is still open, a run of
  * the file with nothing else running.
  */
-function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
+export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
   besideOnly.clear()
   const usual = planPhase(...given, false)
   // With `--led` what these rounds settle is left at that, unconfirmed: the
@@ -1691,15 +1694,15 @@ function planPhase(
       for (const file of batch) wholeJob(mutant, file, false)
     }
   }
-  // A test that failed with a mutant while trying it names the file to run
-  // whole with the mutant on; these go out as they come, next to whatever
-  // else the round does. One file at a time, the cheapest first: the file
-  // failing settles it.
+  // Confirming every file that gave a lead repeats a mutant's detection;
+  // one file can settle it, with another tried if that run passes.
   for (const [mutant, files] of status.suspects) {
     if (status.detected.has(mutant)) continue
     const open = [...files].filter((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
     if (open.length === 0) continue
-    open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
+    // A file's unmutated time omits the wait that its mutant's timeout costs.
+    const failed = status.failedLeads.get(mutant)
+    open.sort((a, b) => Number(failed?.has(b) ?? false) - Number(failed?.has(a) ?? false) || (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
   }
   // The two runs of a pair wait for each other, each holding a worker, which takes two.
