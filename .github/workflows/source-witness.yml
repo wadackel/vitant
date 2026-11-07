@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -33,7 +33,7 @@ jobs:
           git rev-parse HEAD > build/identity.log
           git -C bench/.work/xstate rev-parse HEAD >> build/identity.log
           node --version >> build/identity.log
-          node bench/source-witness.mjs bench/witness-cases.json build/witness '${{ matrix.shard }}/3'
+          node bench/source-witness.mjs bench/witness-cases.json build/witness '${{ matrix.shard }}/2'
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
