@@ -1,0 +1,70 @@
+name: umami-speed-truth
+
+on:
+  push:
+    branches: [experiment/yaml-speed-umami-truth]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  truth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts umami > setup.log 2>&1
+      - run: |
+          mkdir -p build
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/umami rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          node bench/umami-shuffle.mjs bench/.work/umami > build/exhaustive.log
+          if VITANT_TRUTH_KEEP="$PWD/build/raw" node bench/truth.ts make --root bench/.work/umami --report bench/umami-speed-truth.json --out build/umami-speed-truth.json --jobs 1 --vitest=--maxWorkers=4 > build/umami-speed-truth.log 2>&1; then
+            echo 0 > build/truth-exit.txt
+          else
+            echo $? > build/truth-exit.txt
+          fi
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import { createHash } from 'node:crypto'
+          const truth = JSON.parse(fs.readFileSync('build/umami-speed-truth.json', 'utf8'))
+          assert.equal(truth.mutants.length, 1)
+          assert(['pass', 'fail'].includes(truth.mutants[0].suite))
+          const code = Number(fs.readFileSync('build/truth-exit.txt', 'utf8'))
+          assert.equal(code, truth.mutants[0].suite === 'pass' ? 1 : 0)
+          const first = fs.readdirSync('build/raw').find(name => /-0\.json$/.test(name))
+          const control = JSON.parse(fs.readFileSync(`build/raw/${first}`, 'utf8'))
+          assert(control.success && control.numPassedTests > 0 && control.numFailedTests === 0)
+          const identity = JSON.parse(fs.readFileSync('build/umami-shuffle/source-identity.json', 'utf8'))
+          assert.equal(createHash('sha256').update(fs.readFileSync('bench/.work/umami/src/lib/utils.ts')).digest('hex'), identity.original)
+          JS
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: umami-speed-truth-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/umami-shuffle/
+            build/exhaustive.log
+            build/umami-speed-truth.json
+            build/umami-speed-truth.log
+            build/truth-exit.txt
+            build/raw/
+          if-no-files-found: error

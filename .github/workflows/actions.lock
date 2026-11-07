@@ -26,6 +26,11 @@ workflows:
         - 'actions/setup-node@v7.0.0'
         - 'actions/upload-artifact@v7.0.1'
         - 'pnpm/action-setup@v6.1.0'
+    '.github/workflows/umami-speed-truth.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/setup-node@v7.0.0'
+        - 'actions/upload-artifact@v7.0.1'
+        - 'pnpm/action-setup@v6.1.0'
     '.github/workflows/verify-lockfile.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/yaml-speed-truth.yml':
