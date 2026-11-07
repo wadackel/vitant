@@ -226,7 +226,7 @@ function runSuite(
       if (keep) {
         fs.mkdirSync(keep, { recursive: true })
         for (const file of [results, unhandled]) {
-          if (fs.existsSync(file)) fs.copyFileSync(file, path.join(keep, path.basename(file)))
+          if (fs.existsSync(file)) fs.copyFileSync(file, path.join(keep, path.basename(file).replace(/^\./, '')))
         }
       }
       fs.rmSync(results, { force: true })
