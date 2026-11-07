@@ -1127,7 +1127,7 @@ type Planned = {
  * what makes what they find count; then, for what is still open, a run of
  * the file with nothing else running.
  */
-function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
+export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
   besideOnly.clear()
   const usual = planPhase(...given, false)
   // With `--led` what these rounds settle is left at that, unconfirmed: the
@@ -1691,15 +1691,15 @@ function planPhase(
       for (const file of batch) wholeJob(mutant, file, false)
     }
   }
-  // A test that failed with a mutant while trying it names the file to run
-  // whole with the mutant on; these go out as they come, next to whatever
-  // else the round does. One file at a time, the cheapest first: the file
-  // failing settles it.
+  // Confirming every file that gave a lead repeats a mutant's detection;
+  // one file can settle it, with another tried if that run passes.
   for (const [mutant, files] of status.suspects) {
     if (status.detected.has(mutant)) continue
     const open = [...files].filter((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
     if (open.length === 0) continue
-    open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
+    // A failure while the file loads cannot match the test that gave the lead.
+    const duringLoad = (file: string) => status.staticSites.get(file)?.has(siteOf[mutant]) !== false
+    open.sort((a, b) => Number(duringLoad(a)) - Number(duringLoad(b)) || (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
   }
   // The two runs of a pair wait for each other, each holding a worker, which takes two.
