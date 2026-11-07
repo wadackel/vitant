@@ -1,267 +1,74 @@
 {
   "mutants": [
     {
-      "id": 0,
-      "file": "lib/utils/client-ip.ts",
-      "mutator": "StringLiteral",
-      "replacement": "\"\"",
+      "id": 834,
+      "file": "lib/utils/html-opening-tag.ts",
+      "mutator": "UnaryOperator",
+      "replacement": "+1",
       "location": {
         "start": {
-          "line": 6,
-          "column": 43
-        },
-        "end": {
-          "line": 6,
-          "column": 67
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 3,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "failed",
-          "file": "lib/utils/client-ip.test.ts",
-          "test": "returns the canonical identity from the private Proxy header",
-          "by": "copied after load"
-        },
-        {
-          "kind": "failed",
-          "quiet": true,
-          "file": "lib/utils/client-ip.test.ts",
-          "test": "returns the canonical identity from the private Proxy header",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 1,
-      "file": "lib/utils/client-ip.ts",
-      "mutator": "ObjectLiteral",
-      "replacement": "{}",
-      "location": {
-        "start": {
-          "line": 12,
-          "column": 45
-        },
-        "end": {
-          "line": 15,
-          "column": 1
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 3,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "failed",
-          "file": "lib/utils/client-ip.test.ts",
-          "test": "resolves only the single-value private Proxy header with the shared IPv6 prefix",
-          "by": "copied after load"
-        },
-        {
-          "kind": "failed",
-          "quiet": true,
-          "file": "lib/utils/client-ip.test.ts",
-          "test": "resolves only the single-value private Proxy header with the shared IPv6 prefix",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "file": "lib/utils/client-ip.ts",
-      "mutator": "ArrayDeclaration",
-      "replacement": "[]",
-      "location": {
-        "start": {
-          "line": 13,
-          "column": 20
-        },
-        "end": {
-          "line": 13,
-          "column": 49
-        }
-      },
-      "status": "Killed",
-      "static": true,
-      "coveredBy": 3,
-      "killedBy": 0,
-      "evidence": [
-        {
-          "kind": "failed",
-          "file": "lib/utils/client-ip.test.ts",
-          "test": "resolves only the single-value private Proxy header with the shared IPv6 prefix",
-          "by": "copied after load"
-        },
-        {
-          "kind": "failed",
-          "quiet": true,
-          "file": "lib/utils/client-ip.test.ts",
-          "test": "resolves only the single-value private Proxy header with the shared IPv6 prefix",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 120,
-      "file": "lib/utils/billing.ts",
-      "mutator": "ArithmeticOperator",
-      "replacement": "anchorMonth - monthOffset",
-      "location": {
-        "start": {
-          "line": 29,
-          "column": 27
-        },
-        "end": {
-          "line": 29,
-          "column": 52
-        }
-      },
-      "status": "Timeout",
-      "static": false,
-      "coveredBy": 5,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "lib/utils/billing.test.ts",
-          "test": "derives the current monthly window from a regular anchor day"
-        },
-        {
-          "kind": "timeout",
-          "file": "lib/utils/billing.test.ts",
-          "test": "derives the current monthly window from a regular anchor day",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 145,
-      "file": "lib/utils/billing.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "end > now",
-      "location": {
-        "start": {
-          "line": 73,
+          "line": 47,
           "column": 9
         },
         "end": {
-          "line": 73,
-          "column": 19
+          "line": 47,
+          "column": 11
         }
       },
       "status": "Timeout",
       "static": false,
-      "coveredBy": 5,
-      "killedBy": 0,
+      "coveredBy": 35,
+      "killedBy": 1,
       "timeoutCause": "loop",
       "evidence": [
         {
           "kind": "lead",
-          "file": "lib/utils/billing.test.ts",
-          "test": "uses the billing usageCycleAnchor"
+          "file": "lib/utils/html-opening-tag.test.ts",
+          "test": "findClosingTag matches the case-insensitive close the regex used"
         },
         {
           "kind": "lead",
-          "file": "lib/utils/billing.test.ts",
-          "test": "derives the current monthly window from a regular anchor day"
+          "file": "lib/utils/html-opening-tag.test.ts",
+          "test": "findOpeningTag reports the regex's index and capture ('p')"
         },
         {
           "kind": "timeout",
-          "file": "lib/utils/billing.test.ts",
-          "test": "derives the current monthly window from a regular anchor day",
+          "file": "lib/utils/html-opening-tag.test.ts",
+          "test": "findOpeningTag reports the regex's index and capture ('p')",
           "by": "copied after load"
         }
       ]
     },
     {
-      "id": 1388,
-      "file": "lib/utils/prisma-error.ts",
-      "mutator": "LogicalOperator",
-      "replacement": "attempt >= maxAttempts && !isTransactionConflictError(error)",
+      "id": 842,
+      "file": "lib/utils/html-opening-tag.ts",
+      "mutator": "EqualityOperator",
+      "replacement": "start !== -1",
       "location": {
         "start": {
-          "line": 56,
-          "column": 10
+          "line": 76,
+          "column": 8
         },
         "end": {
-          "line": 56,
-          "column": 70
+          "line": 76,
+          "column": 20
         }
       },
       "status": "Killed",
       "static": false,
-      "coveredBy": 11,
-      "killedBy": 2,
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "lib/utils/prisma-error.test.ts",
-          "test": "rethrows a non-conflict error at once"
-        },
-        {
-          "kind": "lead",
-          "file": "lib/utils/prisma-error.test.ts",
-          "test": "gives up after maxAttempts and rethrows the last conflict"
-        },
-        {
-          "kind": "failed",
-          "file": "lib/utils/prisma-error.test.ts",
-          "test": "gives up after maxAttempts and rethrows the last conflict",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 1390,
-      "file": "lib/utils/prisma-error.ts",
-      "mutator": "ConditionalExpression",
-      "replacement": "false",
-      "location": {
-        "start": {
-          "line": 56,
-          "column": 10
-        },
-        "end": {
-          "line": 56,
-          "column": 70
-        }
-      },
-      "status": "Killed",
-      "static": false,
-      "coveredBy": 11,
+      "coveredBy": 37,
       "killedBy": 1,
       "evidence": [
         {
           "kind": "lead",
-          "file": "lib/utils/prisma-error.test.ts",
-          "test": "rethrows a non-conflict error at once"
-        },
-        {
-          "kind": "lead",
-          "file": "modules/ee/analysis/dashboards/lib/dashboards.test.ts",
-          "test": "gives up on a conflict that keeps repeating"
-        },
-        {
-          "kind": "lead",
-          "file": "lib/utils/prisma-error.test.ts",
-          "test": "gives up after maxAttempts and rethrows the last conflict"
-        },
-        {
-          "kind": "timeout",
-          "file": "modules/ee/analysis/dashboards/lib/dashboards.test.ts",
-          "test": "gives up on a conflict that keeps repeating",
-          "by": "copied before a test"
+          "file": "app/(app)/workspaces/[workspaceId]/surveys/[surveyId]/(analysis)/summary/lib/emailTemplate.test.ts",
+          "test": "returns the body contents for rendered email documents"
         },
         {
           "kind": "failed",
-          "file": "lib/utils/prisma-error.test.ts",
-          "test": "gives up after maxAttempts and rethrows the last conflict",
-          "by": "copied before a test"
+          "file": "app/(app)/workspaces/[workspaceId]/surveys/[surveyId]/(analysis)/summary/lib/emailTemplate.test.ts",
+          "test": "returns the body contents for rendered email documents",
+          "by": "copied after load"
         }
       ]
     }
