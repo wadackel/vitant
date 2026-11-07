@@ -9,6 +9,48 @@ const owner = createE2E('smoke')
 afterAll(() => owner.cleanup())
 const { fixture, tool, reportPath } = owner
 
+it('replays a file when a suite hook requires an earlier test', () => {
+  const report = reportPath('hook-order')
+  const cli = tool([
+    '--root', fixture('basic'),
+    '--mutate', 'src/hook-order.ts',
+    '--cheap-ms', '0',
+    '--max-workers', '2',
+    '--report', report,
+  ])
+  expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+  const run = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+  expect(run.abandonedFiles).toEqual([])
+  expect(run.counts.Pending).toBe(0)
+  expect(run.counts.Survived).toBeGreaterThan(0)
+  expect(run.mutants.find((mutant) => mutant.location.start.line === 6 && mutant.replacement === 'false')?.status).toBe('Killed')
+}, 120_000)
+
+describe('console output on Vitest 5.1', () => {
+  // Vitest 5.0 does not consume the console RPC's returned promise, so it cannot expose a missing one.
+  const project = path.join(owner.directory, 'console')
+  beforeAll(() => {
+    fs.cpSync(fixture('basic'), project, {
+      recursive: true,
+      filter: (source) => !source.includes('node_modules'),
+    })
+    fs.mkdirSync(path.join(project, 'node_modules'), { recursive: true })
+    fs.symlinkSync(path.join(root, 'node_modules/vitest51'), path.join(project, 'node_modules/vitest'), 'junction')
+  })
+
+  it('does not kill a mutant whose only effect is an extra console message', () => {
+    const report = reportPath('console')
+    const cli = tool(['--root', project, '--mutate', 'src/logging.ts', '--report', report])
+    expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+    const logged = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+    expect(logged.vitestVersion).toMatch(/^5\.1\./)
+    if (addonTarget()) expect(logged.wholeRuns['copied after load']).toBeGreaterThan(0)
+    expect(logged.mutants.find((mutant) => mutant.replacement === 'true')?.status).toBe('Survived')
+    expect(logged.mutants.find((mutant) => mutant.replacement === 'value >= 0')?.status).toBe('Survived')
+    expect(logged.mutants.find((mutant) => mutant.mutator === 'BlockStatement')?.status).toBe('Killed')
+  }, 120_000)
+})
+
 describe('runs copied after the tests before the first to reach the mutant', () => {
   it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file or the tests run at once', () => {
     const walk = fixture('walk')
