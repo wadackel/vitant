@@ -1,85 +1,150 @@
 {
   "mutants": [
     {
-      "id": 863,
-      "file": "src/utils/database.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "i <= text.length",
+      "id": 4076,
+      "file": "src/utils/transform.ts",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
       "location": {
         "start": {
-          "line": 383,
+          "line": 51,
+          "column": 23
+        },
+        "end": {
+          "line": 54,
           "column": 9
-        },
-        "end": {
-          "line": 383,
-          "column": 24
-        }
-      },
-      "status": "Timeout",
-      "static": false,
-      "coveredBy": 10,
-      "killedBy": 0,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "src/services/ocr.service.spec.ts",
-          "test": "should save the returned objects"
-        },
-        {
-          "kind": "timeout",
-          "file": "src/services/ocr.service.spec.ts",
-          "test": "should save the returned objects",
-          "by": "copied before a test"
-        }
-      ]
-    },
-    {
-      "id": 867,
-      "file": "src/utils/database.ts",
-      "mutator": "EqualityOperator",
-      "replacement": "c < 32",
-      "location": {
-        "start": {
-          "line": 385,
-          "column": 8
-        },
-        "end": {
-          "line": 385,
-          "column": 15
         }
       },
       "status": "Killed",
       "static": false,
-      "coveredBy": 10,
-      "killedBy": 0,
+      "coveredBy": 8,
+      "killedBy": 1,
       "evidence": [
         {
           "kind": "lead",
-          "file": "src/services/ocr.service.spec.ts",
-          "test": "should save the returned objects"
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate 90\u00b0 then horizontal mirror"
         },
         {
           "kind": "failed",
-          "file": "src/services/ocr.service.spec.ts",
-          "test": "should save the returned objects",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate edit correctly",
           "by": "copied before a test"
         }
       ]
     },
     {
-      "id": 4081,
+      "id": 4077,
       "file": "src/utils/transform.ts",
-      "mutator": "StringLiteral",
-      "replacement": "\"\"",
+      "mutator": "ArithmeticOperator",
+      "replacement": "(-edit.parameters.angle * Math.PI) * 180",
+      "location": {
+        "start": {
+          "line": 52,
+          "column": 33
+        },
+        "end": {
+          "line": 52,
+          "column": 73
+        }
+      },
+      "status": "Killed",
+      "static": false,
+      "coveredBy": 8,
+      "killedBy": 1,
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate 90\u00b0 then horizontal mirror"
+        },
+        {
+          "kind": "failed",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4080,
+      "file": "src/utils/transform.ts",
+      "mutator": "ConditionalExpression",
+      "replacement": "case 'mirror':",
       "location": {
         "start": {
           "line": 55,
-          "column": 13
+          "column": 8
         },
         "end": {
-          "line": 55,
-          "column": 21
+          "line": 57,
+          "column": 9
+        }
+      },
+      "status": "Killed",
+      "static": false,
+      "coveredBy": 6,
+      "killedBy": 1,
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate 90\u00b0 then horizontal mirror"
+        },
+        {
+          "kind": "failed",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4084,
+      "file": "src/utils/transform.ts",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "location": {
+        "start": {
+          "line": 56,
+          "column": 17
+        },
+        "end": {
+          "line": 56,
+          "column": 54
+        }
+      },
+      "status": "Killed",
+      "static": false,
+      "coveredBy": 6,
+      "killedBy": 1,
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply vertical mirror then horizontal mirror then rotate 90\u00b0"
+        },
+        {
+          "kind": "failed",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4085,
+      "file": "src/utils/transform.ts",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "location": {
+        "start": {
+          "line": 56,
+          "column": 17
+        },
+        "end": {
+          "line": 56,
+          "column": 54
         }
       },
       "status": "Timeout",
@@ -91,7 +156,153 @@
         {
           "kind": "lead",
           "file": "src/repositories/media.repository.spec.ts",
-          "test": "should apply all operations: crop, rotate, mirror"
+          "test": "should apply rotate 90\u00b0 then horizontal mirror"
+        },
+        {
+          "kind": "timeout",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4086,
+      "file": "src/utils/transform.ts",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "location": {
+        "start": {
+          "line": 56,
+          "column": 42
+        },
+        "end": {
+          "line": 56,
+          "column": 54
+        }
+      },
+      "status": "Timeout",
+      "static": false,
+      "coveredBy": 6,
+      "killedBy": 1,
+      "timeoutCause": "fresh worker",
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate 90\u00b0 then horizontal mirror"
+        },
+        {
+          "kind": "timeout",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4078,
+      "file": "src/utils/transform.ts",
+      "mutator": "ArithmeticOperator",
+      "replacement": "-edit.parameters.angle / Math.PI",
+      "location": {
+        "start": {
+          "line": 52,
+          "column": 34
+        },
+        "end": {
+          "line": 52,
+          "column": 66
+        }
+      },
+      "status": "Timeout",
+      "static": false,
+      "coveredBy": 8,
+      "killedBy": 2,
+      "timeoutCause": "fresh worker",
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply vertical mirror then horizontal mirror then rotate 90\u00b0"
+        },
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate edit correctly"
+        },
+        {
+          "kind": "timeout",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply rotate edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4082,
+      "file": "src/utils/transform.ts",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "location": {
+        "start": {
+          "line": 55,
+          "column": 23
+        },
+        "end": {
+          "line": 57,
+          "column": 9
+        }
+      },
+      "status": "Timeout",
+      "static": false,
+      "coveredBy": 6,
+      "killedBy": 1,
+      "timeoutCause": "fresh worker",
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply vertical mirror then horizontal mirror then rotate 90\u00b0"
+        },
+        {
+          "kind": "timeout",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly",
+          "by": "copied before a test"
+        }
+      ]
+    },
+    {
+      "id": 4083,
+      "file": "src/utils/transform.ts",
+      "mutator": "EqualityOperator",
+      "replacement": "edit.parameters.axis !== 'horizontal'",
+      "location": {
+        "start": {
+          "line": 56,
+          "column": 17
+        },
+        "end": {
+          "line": 56,
+          "column": 54
+        }
+      },
+      "status": "Timeout",
+      "static": false,
+      "coveredBy": 6,
+      "killedBy": 2,
+      "timeoutCause": "fresh worker",
+      "evidence": [
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly"
+        },
+        {
+          "kind": "lead",
+          "file": "src/repositories/media.repository.spec.ts",
+          "test": "should apply mirror edit correctly"
         },
         {
           "kind": "timeout",
