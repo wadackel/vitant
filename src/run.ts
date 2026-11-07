@@ -503,6 +503,8 @@ export type SessionRecord = (
   | { type: 'statics'; file: string; sites: number[] }
   /** A round ended, for reading where a run's time went: `bench/spent.ts`. */
   | { type: 'round'; round: number; startedAt: number; workers: number }
+  | { type: 'plan'; round: number; plan: RoundPlan; waiting: WaitingConfirmation[]; files: Record<string, number>; strict: boolean; cloning: boolean; workers: number }
+  | { type: 'pool'; round: number; call: number; stage: 'start' | 'end'; hands: boolean; copying: boolean; files: string[] }
 ) & {
   at: number
 }
@@ -1115,9 +1117,24 @@ const nearestFiles = new Map<number, string[]>()
 /** The work counted for a pass through a file that tries nothing, as if it took this long. */
 const PASS_MS = 5000
 
+interface WaitingConfirmation {
+  mutant: number
+  file: string
+  pending: boolean
+  named: boolean
+  busy: boolean
+  loading: boolean | null
+  timedOut: boolean
+  exclusive: boolean
+  restless: boolean
+  beside: boolean
+  otherWork: boolean
+}
+
 type Planned = {
   plan: RoundPlan
   workByFile: Map<string, { workMs: number; chunks: number; wholeRuns: number; wholeMs: number }>
+  waiting: WaitingConfirmation[]
 }
 
 /**
@@ -1127,7 +1144,7 @@ type Planned = {
  * what makes what they find count; then, for what is still open, a run of
  * the file with nothing else running.
  */
-function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
+export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
   besideOnly.clear()
   const usual = planPhase(...given, false)
   // With `--led` what these rounds settle is left at that, unconfirmed: the
@@ -1438,6 +1455,23 @@ function planPhase(
   }
   /** Runs that are to be made with nothing else running, which is a round of their own. */
   const quietJobs: [number, string][] = []
+  const waiting = (): WaitingConfirmation[] => quietJobs.map(([mutant, file]) => ({
+    mutant,
+    file,
+    pending: state[mutant] === MUTANT_PENDING,
+    named: (status.evidence.get(mutant) ?? []).some((entry) => entry.file === file && entry.kind !== 'lead' && Boolean(entry.test)),
+    busy: !plan.quiet && workByFile.has(file),
+    loading: status.staticSites.get(file)?.has(siteOf[mutant]) ?? null,
+    timedOut: (status.whole.get(wholeKey(mutant, file))?.timedOut ?? 0) > 0,
+    exclusive: status.exclusive.has(file),
+    restless: status.restless.has(file),
+    beside: [...(status.beside.get(mutant) ?? [])].some((id) => {
+      const test = status.tests.get(id)
+      return test?.file === file && !test.done && test.coverage?.covered.includes(mutant) && !status.triedSole.get(mutant)?.has(id)
+    }),
+    otherWork: Object.values(plan.tests).some((test) => test.mutants?.includes(mutant)) ||
+      Object.values(plan.whole).some((jobs) => jobs.some((job) => job.mutant === mutant && !job.quiet && !job.control)),
+  }))
   // A mutant a file failed with comes back both as one that file is to run
   // and as one the test that failed named, and a second run next to the first
   // settles nothing the first does not.
@@ -1750,7 +1784,7 @@ function planPhase(
     // there to show: those of a file whose runs have failed each other wait
     // for the machine to themselves, every other file goes beside them.
     plan.together = strictQuiet ? [] : Object.keys(plan.whole).filter((file) => !status.exclusive.has(file))
-    if (plan.quiet) return { plan, workByFile }
+    if (plan.quiet) return { plan, workByFile, waiting: waiting() }
   }
   for (const file of workers < 2 ? [] : status.pairWanted) {
     for (let i = 0; i < 2; i++) {
@@ -1774,7 +1808,7 @@ function planPhase(
     addWork(file, 0, 0, 2)
     workByFile.get(file)!.wholeMs ||= testMs.get(file) ?? 0
   }
-  return { plan, workByFile }
+  return { plan, workByFile, waiting: waiting() }
 }
 
 /**
@@ -2471,6 +2505,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const size = (spec: { moduleId: string }) => fs.statSync(spec.moduleId).size
     let plan = specs.filter((spec) => !reused.has(spec.moduleId)).sort((a, b) => size(b) - size(a))
     let oneAtATime = false
+    let poolSequence = 0
     /** Of a round of runs made one at a time, the files whose runs go beside other files' runs, see `RoundPlan.together`. */
     let together = new Set<string>()
     const siteOf = generated.mutants.map((mutant) => mutant.site)
@@ -2498,6 +2533,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
         const launch = async (part: typeof plan) => {
           if (part.length === 0) return
           const hands = part.every((spec) => handed.has(spec.moduleId))
+          const call = ++poolSequence
+          const pool = { type: 'pool', round: rounds + 1, call, hands, copying, files: part.map((spec) => spec.moduleId) }
+          if (process.env.VITANT_DEBUG) fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${JSON.stringify({ ...pool, stage: 'start', at: Date.now() })}\n`)
           // Only workers that are to be copied need V8 to keep to one thread,
           // which slows down the tests they run themselves: those of the
           // first round, a worker to every file, are not. Before Vitest 4 the
@@ -2513,6 +2551,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
             }
           }
           await vitest.runTestSpecifications(part, true)
+          if (process.env.VITANT_DEBUG) fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${JSON.stringify({ ...pool, stage: 'end', at: Date.now() })}\n`)
           // A worker that hands its files to copies tells Vitest nothing of
           // them, and Vitest forgets what it knew of a file when the file is
           // run again: what failed outside the tests is read while it is there.
@@ -2866,6 +2905,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       )
       // What the round is made of, for reading a slow run from its log.
       if (process.env.VITANT_DEBUG) {
+        fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${JSON.stringify({ type: 'plan', round: rounds + 1, plan: next.plan, waiting: next.waiting, files: Object.fromEntries(unitsOf), strict: strictQuiet, cloning, workers: options.maxWorkers, at: Date.now() })}\n`)
         const kinds: Record<string, number> = {}
         for (const job of Object.values(next.plan.whole).flat()) {
           const kind = job.calm ? 'calm' : job.trial !== undefined ? 'trial' : job.control ? 'control' : job.pair ? 'pair' : job.quiet ? 'quiet' : job.exclusive ? 'exclusive' : job.plain ? 'plain' : 'whole'
