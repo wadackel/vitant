@@ -31,3 +31,14 @@ for (const [tool, timing] of Object.entries<{ seconds: number[]; exitCodes: numb
   const time = timing.seconds.map((seconds, index) => `${seconds} s${timing.exitCodes[index] === 0 ? '' : ` (exit ${timing.exitCodes[index]})`}`)
   console.log(`| ${tool} | ${time.join(', ')} | ${counts} | ${runs} | ${report?.truth ?? ''} |`)
 }
+
+const strykerFile = path.join(path.dirname(file), 'stryker.json')
+if (summary.timings.stryker?.exitCodes.at(-1) === 0 && fs.existsSync(strykerFile)) {
+  const stryker = JSON.parse(fs.readFileSync(strykerFile, 'utf8')) as {
+    files: Record<string, { mutants: { status: string; testsCompleted?: number; coveredBy?: string[] }[] }>
+  }
+  const untested = Object.values(stryker.files).flatMap((file) => file.mutants).filter(
+    (mutant) => mutant.status === 'Survived' && mutant.testsCompleted === 0 && (mutant.coveredBy?.length ?? 0) > 0,
+  ).length
+  if (untested) console.log(`\nStrykerJS: ${untested} covered mutant(s) were reported as survived without running a test. Its timings are not comparable for this run.`)
+}

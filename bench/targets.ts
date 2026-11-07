@@ -16,6 +16,10 @@ export interface Target {
   install: string[]
   /** Shell command that adds StrykerJS to the project. */
   installStryker: string
+  /** Files Stryker cannot copy and that the selected tests do not use. */
+  strykerIgnore?: string[]
+  /** Use the checkout when Stryker's sandbox cannot rewrite the project's TypeScript configuration. */
+  strykerInPlace?: boolean
   /** The package to run in, for a repository that holds several. */
   dir?: string
   /** The Vitest projects to run, where the others need what the benchmark does not set up, a browser for one. */
@@ -387,6 +391,97 @@ export const targets: Record<string, Target> = {
     installStryker: `cd src && npx -y pnpm@10.8.1 add -D ${stryker}`,
     scopes: {
       utils: { mutate: ['utils/**/*.ts', 'shared/**/*.ts'] },
+    },
+  },
+  i18next: {
+    repo: 'https://github.com/i18next/i18next',
+    commit: '912869c0d2cd27de16a2ce30e212f61bd9f0aafe',
+    install: [
+      'HUSKY=0 npm ci --no-audit --no-fund',
+      // Stryker's Babel 8 loads this Babel 7 build config, which Vitest does not use.
+      'mv .babelrc .babelrc.build',
+    ],
+    installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    projects: ['runtime'],
+    scopes: {
+      translation: { mutate: ['src/Interpolator.js', 'src/PluralResolver.js', 'src/LanguageUtils.js'] },
+    },
+  },
+  yaml: {
+    repo: 'https://github.com/eemeli/yaml',
+    commit: '528ef30d6ded4bd9f2c3521b670eb2b29d503c5c',
+    install: [
+      'git submodule update --init --depth 1 tests/yaml-test-suite tests/json-test-suite',
+      'npm ci --no-audit --no-fund',
+      // Random inputs would make the suite used for ground truth differ from the one that tried the mutant.
+      `node --input-type=module -e 'import fs from "node:fs"; fs.appendFileSync("tests/_setup.ts", "\\nimport * as fc from \\"fast-check\\"\\nfc.configureGlobal({ seed: 0 })\\n")'`,
+    ],
+    installStryker: `npm install --save-dev --no-audit --no-fund ${stryker}`,
+    scopes: {
+      lexer: { mutate: ['src/parse/lexer.ts'] },
+    },
+  },
+  'date-fns': {
+    repo: 'https://github.com/date-fns/date-fns',
+    commit: 'a9739fb3e5384a810e90d7376446f6d84ecc5029',
+    dir: 'pkgs/core',
+    install: [
+      'npx -y pnpm@12.17.0 install --frozen-lockfile',
+      // The host's time zone would otherwise change date boundaries between local and hosted runs.
+      `node --input-type=module -e 'import fs from "node:fs"; const file = "pkgs/core/vitest.config.ts"; fs.writeFileSync(file, "process.env.TZ = \\"UTC\\"\\n" + fs.readFileSync(file, "utf8"))'`,
+    ],
+    installStryker: `npx -y pnpm@12.17.0 add -D -w ${stryker}`,
+    strykerInPlace: true,
+    projects: ['main'],
+    scopes: {
+      dates: { mutate: ['src/parseISO/index.ts', 'src/parse/index.ts', 'src/format/index.ts'] },
+    },
+  },
+  secretlint: {
+    repo: 'https://github.com/secretlint/secretlint',
+    commit: '0b4b59b07e3aab53cc7e42dedb132900342550dc',
+    dir: 'packages/@secretlint/core',
+    install: [
+      'npx -y pnpm@10.34.9 install --frozen-lockfile',
+      'npx -y pnpm@10.34.9 --filter @secretlint/core... build',
+    ],
+    installStryker: `npx -y pnpm@10.34.9 add -D -w ${stryker}`,
+    scopes: {
+      messages: {
+        mutate: [
+          'src/messages/filter-ignored-process.ts',
+          'src/messages/filter-duplicated-process.ts',
+          'src/messages/filter-mask-secrets.ts',
+        ],
+      },
+    },
+  },
+  cspell: {
+    repo: 'https://github.com/streetsidesoftware/cspell',
+    commit: 'f9e2320e65b1b7e648e70ab7e6691b260a16b573',
+    install: [
+      'npx -y pnpm@12.17.0 install --frozen-lockfile',
+      'npx -y pnpm@12.17.0 --filter cspell-trie-lib... build',
+      // A sandbox of the package alone loses the shared dictionaries two directories above it.
+      'mv vitest.config.mjs vitest.upstream.config.mjs',
+      `printf '%s\\n' 'import config from "./vitest.upstream.config.mjs";' 'export default { ...config, test: { ...config.test, include: ["packages/cspell-trie-lib/**/*.{test,spec}.?(c|m)[jt]s?(x)"] } };' > vitest.config.mjs`,
+    ],
+    installStryker: `npx -y pnpm@12.17.0 add -D -w ${stryker}`,
+    // Stryker copies this directory symlink as a file; the trie tests use other issue fixtures.
+    strykerIgnore: ['test-fixtures/issues/issue-5120/.config'],
+    scopes: {
+      distance: { mutate: ['packages/cspell-trie-lib/src/lib/distance/levenshtein.ts', 'packages/cspell-trie-lib/src/lib/distance/weightedMaps.ts'] },
+    },
+  },
+  commitlint: {
+    repo: 'https://github.com/conventional-changelog/commitlint',
+    commit: 'cbce2618bd25225d07538448de6cb3ec2ab043cc',
+    install: ['HUSKY=0 npx -y pnpm@12.17.0 install --frozen-lockfile', 'npx -y pnpm@12.17.0 build'],
+    // A test resolves this undeclared workspace dependency through pnpm's NODE_PATH; direct Vitest runs need the link too.
+    installStryker: `HUSKY=0 npx -y pnpm@12.17.0 add -D -w ${stryker} @commitlint/config-angular@workspace:*`,
+    strykerInPlace: true,
+    scopes: {
+      lint: { mutate: ['@commitlint/lint/src/lint.ts'] },
     },
   },
 }

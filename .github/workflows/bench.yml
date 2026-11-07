@@ -84,6 +84,12 @@ jobs:
             h3 utils
             es-toolkit pr
             vue pr
+            i18next translation
+            yaml lexer
+            date-fns dates
+            secretlint messages
+            cspell distance
+            commitlint lint
             umami lib
             formbricks utils
             actual server

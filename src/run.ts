@@ -294,6 +294,8 @@ interface FileRecord {
   pristine?: boolean
   /** How many tests that pass left out for failing with no mutant on. */
   ignored?: number
+  /** A suite hook failed before a test could request the preceding tests to be replayed. */
+  needsReplay?: boolean
   /** Every test of the file ran in this worker, so each reported its coverage. */
   complete: boolean
   /** From taking the file on to the end of its run, loading it and its hooks included. */
@@ -685,6 +687,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       staticSites.set(record.file, set)
     }
     if (record.type === 'file') {
+      if (record.needsReplay) replay.add(record.file)
       for (const site of record.hookSites ?? []) reached.add(site)
       const hooks = hookSites.get(record.file) ?? new Set()
       for (const site of record.hookSites ?? []) hooks.add(site)

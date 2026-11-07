@@ -38,6 +38,15 @@ const lead = (mutant: number, id: string, sole = true): SessionRecord =>
   }) as unknown as SessionRecord
 
 describe('what the runs of whole files settle', () => {
+  it('replays a file whose hook failed before a planned test could run', () => {
+    const record = {
+      type: 'file', file, tests: [], staticSites: [], complete: false, needsReplay: true, at: at++,
+    } as SessionRecord
+    const status = inspect([record])
+    expect([...status.replay]).toEqual([file])
+    expect(status.detected.size).toBe(0)
+  })
+
   it('takes one failure in the test that gave the lead', () => {
     const status = inspect([lead(0, 't1'), whole(0, 'failed', { test: 't1' })])
     expect(status.detected.get(0)).toBe(MUTANT_KILLED)

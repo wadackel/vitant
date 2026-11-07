@@ -667,7 +667,8 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       // copy stopped with half of it sent would leave the channel, which the
       // process it was copied from goes on using, with a message that never
       // ends. Nothing reads the output of a copy's run.
-      if ((cloned || walking) && key === 'onUserConsoleLog') return () => {}
+      // Returning undefined makes Vitest's console handler throw when it attaches .catch().
+      if ((cloned || walking) && key === 'onUserConsoleLog') return async () => {}
       // The functions carry variants of themselves as properties, which stay reachable.
       return new Proxy(value, {
         apply(fn, self, args) {
@@ -2577,6 +2578,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         mutants.push(mutant)
       }
       for (const file of files) {
+        let needsReplay: true | undefined
+        if (!replays(file.file.filepath)) {
+          // A suite's failed state also includes failed mutant tests; only its own errors can expose a skipped prerequisite.
+          forEachTask([file], (task) => {
+            if (task.type === 'suite' && task.result?.errors?.length) needsReplay = true
+          })
+        }
         // A file counts as covered once a worker went through all of it with
         // every test running, which the first round does and probing does.
         // A process that loaded the file only to be copied ran none of its tests.
@@ -2594,6 +2602,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // the tests that failed is for them alone.
           pristine: plan?.pristine.includes(file.file.filepath) && plan.probe[file.file.filepath]?.length === 0 && this.probes(file.file.filepath) && !this.template,
           ignored: this.ignored,
+          needsReplay,
           complete,
           wallMs: realNow() - this.fileStart,
           // What the file loaded decides whether its results can be reused later.

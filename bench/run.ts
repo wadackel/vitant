@@ -24,6 +24,7 @@ import { parseArgs } from 'node:util'
 import { changedLines } from '../src/changed.ts'
 import { defaultExclude } from '../src/mutate/generate.ts'
 import { projectDir, targets, vitestArgs } from './targets.ts'
+import { assertStrykerRestored, prepareStrykerSandbox } from './sandbox.ts'
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -43,6 +44,7 @@ if (!scope) {
 }
 
 const dir = fs.realpathSync(projectDir(targetName))
+assertStrykerRestored(dir)
 const outDir = path.join(import.meta.dirname, 'results', `${targetName}-${scopeName}`)
 fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
@@ -58,7 +60,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
   const timing: Timing = { tool, seconds: [], exitCodes: [] }
   for (let i = 0; i < Number(values.runs); i++) {
     // A run of StrykerJS that failed leaves its copy of the project, tests and all, where the next run finds them.
-    fs.rmSync(path.join(dir, '.stryker-tmp'), { recursive: true, force: true })
+    prepareStrykerSandbox(dir)
     const startedAt = performance.now()
     const log = fs.openSync(path.join(outDir, `${tool}.log`), 'w')
     const limitMs = values.limit && tool !== 'stryker' ? Number(values.limit) * 60_000 : undefined
@@ -83,6 +85,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
     // What the run had started outlives it where it was ended from outside.
     if (result.signal) spawnSync('pkill', ['-9', '-f', `${dir}/`])
     fs.closeSync(log)
+    if (tool === 'stryker') assertStrykerRestored(dir)
     // The next run writes over both, and the records kept after the last run
     // are that run's: a run of several that failed is kept as it was.
     if (result.status !== 0 && tool !== 'stryker') {
@@ -161,6 +164,8 @@ if (tools.has('stryker')) {
       {
         testRunner: 'vitest',
         plugins: ['@stryker-mutator/vitest-runner'],
+        ...(targets[targetName].strykerIgnore ? { ignorePatterns: targets[targetName].strykerIgnore } : {}),
+        ...(targets[targetName].strykerInPlace ? { inPlace: true } : {}),
         ...(projects ? { vitest: { configFile: vitestConfig } } : {}),
         mutate: strykerMutate(),
         coverageAnalysis: 'perTest',

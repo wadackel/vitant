@@ -2,7 +2,7 @@
 
 What StrykerJS and vitant take on the same files of real projects at pinned commits, and how the verdicts were checked against the suite.
 
-The benchmark runs StrykerJS 10 and this tool over the same files of twelve projects at pinned commits, and checks the verdicts against ground truth: each mutant put into the source for real and the plain suite run on the test files that reach it.
+The benchmark runs StrykerJS 10 and this tool over the same files of projects at pinned commits, and checks the verdicts against ground truth: each mutant put into the source for real and the plain suite run on the test files that reach it.
 
 | Target | Vitest | Tests |
 |---|---|---|
@@ -112,6 +112,74 @@ actual is where StrykerJS is furthest from the suite. Its setup file empties the
 Roo-Code ran with six workers next to another check, so its time is not one to compare.
 
 In immich, 562 of the 4,280 mutants are in code that only runs while a module loads, the decorators and schemas of a NestJS server, and are not run ([Limits](limits.md)). StrykerJS stops after its first run, in which a test of the database backups fails that passes in the suite.
+
+## Additional libraries and developer tools
+
+These six targets add translation, parsing, date boundaries, lint pipelines and dictionary algorithms. Their commits, installation commands and source scopes are pinned in `bench/targets.ts`; each scope is also in the hosted benchmark workflow.
+
+| Target and scope | Vitest | Sources mutated | Test configuration |
+|---|---|---|---|
+| [i18next](https://github.com/i18next/i18next) `translation` | 5.1.0 | `src/{Interpolator,PluralResolver,LanguageUtils}.js` | The `runtime` project: 49 files, 780 passing tests and 2 skipped |
+| [yaml](https://github.com/eemeli/yaml) `lexer` | 4.1.11 | `src/parse/lexer.ts` | 24 files, 3,413 passing tests and 11 skipped, including the upstream YAML and JSON test corpora |
+| [date-fns](https://github.com/date-fns/date-fns) `dates` | 5.0.1 | `src/{parseISO,parse,format}/index.ts` in `pkgs/core` | The `main` Node project: 253 files, 3,148 passing tests and 19 skipped; concurrent tests without file isolation |
+| [Secretlint](https://github.com/secretlint/secretlint) `messages` | 4.1.12 | `src/messages/filter-{ignored-process,duplicated-process,mask-secrets}.ts` in `packages/@secretlint/core` | 6 files, 31 passing tests; rule results, ignored ranges, duplicate messages and masking |
+| [CSpell](https://github.com/streetsidesoftware/cspell) `distance` | 4.1.12 | `src/lib/distance/{levenshtein,weightedMaps}.ts` in `packages/cspell-trie-lib` | 82 files, 1,536 passing tests; string distances and weighted character mappings |
+| [commitlint](https://github.com/conventional-changelog/commitlint) `lint` | 5.1.0 | `@commitlint/lint/src/lint.ts` | 91 files, 1,299 passing tests; the project's own Vitest environment |
+
+The unmutated suites above were run on macOS arm64 with Node 24.21.0 on 7 November 2026. These are runtime tests: commitlint's configured type check is disabled, as it is in the mutation runs. The browser and separate time-zone test projects of date-fns are outside this scope.
+
+YAML's two test-data submodules are checked out at the commits recorded by its repository. Its existing setup file fixes fast-check's seed to `0`, so the mutation runs and ground truth get the same generated inputs. Date-fns runs with `TZ=UTC`, set in the config both tools load; its source and test expectations are unchanged.
+
+The i18next checkout renames its build-only `.babelrc` to `.babelrc.build`: StrykerJS 10's JavaScript parser loads Babel 7 presets from it into Babel 8 and otherwise stops before making a mutant. Vitest does not use that build configuration.
+
+Commitlint exposes its `@commitlint/config-angular` workspace package as a root development dependency. One of its tests resolves that undeclared dependency through `NODE_PATH` set by pnpm's executable wrapper; direct Vitest runs, including ground truth, need the workspace link as well.
+
+StrykerJS runs date-fns and commitlint with `inPlace: true` in their disposable benchmark checkouts. Its sandbox rewriter calls `typescript.parseConfigFileTextToJson`, which TypeScript 7 no longer exposes. In-place mode skips that rewriting and restores the original source files after the run. CSpell's sandbox excludes the unused directory symlink `test-fixtures/issues/issue-5120/.config`, which Stryker tries to copy as a regular file; the selected suite's shared dictionary fixtures remain included.
+
+The benchmark refuses to continue when Stryker leaves a `backup-*` directory under `.stryker-tmp`, before deleting any old sandbox and again after Stryker exits. Such a directory may hold the original sources after an interrupted in-place run. Restore or re-create that benchmark checkout before retrying; the backups are kept.
+
+StrykerJS 10 gives no usable comparison on i18next and date-fns with these Vitest versions. It joins nested test names with spaces when making a mutant's test filter, while Vitest joins them with ` > `. Every covered survivor has `testsCompleted: 0`: 691 on i18next and 531 on date-fns. A three-mutant i18next run with `coverageAnalysis: all` and `ignoreStatic: false` still completed no tests for any mutant. Their times are not evidence of mutation-testing speed; their vitant verdicts are checked against source-written ground truth.
+
+Seconds from the last completed run of each tool on the machine above, not medians or hosted-CI measurements:
+
+| Target and scope | vitant mutants | StrykerJS | vitant |
+|---|---|---|---|
+| i18next `translation` | 704 | no usable verdicts | 44.8 |
+| yaml `lexer` | 737 | 125.6 | 194.2 |
+| date-fns `dates` | 530 | no usable verdicts | 7.0 |
+| Secretlint `messages` | 99 | 2.8 | 1.4 |
+| CSpell `distance` | 448 | 23.6 | 20.8 |
+| commitlint `lint` | 198 | 6.7 | 2.7 |
+
+The stored ground truth covers up to 200 mutants spread evenly over each report, every survivor, every uncovered or static mutant, and every disagreement with a usable Stryker report. All 435 survivors are included. Each mutant was written into the source and the related test files run with the same project selection and type checking disabled.
+
+| Scope | Checked | Judged and agreed | Static, not judged |
+|---|---|---|---|
+| i18next `translation` | 315 | 311 | 4 |
+| yaml `lexer` | 301 | 298 | 3 |
+| date-fns `dates` | 237 | 235 | 2 |
+| Secretlint `messages` | 99 | 99 | 0 |
+| CSpell `distance` | 249 | 245 | 4 |
+| commitlint `lint` | 198 | 198 | 0 |
+
+There were no disagreements among the 1,386 judged mutants checked. The 17 detected-versus-survived disagreements with StrykerJS on YAML all fail the plain suite; StrykerJS reports them as survived. YAML is slower here despite that extra detection. The other three usable Stryker comparisons agree on detected versus survived for every mutant both tools ran. The fixture checks and the existing ufo and immer scopes also cover the runner corrections these targets exposed: replay after a skipped prerequisite breaks a suite hook, and preserving the Promise contract of a suppressed console RPC (see [Deciding](design.md#deciding) and [Making such a process cheap](design.md#making-such-a-process-cheap)).
+
+Secretlint's workspace dependencies, CSpell's trie package and its dependencies, and commitlint's workspace packages are built before testing. CSpell runs from its repository root with the trie package's test files selected in a wrapper of the upstream config: a Stryker sandbox of the package alone loses the shared dictionaries two directories above it. The selected tests import the mutated implementations from source. Other packages that import built artifacts still see those artifacts: these scopes measure the selected source modules, not each tool's whole CLI. CSpell's suggestion search is outside the mutation scope, but its tests can reach the distance code and its elapsed-time cutoff remains part of the suite being measured. The tests in `cspell-lib` that rewrite a shared dictionary are outside the selected package.
+
+```sh
+node bench/setup.ts i18next
+node bench/run.ts i18next translation
+node bench/setup.ts yaml
+node bench/run.ts yaml lexer
+node bench/setup.ts date-fns
+node bench/run.ts date-fns dates
+node bench/setup.ts secretlint
+node bench/run.ts secretlint messages
+node bench/setup.ts cspell
+node bench/run.ts cspell distance
+node bench/setup.ts commitlint
+node bench/run.ts commitlint lint
+```
 
 ## On hosted CI runners
 
