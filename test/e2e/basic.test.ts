@@ -160,6 +160,10 @@ describe('running the fixture project', () => {
     expect(statusOf('src/setup.ts', 8, 'value - 1')).toBe('Survived')
   })
 
+  it('does not detect a loop whose caller accepts its VM deadline', () => {
+    expect(statusOf('src/vm-deadline.ts', 2, '{}')).toBe('Survived')
+  })
+
   it('detects a mutant that makes a test run out of its time, though no control follows the try', () => {
     expect(statusOf('src/delay.ts', 2, 'false')).toBe('Timeout')
     expect(statusOf('src/delay.ts', 2, 'true')).toBe('Survived')
