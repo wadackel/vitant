@@ -1,0 +1,63 @@
+name: actual-runner-probe
+
+on:
+  push:
+    branches: [experiment/yaml-actual-stryker-diagnostic]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  selection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts actual > setup.log 2>&1
+      - run: |
+          mkdir -p build
+          git rev-parse HEAD > build/probe-identity.log
+          git -C bench/.work/actual rev-parse HEAD >> build/probe-identity.log
+          node --version >> build/probe-identity.log
+          sha256sum bench/.work/actual/packages/loot-core/src/server/budget/base.ts bench/.work/actual/packages/loot-core/src/server/budget/base.test.ts > build/source-before.txt
+          node bench/actual-runner-probe.mjs "$PWD/bench/.work/actual/packages/loot-core" "$PWD/build/actual-runner-probe.json" > build/actual-runner-probe.log 2>&1
+          sha256sum bench/.work/actual/packages/loot-core/src/server/budget/base.ts bench/.work/actual/packages/loot-core/src/server/budget/base.test.ts > build/source-after.txt
+          cmp build/source-before.txt build/source-after.txt
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const result = JSON.parse(fs.readFileSync('build/actual-runner-probe.json', 'utf8'))
+          assert.equal(result.dryRun.status, 'complete')
+          assert.equal(result.dryRun.tests.length, 8)
+          assert(result.dryRun.tests.every(test => test.status === 0))
+          assert.equal(result.mutantRun.status, 'survived')
+          assert.equal(result.mutantRun.nrOfTests, 0)
+          assert.equal(result.exactNameRun.status, 'survived')
+          assert.equal(result.exactNameRun.nrOfTests, 8)
+          JS
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: actual-runner-probe-${{ github.run_id }}
+          path: |
+            setup.log
+            build/probe-identity.log
+            build/actual-runner-probe.json
+            build/actual-runner-probe.log
+            build/source-before.txt
+            build/source-after.txt
+          if-no-files-found: error

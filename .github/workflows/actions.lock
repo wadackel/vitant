@@ -3,6 +3,11 @@
 # Docs: https://gh.io/actions-lockfile
 version: 'v0.0.3'
 workflows:
+    '.github/workflows/actual-runner-probe.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/setup-node@v7.0.0'
+        - 'actions/upload-artifact@v7.0.1'
+        - 'pnpm/action-setup@v6.1.0'
     '.github/workflows/bench.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.0.0'
