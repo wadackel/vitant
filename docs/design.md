@@ -105,6 +105,8 @@ On Windows there is no addon and every run is made in a worker started for it. T
 16. **The mutated source is what Vitest loads, not a rewrite of what it loaded.** Other plugins change the source before a transform sees it, `import.meta.env` for one, and the places the mutants were put no longer line up; a transform that then leaves the file alone makes every mutant in it look unreached.
 17. **Vitest is kept from giving up.** An error Vitest cannot serialise, an assertion holding a revoked proxy for one, makes it abandon the test, and before Vitest 4 the rest of the suite with it; errors thrown under a mutant are reduced to their message first, and what still gets through is detected and left to a fresh worker. The pool of Vitest 3 answers a worker that ended itself by sending it a teardown message, takes the failed send for another error of that worker, and loops on that for the rest of the run while every other worker waits for it; sends to a worker that is gone are dropped.
 
+18. **Unchanged progress ends a run without inventing verdicts.** Three consecutive rounds with no change stop the run and leave unresolved mutants Pending; the maximum-round limit remains independent. Accumulated work and the current number of marked mutants are compared separately. A confirmation can withdraw a provisional detection while adding a completed run, so adding those counts can hide real work behind an equal decrease in marks. Neither stopping rule concludes anything from work that was not completed.
+
 ## Tuning
 
 | Option | Default | Effect |

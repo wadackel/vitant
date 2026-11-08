@@ -2177,17 +2177,20 @@ function changedSince(before: Map<string, string>, root: string): string[] {
  * round each for that, and three of them in a row left Effect's
  * `RateLimiter.test.ts`, with every mutant it reaches, without a verdict.
  */
-export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<number>): number {
+export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<number>): { work: number; marked: number } {
   let count = 0
   for (const test of status.tests.values()) count += test.judged.size + Number(test.done)
-  for (let mutant = 0; mutant < state.length; mutant++) if (state[mutant] !== MUTANT_PENDING) count++
   for (const entry of status.whole.values()) count += entry.runs
   for (const pair of status.pairs.values()) count += pair.asked + pair.met
   for (const passes of status.measured.values()) count += passes
   for (const runs of status.calms.values()) count += runs
   for (const tried of status.triedSole.values()) count += tried.size
   for (const asked of status.alternatives.values()) count += asked.size
-  return count
+  let marked = 0
+  for (let mutant = 0; mutant < state.length; mutant++) if (state[mutant] !== MUTANT_PENDING) marked++
+  // Withdrawing provisional detections can cancel an equal number of
+  // completed runs if these counts are added together.
+  return { work: count, marked }
 }
 
 export async function run(options: RunOptions): Promise<RunResult> {
@@ -2514,7 +2517,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const siteOf = generated.mutants.map((mutant) => mutant.site)
     const sources = [...generated.files.keys()]
     const sourceOf = generated.mutants.map((mutant) => sources.indexOf(mutant.file))
-    let progress = -1
+    let progress: ReturnType<typeof headway> | undefined
     /** Whether the workers of the round in flight copy themselves, which those of every round after the first do where a process can be copied. */
     let copying = false
     /** The test files of the round in flight that go to workers which hand them to copies, see `RoundPlan.handed`. */
@@ -2752,7 +2755,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       )
       const judged = headway(status, state)
       if (next.workByFile.size === 0) break
-      stalled = judged === progress ? stalled + 1 : 0
+      stalled = judged.work === progress?.work && judged.marked === progress?.marked ? stalled + 1 : 0
       progress = judged
       if (stalled >= 3 || rounds >= options.maxRounds) {
         abandonedFiles.push(...next.workByFile.keys())
