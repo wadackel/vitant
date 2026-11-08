@@ -1,4 +1,4 @@
-name: source-witness
+name: yaml-source-evidence
 
 on:
   push:
@@ -11,11 +11,7 @@ permissions:
 jobs:
   witness:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -29,17 +25,52 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: node bench/setup.ts yaml > setup.log 2>&1
       - run: |
-          mkdir -p build/witness
+          mkdir -p build/yaml119
           git rev-parse HEAD > build/identity.log
           git -C bench/.work/yaml rev-parse HEAD >> build/identity.log
           node --version >> build/identity.log
-          node bench/source-witness.mjs bench/witness-cases.json build/witness '${{ matrix.shard }}/3'
+          git -C bench/.work/yaml status --porcelain > build/status-before.txt
+          sha256sum bench/.work/yaml/src/parse/lexer.ts bench/.work/yaml/tests/doc/comments.ts bench/.work/yaml/vitest.config.js bench/.work/yaml/package.json > build/hashes-before.txt
+          node bench/yaml-source-evidence/literal-check.mjs "$PWD/bench/.work/yaml" "$PWD/build/yaml119" > build/driver.log 2>&1
+          sha256sum bench/.work/yaml/src/parse/lexer.ts bench/.work/yaml/tests/doc/comments.ts bench/.work/yaml/vitest.config.js bench/.work/yaml/package.json > build/hashes-after.txt
+          git -C bench/.work/yaml status --porcelain > build/status-after.txt
+          cmp build/hashes-before.txt build/hashes-after.txt
+          cmp build/status-before.txt build/status-after.txt
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const root = 'build/yaml119/'
+          const read = name => JSON.parse(fs.readFileSync(root + name, 'utf8'))
+          const rows = read('literal-check-results.json')
+          const original = read('literal-original.json')
+          const bail = read('literal-bail-captured.json')
+          assert.equal(rows[0].code, 0)
+          assert.equal(rows[0].bounded, false)
+          assert(rows[0].ms < rows[0].boundMs)
+          assert.equal(original.numPassedTests, 85)
+          assert.equal(original.numFailedTests, 0)
+          assert.equal(original.numPendingTests, 0)
+          assert.equal(rows[1].code, 1)
+          assert.equal(rows[1].bounded, false)
+          const named = report => report.testResults.flatMap(file => file.assertionResults).find(test => test.fullName === 'parse comments body directives')
+          assert.equal(named(original)?.status, 'passed')
+          assert.equal(named(bail)?.status, 'failed')
+          const events = fs.readFileSync(root + 'literal-full-captured.events.jsonl', 'utf8').trim().split('\n').map(line => JSON.parse(line))
+          const failed = events.find(event => event.phase === 'after' && event.name === 'directives' && event.state === 'fail')
+          assert(failed && failed.fails !== true)
+          assert(failed.errors.some(error => error.name === 'AssertionError' && error.message.includes('expected null')))
+          assert(rows[2].bounded || rows[2].code === 1)
+          console.log(JSON.stringify({ originalPassed: original.numPassedTests, namedSourceFailure: failed, fullRun: rows[2] }, null, 2))
+          JS
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
-          name: source-witness-${{ matrix.shard }}-${{ github.run_id }}
+          name: yaml-source-evidence-${{ github.run_id }}
           path: |
             setup.log
             build/identity.log
-            build/witness
+            build/status-*.txt
+            build/hashes-*.txt
+            build/driver.log
+            build/yaml119
           if-no-files-found: error
