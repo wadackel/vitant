@@ -1,11 +1,13 @@
 name: yaml-loop-verdict
 
 on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
   workflow_dispatch:
     inputs:
       base:
         required: true
-        default: 15cc409eb4582931f4de72ee8ebc890cf1db6251
+        default: 4909b596203bd72cd6db587bf28db216e86c8793
       candidate:
         required: true
         default: 6c535f1842b7fcc4dbf3dce52e661296b7e6da83
@@ -33,7 +35,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.base || '15cc409eb4582931f4de72ee8ebc890cf1db6251' }}
+          ref: ${{ inputs.base || '4909b596203bd72cd6db587bf28db216e86c8793' }}
           path: base
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -51,7 +53,7 @@ jobs:
       - run: node bench/setup.ts yaml > setup.log 2>&1
       - name: Compare the exact loop verdict
         env:
-          YAML_CASE: '348'
+          YAML_CASE: '732'
         run: |
           mkdir -p build/loop-verdict
           git rev-parse HEAD > build/loop-verdict/identity.log
@@ -76,7 +78,7 @@ jobs:
           assert.equal(after.exact.length, 1)
           assert.equal(before.exact[0].status, 'Killed')
           assert.equal(after.exact[0].status, 'Timeout')
-          assert.deepEqual(after.exact[0].location, { start: { line: 344, column: 26 }, end: { line: 348, column: 9 } })
+          assert.deepEqual(after.exact[0].location, { start: { line: 591, column: 55 }, end: { line: 596, column: 3 } })
           for (const name of ['before.json', 'after.json']) {
             const report = read(name)
             assert.equal(report.tests, 33)

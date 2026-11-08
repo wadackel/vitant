@@ -12,7 +12,7 @@ const { generate, defaultExclude } = await import(pathToFileURL(path.join(tool, 
 const files = ['src/parse/lexer.ts', 'tests/cli.ts', 'tests/_setup.ts', 'vitest.config.js', 'package.json']
 const hashes = () => Object.fromEntries(files.map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex')]))
 const before = hashes()
-const cases = { 712: { start: [577, 20], end: [581, 5] }, 348: { start: [344, 26], end: [348, 9] } }
+const cases = { 712: { start: [577, 20], end: [581, 5] }, 348: { start: [344, 26], end: [348, 9] }, 732: { start: [591, 55], end: [596, 3] } }
 const selected = cases[Number(process.env.YAML_CASE ?? 712)]
 if (!selected) throw new Error('Unknown YAML diagnostic identity')
 const lines = Array.from({ length: selected.end[0] - selected.start[0] + 1 }, (_, index) => selected.start[0] + index)
