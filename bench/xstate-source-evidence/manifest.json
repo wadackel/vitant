@@ -3,4052 +3,52 @@
   "targetCommit": "da4c74efa441dd3a4c1d9835c42c3d1f87cdcaba",
   "root": "bench/.work/xstate/packages/core",
   "cohorts": [
-    "ci-1"
+    "ci-1",
+    "yaml-xstate-repeat"
   ],
   "acceptance": "Run each complete file with its exact source mutation, a successful unmutated control, restored hashes, default Vitest flags and preserved raw outputs. Record the actual terminal assertion, ordinary exception, native deadline or process failure; an outer cap alone is insufficient. Do not require an observed benchmark kind to become an ordinary AssertionError.",
+  "config": "vitest.config.mts",
+  "vitest": "3.2.7",
+  "integrityFiles": [
+    "package.json"
+  ],
+  "sourceHashes": {
+    "src/StateMachine.ts": "854d1761355e6add70deefaceda3a2f6162dd094026e60d02faec5a36741834e",
+    "src/stateUtils.ts": "cad38eb4435555f0cabaef66d473587ef795fecf2b483eb70a20af255c69c4b5"
+  },
+  "purpose": "Four required verdict-level source checks; optional repetition of already supported identities is excluded.",
   "cases": [
     {
       "mutant": {
-        "id": 59,
-        "file": "src/StateMachine.ts",
-        "mutator": "LogicalOperator",
-        "replacement": "transitionNode(this.root, snapshot.value, snapshot, event) &&\n      []",
-        "location": {
-          "start": {
-            "line": 368,
-            "column": 12
-          },
-          "end": {
-            "line": 369,
-            "column": 8
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67007.jsonl",
-                "line": 5
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 59,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 49.273821,
-                "faults": 1979,
-                "userMs": 45.777,
-                "systemMs": 3.98,
-                "at": 1794163035198,
-                "pid": 67070
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 59,
-        "file": "src/StateMachine.ts",
-        "mutator": "LogicalOperator",
-        "replacement": "transitionNode(this.root, snapshot.value, snapshot, event) &&\n      []",
-        "location": {
-          "start": {
-            "line": 368,
-            "column": 12
-          },
-          "end": {
-            "line": 369,
-            "column": 8
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 33
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 59,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 25.64749599999959,
-                "faults": 2486,
-                "userMs": 21.546,
-                "systemMs": 5.07,
-                "at": 1794161982012,
-                "pid": 42416
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 32
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 59,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 20.74597300000005,
-                "faults": 2459,
-                "userMs": 15.25,
-                "systemMs": 6.1,
-                "at": 1794162304302,
-                "pid": 60075
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/63268.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 59,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 245.11796500000003,
-                "at": 1794162889012,
-                "pid": 63268
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 60,
-        "file": "src/StateMachine.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 368,
-            "column": 12
-          },
-          "end": {
-            "line": 369,
-            "column": 8
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67006.jsonl",
-                "line": 7
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 60,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 40.55109700000003,
-                "faults": 2086,
-                "userMs": 35.538,
-                "systemMs": 6.092,
-                "at": 1794163035247,
-                "pid": 67072
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 60,
-        "file": "src/StateMachine.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 368,
-            "column": 12
-          },
-          "end": {
-            "line": 369,
-            "column": 8
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 34
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 60,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 25.43602699999974,
-                "faults": 2483,
-                "userMs": 18.153,
-                "systemMs": 8.068,
-                "at": 1794161982046,
-                "pid": 42417
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 33
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 60,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 20.600392999999713,
-                "faults": 2452,
-                "userMs": 15.302,
-                "systemMs": 6.028,
-                "at": 1794162304330,
-                "pid": 60076
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/63290.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 60,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 248.41317099999998,
-                "at": 1794162889529,
-                "pid": 63290
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 61,
-        "file": "src/StateMachine.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 368,
-            "column": 12
-          },
-          "end": {
-            "line": 369,
-            "column": 8
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67007.jsonl",
-                "line": 6
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 61,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 32.39671599999997,
-                "faults": 1933,
-                "userMs": 24.374,
-                "systemMs": 9.003,
-                "at": 1794163035242,
-                "pid": 67073
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 61,
-        "file": "src/StateMachine.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 368,
-            "column": 12
-          },
-          "end": {
-            "line": 369,
-            "column": 8
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 995,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 35
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 61,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 25.274893999998312,
-                "faults": 2481,
-                "userMs": 19.059,
-                "systemMs": 7.021,
-                "at": 1794161982080,
-                "pid": 42418
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 34
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 61,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 22.67405600000029,
-                "faults": 2390,
-                "userMs": 13.287,
-                "systemMs": 10.022,
-                "at": 1794162304360,
-                "pid": 60077
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/63437.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 61,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 278.52429,
-                "at": 1794162891799,
-                "pid": 63437
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 235,
-        "file": "src/stateUtils.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "childStateNodes",
-        "location": {
-          "start": {
-            "line": 140,
-            "column": 6
-          },
-          "end": {
-            "line": 140,
-            "column": 22
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1276,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 40
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 235,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 26.50880700000016,
-                "faults": 2462,
-                "userMs": 23.394,
-                "systemMs": 4.068,
-                "at": 1794161982273,
-                "pid": 42423
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 39
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 235,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 20.39498300000014,
-                "faults": 2369,
-                "userMs": 15.123,
-                "systemMs": 6.049,
-                "at": 1794162304506,
-                "pid": 60082
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 236,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 140,
-            "column": 6
-          },
-          "end": {
-            "line": 140,
-            "column": 22
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1276,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 41
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 236,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 25.795709999998508,
-                "faults": 2441,
-                "userMs": 19.458,
-                "systemMs": 6.81,
-                "at": 1794161982309,
-                "pid": 42424
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 40
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 236,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 20.717689999999948,
-                "faults": 2422,
-                "userMs": 17.398,
-                "systemMs": 4.093,
-                "at": 1794162304534,
-                "pid": 60083
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 245,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 146,
-            "column": 8
-          },
-          "end": {
-            "line": 146,
-            "column": 22
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1049,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition"
-          },
-          {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedTestIds": [
-        "1964834285_0_0_3"
-      ],
-      "reportedNames": [
-        "should return the entry and exit actions of a transition"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/42709.jsonl",
-                "line": 70
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/actions.test.ts",
-                "mutant": 245,
-                "verdict": "failed",
-                "test": "1964834285_0_0_3",
-                "tests": [
-                  "1964834285_0_0_3"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 79.97161099999994,
-                "faults": 2939,
-                "userMs": 56.856,
-                "systemMs": 23.526,
-                "at": 1794162262669,
-                "pid": 42970
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 245,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 146,
-            "column": 8
-          },
-          "end": {
-            "line": 146,
-            "column": 22
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1049,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 42
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 245,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 25.810832999999548,
-                "faults": 2440,
-                "userMs": 21.833,
-                "systemMs": 4.61,
-                "at": 1794161982343,
-                "pid": 42425
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 41
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 245,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 20.758862000000136,
-                "faults": 2416,
-                "userMs": 19.438,
-                "systemMs": 2.046,
-                "at": 1794162304562,
-                "pid": 60084
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 253,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 168,
-            "column": 30
-          },
-          "end": {
-            "line": 180,
-            "column": 3
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1277,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 43
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 253,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 25.41715899999872,
-                "faults": 2430,
-                "userMs": 22.225,
-                "systemMs": 4.04,
-                "at": 1794161982378,
-                "pid": 42426
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 42
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 253,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 28.65162999999984,
-                "faults": 2411,
-                "userMs": 17.035,
-                "systemMs": 7.811,
-                "at": 1794162304598,
-                "pid": 60085
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 260,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 173,
-            "column": 8
-          },
-          "end": {
-            "line": 173,
-            "column": 16
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1277,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 45
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 260,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 27.685364000000845,
-                "faults": 2431,
-                "userMs": 26.714,
-                "systemMs": 2.035,
-                "at": 1794161982450,
-                "pid": 42428
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 44
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 260,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 19.47254000000021,
-                "faults": 2422,
-                "userMs": 13.214,
-                "systemMs": 7.115,
-                "at": 1794162304652,
-                "pid": 60094
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 261,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 173,
-            "column": 18
-          },
-          "end": {
-            "line": 179,
-            "column": 5
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1052,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition"
-          },
-          {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedTestIds": [
-        "1964834285_0_0_3"
-      ],
-      "reportedNames": [
-        "should return the entry and exit actions of a transition"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry and exit actions of a transition",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/42841.jsonl",
-                "line": 13
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/actions.test.ts",
-                "mutant": 261,
-                "verdict": "failed",
-                "test": "1964834285_0_0_3",
-                "tests": [
-                  "1964834285_0_0_3"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 77.62417800000003,
-                "faults": 2906,
-                "userMs": 65.576,
-                "systemMs": 9.935,
-                "at": 1794162262846,
-                "pid": 42980
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 261,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 173,
-            "column": 18
-          },
-          "end": {
-            "line": 179,
-            "column": 5
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1052,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 46
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 261,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 27.724113000000216,
-                "faults": 2438,
-                "userMs": 23.256,
-                "systemMs": 5.538,
-                "at": 1794161982486,
-                "pid": 42429
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 45
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 261,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 29.507380999999896,
-                "faults": 2416,
-                "userMs": 22.935,
-                "systemMs": 6.25,
-                "at": 1794162304692,
-                "pid": 60101
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 310,
+        "id": 756,
         "file": "src/stateUtils.ts",
         "mutator": "ArrayDeclaration",
         "replacement": "[]",
         "location": {
           "start": {
-            "line": 228,
-            "column": 6
-          },
-          "end": {
-            "line": 228,
-            "column": 44
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 667,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)"
-          },
-          {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          }
-        ]
-      },
-      "file": "test/history.test.ts",
-      "expectedTestIds": [
-        "-433122684_0_0"
-      ],
-      "reportedNames": [
-        "should go to the most recently visited state (explicit shallow history type)"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/41235.jsonl",
-                "line": 12
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 310,
-                "verdict": "failed",
-                "test": "-433122684_0_0",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 79.60559200000012,
-                "faults": 3290,
-                "userMs": 59.485,
-                "systemMs": 11.41,
-                "at": 1794162234738,
-                "pid": 41307
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 310,
-        "file": "src/stateUtils.ts",
-        "mutator": "ArrayDeclaration",
-        "replacement": "[]",
-        "location": {
-          "start": {
-            "line": 228,
-            "column": 6
-          },
-          "end": {
-            "line": 228,
-            "column": 44
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 667,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 53
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 310,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 27.81942700000036,
-                "faults": 2427,
-                "userMs": 18.934,
-                "systemMs": 9.965,
-                "at": 1794161982716,
-                "pid": 42435
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 52
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 310,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 19.686903999999686,
-                "faults": 2421,
-                "userMs": 16.431,
-                "systemMs": 4.107,
-                "at": 1794162304916,
-                "pid": 60121
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 347,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 326,
-            "column": 6
-          },
-          "end": {
-            "line": 326,
-            "column": 25
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1403,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67006.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 347,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 48.48909600000002,
-                "faults": 2166,
-                "userMs": 41.921,
-                "systemMs": 6.753,
-                "at": 1794163035073,
-                "pid": 67054
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 347,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 326,
-            "column": 6
-          },
-          "end": {
-            "line": 326,
-            "column": 25
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 1403,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 347,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 66.065561,
-                "faults": 3935,
-                "userMs": 56.103,
-                "systemMs": 10.145,
-                "at": 1794161969005,
-                "pid": 42085
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 5
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 347,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 65.57988499999999,
-                "faults": 3804,
-                "userMs": 56.059,
-                "systemMs": 8.142,
-                "at": 1794162302666,
-                "pid": 59987
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/62812.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 347,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 244.74832199999997,
-                "at": 1794162878239,
-                "pid": 62812
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 348,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 326,
+            "line": 1098,
             "column": 27
           },
           "end": {
-            "line": 341,
-            "column": 3
+            "line": 1098,
+            "column": 47
           }
         },
         "status": "Killed",
         "static": true,
-        "coveredBy": 794,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67006.jsonl",
-                "line": 5
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 348,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 43.909942,
-                "faults": 2157,
-                "userMs": 33.656,
-                "systemMs": 8.065,
-                "at": 1794163035127,
-                "pid": 67055
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 348,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 326,
-            "column": 27
-          },
-          "end": {
-            "line": 341,
-            "column": 3
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 794,
+        "coveredBy": 1262,
         "killedBy": 1,
         "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 5
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 348,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 69.09716000000003,
-                "faults": 3940,
-                "userMs": 53.836,
-                "systemMs": 14.22,
-                "at": 1794161969085,
-                "pid": 42086
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 6
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 348,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 56.34364000000005,
-                "faults": 3812,
-                "userMs": 45.916,
-                "systemMs": 9.567,
-                "at": 1794162302732,
-                "pid": 59991
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/62959.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 348,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 261.076466,
-                "at": 1794162881786,
-                "pid": 62959
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 349,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 327,
-            "column": 63
-          },
-          "end": {
-            "line": 340,
-            "column": 5
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 787,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67007.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 349,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 50.916071000000045,
-                "faults": 1983,
-                "userMs": 41.022,
-                "systemMs": 8.004,
-                "at": 1794163035137,
-                "pid": 67056
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 349,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 327,
-            "column": 63
-          },
-          "end": {
-            "line": 340,
-            "column": 5
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 787,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 6
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 349,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 68.69055600000002,
-                "faults": 3940,
-                "userMs": 57.666,
-                "systemMs": 8.093,
-                "at": 1794161969164,
-                "pid": 42087
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59954.jsonl",
-                "line": 7
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 349,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 50.730396999999925,
-                "faults": 3802,
-                "userMs": 37.991,
-                "systemMs": 11.997,
-                "at": 1794162302790,
-                "pid": 59993
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/63082.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 349,
-                "verdict": "failed",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 367.95707699999997,
-                "at": 1794162883149,
-                "pid": 63082
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 367,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "true",
-        "location": {
-          "start": {
-            "line": 361,
-            "column": 8
-          },
-          "end": {
-            "line": 361,
-            "column": 25
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 271,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/rehydration.test.ts",
-            "test": "should error on a rehydrated error state"
-          },
-          {
-            "kind": "failed",
-            "file": "test/rehydration.test.ts",
-            "test": "should error on a rehydrated error state",
-            "by": "copied before a test"
-          }
-        ]
-      },
-      "file": "test/rehydration.test.ts",
-      "expectedTestIds": [
-        "974624147_0_9"
-      ],
-      "reportedNames": [
-        "should error on a rehydrated error state"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/rehydration.test.ts",
-            "test": "should error on a rehydrated error state",
-            "by": "copied before a test"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/40350.jsonl",
-                "line": 8
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/rehydration.test.ts",
-                "mutant": 367,
-                "verdict": "failed",
-                "test": "974624147_0_9",
-                "tests": [
-                  "974624147_0_9"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied before a test",
-                "ms": 26.5120619999999,
-                "faults": 2164,
-                "userMs": 18.931,
-                "systemMs": 7.971,
-                "at": 1794162206425,
-                "pid": 40375
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/rehydration.test.ts",
-            "test": "should error on a rehydrated error state",
-            "by": "copied before a test"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42149.jsonl",
-                "line": 8
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/rehydration.test.ts",
-                "mutant": 367,
-                "verdict": "failed",
-                "test": "974624147_0_9",
-                "tests": [
-                  "974624147_0_9"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied before a test",
-                "ms": 16.086576999999977,
-                "faults": 2085,
-                "userMs": 9.134,
-                "systemMs": 8.119,
-                "at": 1794161973319,
-                "pid": 42174
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/rehydration.test.ts",
-            "test": "should error on a rehydrated error state",
-            "by": "copied before a test"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/58923.jsonl",
-                "line": 9
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/rehydration.test.ts",
-                "mutant": 367,
-                "verdict": "failed",
-                "test": "974624147_0_9",
-                "tests": [
-                  "974624147_0_9"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied before a test",
-                "ms": 22.244665999999995,
-                "faults": 1860,
-                "userMs": 18.471,
-                "systemMs": 4.047,
-                "at": 1794162278031,
-                "pid": 58951
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 446,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 484,
-            "column": 43
-          },
-          "end": {
-            "line": 522,
-            "column": 1
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 902,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "should invoke a service if other service gets stopped in subsequent microstep (#1180)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/invoke.test.ts",
-            "test": "should start services (explicit machine, invoke = config)",
-            "by": "started"
-          },
-          {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "copied after load"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/67006.jsonl",
-                "line": 6
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 446,
-                "verdict": "failed",
-                "test": "-2079977468_0_0",
-                "tests": [
-                  "-2079977468_0_0"
-                ],
-                "knew": false,
-                "alone": false,
-                "quiet": false,
-                "by": "copied after load",
-                "ms": 54.05561399999999,
-                "faults": 2088,
-                "userMs": 43.508,
-                "systemMs": 4.001,
-                "at": 1794163035195,
-                "pid": 67069
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 544,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 619,
-            "column": 9
-          },
-          "end": {
-            "line": 619,
-            "column": 30
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 762,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)"
-          },
-          {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          }
-        ]
-      },
-      "file": "test/history.test.ts",
-      "expectedTestIds": [
-        "-433122684_0_0"
-      ],
-      "reportedNames": [
-        "should go to the most recently visited state (explicit shallow history type)"
-      ],
-      "observedKinds": [
-        "failed"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/41235.jsonl",
-                "line": 22
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 544,
-                "verdict": "failed",
-                "test": "-433122684_0_0",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 75.09515899999974,
-                "faults": 3372,
-                "userMs": 58.299,
-                "systemMs": 15.394,
-                "at": 1794162235601,
-                "pid": 41338
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/60029.jsonl",
-                "line": 15
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 544,
-                "verdict": "failed",
-                "test": "-433122684_0_0",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 106.02721199999996,
-                "faults": 3410,
-                "userMs": 85.53,
-                "systemMs": 17.309,
-                "at": 1794162672396,
-                "pid": 60149
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-base-records/42412.jsonl",
-                "line": 14
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 544,
-                "verdict": "failed",
-                "test": "-433122684_0_0",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 84.40797500000008,
-                "faults": 3354,
-                "userMs": 69.116,
-                "systemMs": 13.482,
-                "at": 1794162384287,
-                "pid": 42506
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/60054.jsonl",
-                "line": 16
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 544,
-                "verdict": "failed",
-                "test": "-433122684_0_0",
-                "tests": [
-                  "-433122684_0_0",
-                  "-433122684_0_1"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 77.09925199999998,
-                "faults": 3553,
-                "userMs": 66.082,
-                "systemMs": 9.863,
-                "at": 1794162828904,
-                "pid": 60087
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 544,
-        "file": "src/stateUtils.ts",
-        "mutator": "ConditionalExpression",
-        "replacement": "false",
-        "location": {
-          "start": {
-            "line": 619,
-            "column": 9
-          },
-          "end": {
-            "line": 619,
-            "column": 30
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 762,
-        "killedBy": 1,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events"
-          },
-          {
-            "kind": "lead",
-            "file": "test/interpreter.test.ts",
-            "test": "should not execute actions that are not part of the actual persisted state"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedTestIds": [
-        "-618596094_0_0"
-      ],
-      "reportedNames": [
-        "child can immediately respond to the parent with multiple events"
-      ],
-      "observedKinds": [
-        "timeout"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42063.jsonl",
-                "line": 25
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 544,
-                "verdict": "timeout",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 11118.034771,
-                "faults": 675522,
-                "userMs": 9933.155,
-                "systemMs": 1118.328,
-                "at": 1794161981458,
-                "pid": 42106
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/invoke.test.ts",
-            "test": "child can immediately respond to the parent with multiple events",
-            "by": "copied while loading"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/59817.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/invoke.test.ts",
-                "mutant": 544,
-                "verdict": "timeout",
-                "test": "-618596094_0_0",
-                "tests": [
-                  "-618596094_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "copied while loading",
-                "ms": 8673.469588,
-                "faults": 400581,
-                "userMs": 7952.7,
-                "systemMs": 681.545,
-                "at": 1794162307862,
-                "pid": 59863
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 622,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 823,
-            "column": 61
-          },
-          "end": {
-            "line": 825,
-            "column": 3
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 732,
-        "killedBy": 0,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state (parallel)"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state (parallel)",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedTestIds": [
-        "1964834285_0_0_2"
-      ],
-      "reportedNames": [
-        "should return the entry actions of an initial state (parallel)"
-      ],
-      "observedKinds": [
-        "timeout"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state (parallel)",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/42560.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/actions.test.ts",
-                "mutant": 622,
-                "verdict": "timeout",
-                "test": "1964834285_0_0_2",
-                "tests": [
-                  "1964834285_0_0_2"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 6499.146256,
-                "at": 1794162260878,
-                "pid": 42560
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 622,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 823,
-            "column": 61
-          },
-          "end": {
-            "line": 825,
-            "column": 3
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 732,
-        "killedBy": 0,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/history.test.ts",
-      "expectedTestIds": [
-        "-433122684_0_0"
-      ],
-      "reportedNames": [
-        "should go to the most recently visited state (explicit shallow history type)"
-      ],
-      "observedKinds": [
-        "failed",
-        "timeout"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/59163.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 622,
-                "verdict": "timeout",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 15099.758397,
-                "at": 1794162658980,
-                "pid": 59163
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-base-records/41959.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 622,
-                "verdict": "failed",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 15159.945796,
-                "at": 1794162376680,
-                "pid": 41959
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 622,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 823,
-            "column": 61
-          },
-          "end": {
-            "line": 825,
-            "column": 3
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 732,
-        "killedBy": 0,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/interpreter.test.ts",
-            "test": "does not execute actions from a restored state"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/interpreter.test.ts",
-            "test": "does not execute actions from a restored state",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/interpreter.test.ts",
-      "expectedTestIds": [
-        "-966646550_0_0_2"
-      ],
-      "reportedNames": [
-        "does not execute actions from a restored state"
-      ],
-      "observedKinds": [
-        "timeout"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/interpreter.test.ts",
-            "test": "does not execute actions from a restored state",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/42272.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/interpreter.test.ts",
-                "mutant": 622,
-                "verdict": "timeout",
-                "test": "-966646550_0_0_2",
-                "tests": [
-                  "-966646550_0_0_2"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 29823.368831000003,
-                "at": 1794162007768,
-                "pid": 42272
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/interpreter.test.ts",
-            "test": "does not execute actions from a restored state",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/58580.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/interpreter.test.ts",
-                "mutant": 622,
-                "verdict": "timeout",
-                "test": "-966646550_0_0_2",
-                "tests": [
-                  "-966646550_0_0_2"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 29232.240661,
-                "at": 1794162295800,
-                "pid": 58580
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/interpreter.test.ts",
-            "test": "does not execute actions from a restored state",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/59628.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/interpreter.test.ts",
-                "mutant": 622,
-                "verdict": "timeout",
-                "test": "-966646550_0_0_2",
-                "tests": [
-                  "-966646550_0_0_2"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 26904.405067,
-                "at": 1794162834434,
-                "pid": 59628
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 1096,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 1778,
-            "column": 36
-          },
-          "end": {
-            "line": 1784,
-            "column": 5
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 1244,
-        "killedBy": 1,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state (deep)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state",
-            "by": "started"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/actions.test.ts",
-      "expectedTestIds": [
-        "1964834285_0_0_0"
-      ],
-      "reportedNames": [
-        "should return the entry actions of an initial state"
-      ],
-      "observedKinds": [
-        "timeout"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/42497.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/actions.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "1964834285_0_0_0",
-                "tests": [
-                  "1964834285_0_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 6598.907866,
-                "at": 1794162260411,
-                "pid": 42497
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-base-records/43399.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/actions.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "1964834285_0_0_0",
-                "tests": [
-                  "1964834285_0_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 6221.587606,
-                "at": 1794162009061,
-                "pid": 43399
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 2,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-2/vitant-records/58897.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/actions.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "1964834285_0_0_0",
-                "tests": [
-                  "1964834285_0_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 5800.215448,
-                "at": 1794162282069,
-                "pid": 58897
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": false
-    },
-    {
-      "mutant": {
-        "id": 1096,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 1778,
-            "column": 36
-          },
-          "end": {
-            "line": 1784,
-            "column": 5
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 1244,
-        "killedBy": 0,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/interpreter.test.ts",
-            "test": ".getSnapshot returns the initial state"
-          },
-          {
-            "kind": "lead",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)"
-          },
           {
             "kind": "lead",
             "file": "test/guards.test.ts",
             "test": "should transition if condition based on event is met"
           },
           {
-            "kind": "timeout",
+            "kind": "failed",
             "file": "test/guards.test.ts",
             "test": "should transition only if condition is met",
-            "by": "started"
-          },
-          {
-            "kind": "timeout",
-            "quiet": true,
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "started"
+            "by": "copied after load"
           }
         ]
       },
@@ -4060,156 +60,117 @@
         "should transition only if condition is met"
       ],
       "observedKinds": [
-        "timeout"
+        "failed"
       ],
       "fileLevelFailure": false,
       "observations": [
         {
           "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/58186.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "668079352_0_0",
-                "tests": [
-                  "668079352_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 5375.840689,
-                "at": 1794162624771,
-                "pid": 58186
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 1,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "quiet": true,
-            "file": "test/guards.test.ts",
-            "test": "should transition only if condition is met",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/75104.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "668079352_0_0",
-                "tests": [
-                  "668079352_0_0"
-                ],
-                "knew": true,
-                "alone": true,
-                "quiet": true,
-                "by": "started",
-                "ms": 5208.5925959999995,
-                "at": 1794163032959,
-                "pid": 75104
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
           "pair": 3,
           "tool": "vitant",
           "evidence": {
-            "kind": "timeout",
+            "kind": "failed",
             "file": "test/guards.test.ts",
             "test": "should transition only if condition is met",
-            "by": "started"
+            "by": "copied after load"
           },
           "whole_records": [
             {
               "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/60156.jsonl",
-                "line": 4
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/61625.jsonl",
+                "line": 50
               },
               "data": {
                 "type": "whole",
                 "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
+                "mutant": 756,
+                "verdict": "failed",
                 "test": "668079352_0_0",
                 "tests": [
-                  "668079352_0_0"
+                  "668079352_0_0",
+                  "668079352_0_1"
                 ],
                 "knew": true,
                 "alone": false,
                 "quiet": false,
-                "by": "started",
-                "ms": 5965.472769,
-                "at": 1794162837564,
-                "pid": 60156
+                "by": "copied after load",
+                "ms": 55.56025600000021,
+                "faults": 2001,
+                "userMs": 37.013,
+                "systemMs": 7.592,
+                "at": 1794162862018,
+                "pid": 61971
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "yaml-xstate-repeat",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-xstate-core-ubuntu-24.04-3/vitant-records/60240.jsonl",
+                "line": 58
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 756,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 34.243382999999994,
+                "faults": 2148,
+                "userMs": 31.713,
+                "systemMs": 1.96,
+                "at": 1794165733336,
+                "pid": 60467
               }
             }
           ]
         }
       ],
       "reason": [
-        "no-current-witness-source-evidence"
+        "Required new-identity source verdict evidence; current corrected candidate has this Killed witness."
       ],
       "alsoObservedUnnamedFileFailure": false
     },
     {
       "mutant": {
-        "id": 1096,
+        "id": 1062,
         "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
+        "mutator": "EqualityOperator",
+        "replacement": "nextEvent.type === XSTATE_INIT",
         "location": {
           "start": {
-            "line": 1778,
-            "column": 36
+            "line": 1725,
+            "column": 6
           },
           "end": {
-            "line": 1784,
-            "column": 5
+            "line": 1725,
+            "column": 36
           }
         },
         "status": "Killed",
         "static": true,
-        "coveredBy": 1244,
-        "killedBy": 0,
+        "coveredBy": 1262,
+        "killedBy": 1,
         "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/interpreter.test.ts",
-            "test": ".getSnapshot returns the initial state"
-          },
-          {
-            "kind": "lead",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)"
-          },
           {
             "kind": "lead",
             "file": "test/guards.test.ts",
@@ -4217,247 +178,493 @@
           },
           {
             "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "started"
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
           }
         ]
       },
-      "file": "test/history.test.ts",
+      "file": "test/guards.test.ts",
       "expectedTestIds": [
-        "-433122684_0_0"
+        "668079352_0_0"
       ],
       "reportedNames": [
-        "should go to the most recently visited state (explicit shallow history type)"
+        "should transition only if condition is met"
       ],
       "observedKinds": [
-        "failed",
-        "timeout"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant-base",
-          "evidence": {
-            "kind": "failed",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-base-records/41931.jsonl",
-                "line": 3
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 1096,
-                "verdict": "failed",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "knew": true,
-                "alone": false,
-                "quiet": false,
-                "by": "started",
-                "ms": 15507.38232,
-                "at": 1794162374750,
-                "pid": 41931
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "file": "test/history.test.ts",
-            "test": "should go to the most recently visited state (explicit shallow history type)",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/main.jsonl",
-                "line": 7
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "-433122684_0_0",
-                "tests": [
-                  "-433122684_0_0"
-                ],
-                "alone": false,
-                "quiet": false,
-                "knew": true,
-                "by": "started",
-                "at": 1794162978912
-              }
-            }
-          ]
-        },
-        {
-          "cohort": "ci-1",
-          "pair": 3,
-          "tool": "vitant",
-          "evidence": {
-            "kind": "timeout",
-            "quiet": true,
-            "file": "test/history.test.ts",
-            "by": "started"
-          },
-          "whole_records": [
-            {
-              "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/74752.jsonl",
-                "line": 4
-              },
-              "data": {
-                "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/history.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "tests": [],
-                "knew": true,
-                "alone": true,
-                "quiet": true,
-                "by": "started",
-                "ms": 10212.64323,
-                "at": 1794163237109,
-                "pid": 74752
-              }
-            }
-          ]
-        }
-      ],
-      "reason": [
-        "no-current-witness-source-evidence",
-        "no-current-witness-source-evidence"
-      ],
-      "alsoObservedUnnamedFileFailure": true
-    },
-    {
-      "mutant": {
-        "id": 1096,
-        "file": "src/stateUtils.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 1778,
-            "column": 36
-          },
-          "end": {
-            "line": 1784,
-            "column": 5
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 1244,
-        "killedBy": 1,
-        "timeoutCause": "loop",
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state (deep)"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "should inspect actions"
-          },
-          {
-            "kind": "lead",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/actions.test.ts",
-            "test": "should return the entry actions of an initial state",
-            "by": "started"
-          },
-          {
-            "kind": "timeout",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/inspect.test.ts",
-      "expectedTestIds": [
-        "-2079977468_0_0"
-      ],
-      "reportedNames": [
-        "the .inspect option can observe inspection events"
-      ],
-      "observedKinds": [
-        "timeout"
+        "failed"
       ],
       "fileLevelFailure": false,
       "observations": [
         {
           "cohort": "ci-1",
           "pair": 1,
-          "tool": "vitant-base",
+          "tool": "vitant",
           "evidence": {
-            "kind": "timeout",
-            "file": "test/inspect.test.ts",
-            "test": "the .inspect option can observe inspection events",
-            "by": "started"
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
           },
           "whole_records": [
             {
               "record": {
-                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-base-records/46322.jsonl",
-                "line": 3
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/58316.jsonl",
+                "line": 33
               },
               "data": {
                 "type": "whole",
-                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/inspect.test.ts",
-                "mutant": 1096,
-                "verdict": "timeout",
-                "test": "-2079977468_0_0",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1062,
+                "verdict": "failed",
+                "test": "668079352_0_0",
                 "tests": [
-                  "-2079977468_0_0"
+                  "668079352_0_0",
+                  "668079352_0_1"
                 ],
-                "knew": false,
+                "knew": true,
                 "alone": false,
                 "quiet": false,
-                "by": "started",
-                "ms": 5306.465194,
-                "at": 1794162327572,
-                "pid": 46322
+                "by": "copied after load",
+                "ms": 44.942722,
+                "faults": 2304,
+                "userMs": 33.442,
+                "systemMs": 11.803,
+                "at": 1794162626566,
+                "pid": 58407
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "ci-1",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/61625.jsonl",
+                "line": 60
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1062,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 43.84108000000015,
+                "faults": 2150,
+                "userMs": 36.413,
+                "systemMs": 8.091,
+                "at": 1794162862561,
+                "pid": 62018
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "yaml-xstate-repeat",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-xstate-core-ubuntu-24.04-3/vitant-records/60240.jsonl",
+                "line": 68
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1062,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 39.15809100000024,
+                "faults": 2165,
+                "userMs": 35.449,
+                "systemMs": 5.017,
+                "at": 1794165733798,
+                "pid": 60491
               }
             }
           ]
         }
       ],
       "reason": [
-        "no-current-witness-source-evidence"
+        "Required new-identity source verdict evidence; current corrected candidate has this Killed witness."
+      ],
+      "alsoObservedUnnamedFileFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1064,
+        "file": "src/stateUtils.ts",
+        "mutator": "ConditionalExpression",
+        "replacement": "false",
+        "location": {
+          "start": {
+            "line": 1725,
+            "column": 6
+          },
+          "end": {
+            "line": 1725,
+            "column": 36
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 1262,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/guards.test.ts",
+            "test": "should transition if condition based on event is met"
+          },
+          {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/guards.test.ts",
+      "expectedTestIds": [
+        "668079352_0_0"
+      ],
+      "reportedNames": [
+        "should transition only if condition is met"
+      ],
+      "observedKinds": [
+        "failed"
+      ],
+      "fileLevelFailure": false,
+      "observations": [
+        {
+          "cohort": "ci-1",
+          "pair": 1,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/58316.jsonl",
+                "line": 34
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1064,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 45.8735650000001,
+                "faults": 2285,
+                "userMs": 38.144,
+                "systemMs": 9.034,
+                "at": 1794162626623,
+                "pid": 58415
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "ci-1",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/61625.jsonl",
+                "line": 61
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1064,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 32.00635299999976,
+                "faults": 2117,
+                "userMs": 25.78,
+                "systemMs": 7.309,
+                "at": 1794162862602,
+                "pid": 62032
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "yaml-xstate-repeat",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-xstate-core-ubuntu-24.04-3/vitant-records/60240.jsonl",
+                "line": 69
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1064,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 38.2018250000001,
+                "faults": 2160,
+                "userMs": 33.192,
+                "systemMs": 6.034,
+                "at": 1794165733842,
+                "pid": 60493
+              }
+            }
+          ]
+        }
+      ],
+      "reason": [
+        "Required new-identity source verdict evidence; current corrected candidate has this Killed witness."
+      ],
+      "alsoObservedUnnamedFileFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1065,
+        "file": "src/stateUtils.ts",
+        "mutator": "BlockStatement",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 1725,
+            "column": 38
+          },
+          "end": {
+            "line": 1755,
+            "column": 3
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 931,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "test/guards.test.ts",
+            "test": "should transition if condition based on event is met"
+          },
+          {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "test/guards.test.ts",
+      "expectedTestIds": [
+        "668079352_0_0"
+      ],
+      "reportedNames": [
+        "should transition only if condition is met"
+      ],
+      "observedKinds": [
+        "failed"
+      ],
+      "fileLevelFailure": false,
+      "observations": [
+        {
+          "cohort": "ci-1",
+          "pair": 1,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-1/vitant-records/58316.jsonl",
+                "line": 35
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1065,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 50.68618900000001,
+                "faults": 2290,
+                "userMs": 40.138,
+                "systemMs": 7.949,
+                "at": 1794162626685,
+                "pid": 58416
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "ci-1",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/ci-1/bench-xstate-core-ubuntu-24.04-3/vitant-records/61625.jsonl",
+                "line": 62
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1065,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 40.73721399999977,
+                "faults": 2130,
+                "userMs": 37.567,
+                "systemMs": 4.061,
+                "at": 1794162862652,
+                "pid": 62033
+              }
+            }
+          ]
+        },
+        {
+          "cohort": "yaml-xstate-repeat",
+          "pair": 3,
+          "tool": "vitant",
+          "evidence": {
+            "kind": "failed",
+            "file": "test/guards.test.ts",
+            "test": "should transition only if condition is met",
+            "by": "copied after load"
+          },
+          "whole_records": [
+            {
+              "record": {
+                "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-xstate-core-ubuntu-24.04-3/vitant-records/60240.jsonl",
+                "line": 70
+              },
+              "data": {
+                "type": "whole",
+                "file": "/home/runner/work/vitant/vitant/bench/.work/xstate/packages/core/test/guards.test.ts",
+                "mutant": 1065,
+                "verdict": "failed",
+                "test": "668079352_0_0",
+                "tests": [
+                  "668079352_0_0",
+                  "668079352_0_1"
+                ],
+                "knew": true,
+                "alone": false,
+                "quiet": false,
+                "by": "copied after load",
+                "ms": 30.92284299999983,
+                "faults": 2134,
+                "userMs": 28.463,
+                "systemMs": 3.156,
+                "at": 1794165733879,
+                "pid": 60494
+              }
+            }
+          ]
+        }
+      ],
+      "reason": [
+        "Required new-identity source verdict evidence; current corrected candidate has this Killed witness."
       ],
       "alsoObservedUnnamedFileFailure": false
     }
-  ],
-  "config": "vitest.config.mts",
-  "vitest": "3.2.7",
-  "integrityFiles": [
-    "package.json"
-  ],
-  "sourceHashes": {
-    "src/StateMachine.ts": "854d1761355e6add70deefaceda3a2f6162dd094026e60d02faec5a36741834e",
-    "src/stateUtils.ts": "cad38eb4435555f0cabaef66d473587ef795fecf2b483eb70a20af255c69c4b5"
-  }
+  ]
 }
