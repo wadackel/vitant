@@ -1,0 +1,55 @@
+name: xstate-source-evidence
+
+on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts xstate > setup.log 2>&1
+      - name: Record source-written outcomes
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: '4'
+          BAIL_SUPPLEMENT: '0'
+        run: |
+          mkdir -p build/source
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/xstate rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          git -C bench/.work/xstate status --porcelain > build/status-before.txt
+          node bench/xstate-source-evidence/batch-check.mjs "$PWD/bench/.work/xstate/packages/core" "$PWD/build/source" "$PWD/bench/xstate-source-evidence/manifest.json" > build/driver.log 2>&1
+          git -C bench/.work/xstate status --porcelain > build/status-after.txt
+          cmp build/status-before.txt build/status-after.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: xstate-source-evidence-${{ matrix.shard }}-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/status-*.txt
+            build/driver.log
+            build/source
+          if-no-files-found: error
