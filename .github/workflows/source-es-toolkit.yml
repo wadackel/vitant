@@ -1,8 +1,6 @@
 name: es-toolkit-source-evidence
 
 on:
-  push:
-    branches: [experiment/yaml-speed-yaml-witness]
   workflow_dispatch:
 
 permissions:
