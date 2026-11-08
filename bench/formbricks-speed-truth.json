@@ -1,74 +1,35 @@
 {
   "mutants": [
     {
-      "id": 834,
-      "file": "lib/utils/html-opening-tag.ts",
-      "mutator": "UnaryOperator",
-      "replacement": "+1",
-      "location": {
-        "start": {
-          "line": 47,
-          "column": 9
-        },
-        "end": {
-          "line": 47,
-          "column": 11
-        }
-      },
-      "status": "Timeout",
-      "static": false,
-      "coveredBy": 35,
-      "killedBy": 1,
-      "timeoutCause": "loop",
-      "evidence": [
-        {
-          "kind": "lead",
-          "file": "lib/utils/html-opening-tag.test.ts",
-          "test": "findClosingTag matches the case-insensitive close the regex used"
-        },
-        {
-          "kind": "lead",
-          "file": "lib/utils/html-opening-tag.test.ts",
-          "test": "findOpeningTag reports the regex's index and capture ('p')"
-        },
-        {
-          "kind": "timeout",
-          "file": "lib/utils/html-opening-tag.test.ts",
-          "test": "findOpeningTag reports the regex's index and capture ('p')",
-          "by": "copied after load"
-        }
-      ]
-    },
-    {
-      "id": 842,
+      "id": 817,
       "file": "lib/utils/html-opening-tag.ts",
       "mutator": "EqualityOperator",
-      "replacement": "start !== -1",
+      "replacement": "start > lastStart",
       "location": {
         "start": {
-          "line": 76,
-          "column": 8
+          "line": 37,
+          "column": 38
         },
         "end": {
-          "line": 76,
-          "column": 20
+          "line": 37,
+          "column": 56
         }
       },
       "status": "Killed",
       "static": false,
-      "coveredBy": 37,
+      "coveredBy": 38,
       "killedBy": 1,
       "evidence": [
         {
           "kind": "lead",
-          "file": "app/(app)/workspaces/[workspaceId]/surveys/[surveyId]/(analysis)/summary/lib/emailTemplate.test.ts",
-          "test": "returns the body contents for rendered email documents"
+          "file": "modules/email/embed-survey-preview-email.test.ts",
+          "test": "covers the 'file upload' preview branch without nested document markup"
         },
         {
           "kind": "failed",
-          "file": "app/(app)/workspaces/[workspaceId]/surveys/[surveyId]/(analysis)/summary/lib/emailTemplate.test.ts",
-          "test": "returns the body contents for rendered email documents",
-          "by": "copied after load"
+          "file": "modules/email/embed-survey-preview-email.test.ts",
+          "test": "keeps the checked-in preview fixture aligned with the runtime survey email behaviors",
+          "by": "copied while loading"
         }
       ]
     }

@@ -33,7 +33,10 @@ jobs:
           git rev-parse HEAD > build/identity.log
           git -C bench/.work/formbricks rev-parse HEAD >> build/identity.log
           node --version >> build/identity.log
-          VITANT_TRUTH_KEEP="$PWD/build/raw" VITANT_WITNESS_RECORDS="$PWD/build/witness-events.jsonl" node bench/truth.ts make --root bench/.work/formbricks/apps/web --report bench/formbricks-speed-truth.json --out build/formbricks-speed-truth.json --jobs 1 --vitest="--reporter=$PWD/bench/witness-reporter.mjs" 2>&1 | tee build/formbricks-speed-truth.log
+          sha256sum bench/.work/formbricks/apps/web/lib/utils/html-opening-tag.ts bench/.work/formbricks/apps/web/modules/email/embed-survey-preview-email.test.ts > build/source-before.txt
+          VITANT_TRUTH_KEEP="$PWD/build/raw" VITANT_WITNESS_RECORDS="$PWD/build/witness-events.jsonl" node bench/truth.ts make --root bench/.work/formbricks/apps/web --report bench/formbricks-speed-truth.json --out build/formbricks-speed-truth.json --jobs 1 --vitest=modules/email/embed-survey-preview-email.test.ts --vitest="--reporter=$PWD/bench/witness-reporter.mjs" 2>&1 | tee build/formbricks-speed-truth.log
+          sha256sum bench/.work/formbricks/apps/web/lib/utils/html-opening-tag.ts bench/.work/formbricks/apps/web/modules/email/embed-survey-preview-email.test.ts > build/source-after.txt
+          cmp build/source-before.txt build/source-after.txt
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
@@ -43,6 +46,8 @@ jobs:
             build/identity.log
             build/formbricks-speed-truth.json
             build/formbricks-speed-truth.log
+            build/source-before.txt
+            build/source-after.txt
             build/raw/
             build/witness-events.jsonl
           if-no-files-found: error
