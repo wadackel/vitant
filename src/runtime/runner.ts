@@ -1260,7 +1260,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // and can invoke its patched listener-management methods.
       const unhandled = () => {
         if (this.walking) this.walkFailed = true
-        if (this.whole && !config.dangerouslyIgnoreUnhandledErrors) this.wholeFailure ??= 'failed'
+        if (this.whole && !config.dangerouslyIgnoreUnhandledErrors) {
+          this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
+        }
       }
       trackCalls(this.workerState as { rpc?: object }, unhandled)
       // Vitest's global state is not always the one the runner is given;

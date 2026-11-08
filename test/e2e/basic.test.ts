@@ -220,6 +220,10 @@ describe('running the fixture project', () => {
     expect(statusOf('src/registry.ts', 8, '10 - 10')).toBe('Killed')
   })
 
+  it('keeps an uncaught loop interruption as a timeout', () => {
+    expect(statusOf('src/uncaught-loop.ts', 2, 'true')).toBe('Timeout')
+  })
+
   it('counts an error nothing handles, which fails a run whose tests all pass', () => {
     expect(statusOf('src/notify.ts', 3, 'strict || listeners.length === 0')).toBe('Killed')
   })

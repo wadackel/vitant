@@ -76,3 +76,21 @@ it('waits for asynchronous work', async () => {
     expect(result.mutants.find((mutant) => mutant.replacement === 'true')?.status).toBe(ignored ? 'Survived' : 'Killed')
   }
 }, 120_000)
+
+it.each(versions.flatMap(([version, vitestPath]) => modes.map(([name, mode]) => [version, name, vitestPath, mode] as const)))('keeps a loop interruption as Timeout with %s in %s mode', (version, name, vitestPath, mode) => {
+  const project = path.join(owner.directory, `loop-${version}-${name}`)
+  for (const directory of ['src', 'test', 'node_modules']) fs.mkdirSync(path.join(project, directory), { recursive: true })
+  fs.symlinkSync(vitestPath, path.join(project, 'node_modules/vitest'), 'junction')
+  fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
+  for (const file of ['src/uncaught-loop.ts', 'test/uncaught-loop.test.ts']) {
+    fs.copyFileSync(path.join(root, 'fixtures/basic', file), path.join(project, file))
+  }
+  const report = owner.reportPath(`loop-${version}-${name}`)
+  const cli = owner.tool(['--root', project, '--mutate', 'src/uncaught-loop.ts',
+    '--report', report, ...mode, 'test/uncaught-loop.test.ts'])
+  expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+  const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+  expect(result.abandonedFiles).toEqual([])
+  expect(result.mutants.find((mutant) => mutant.replacement === 'true')?.status).toBe('Timeout')
+  expect(result.mutants.find((mutant) => mutant.replacement === '{}')?.status).toBe('Survived')
+}, 60_000)
