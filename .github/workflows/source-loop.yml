@@ -1,6 +1,8 @@
 name: yaml-loop-verdict
 
 on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
   workflow_dispatch:
     inputs:
       base:
@@ -50,6 +52,8 @@ jobs:
         working-directory: candidate
       - run: node bench/setup.ts yaml > setup.log 2>&1
       - name: Compare the exact loop verdict
+        env:
+          YAML_CASE: '348'
         run: |
           mkdir -p build/loop-verdict
           git rev-parse HEAD > build/loop-verdict/identity.log
@@ -74,6 +78,7 @@ jobs:
           assert.equal(after.exact.length, 1)
           assert.equal(before.exact[0].status, 'Killed')
           assert.equal(after.exact[0].status, 'Timeout')
+          assert.deepEqual(after.exact[0].location, { start: { line: 344, column: 26 }, end: { line: 348, column: 9 } })
           for (const name of ['before.json', 'after.json']) {
             const report = read(name)
             assert.equal(report.tests, 33)
