@@ -1,0 +1,109 @@
+name: xstate-loop-classification
+
+on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: stable
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 4909b596203bd72cd6db587bf28db216e86c8793
+          path: build/proof/tool-start
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 6c535f1842b7fcc4dbf3dce52e661296b7e6da83
+          path: build/proof/tool-corrected
+          persist-credentials: false
+      - run: |
+          ln -s "$PWD/node_modules" build/proof/tool-start/node_modules
+          ln -s "$PWD/node_modules" build/proof/tool-corrected/node_modules
+          cp bench/xstate-loop-proof/*.mjs build/proof/
+      - run: pnpm build:native
+        working-directory: build/proof/tool-start
+      - run: pnpm build:native
+        working-directory: build/proof/tool-corrected
+      - run: |
+          node "$GITHUB_WORKSPACE/bench/xstate-loop-proof/apply.mjs" start
+          git diff > ../start-diagnostic.patch
+        working-directory: build/proof/tool-start
+      - run: |
+          node "$GITHUB_WORKSPACE/bench/xstate-loop-proof/apply.mjs" corrected
+          git diff > ../corrected-diagnostic.patch
+        working-directory: build/proof/tool-corrected
+      - run: node bench/setup.ts xstate > setup.log 2>&1
+      - name: Reproduce the exact classification
+        run: |
+          ln -s "$PWD/bench/.work/xstate" build/proof/xstate
+          git rev-parse HEAD > build/proof/identity.log
+          git -C build/proof/tool-start rev-parse HEAD >> build/proof/identity.log
+          git -C build/proof/tool-corrected rev-parse HEAD >> build/proof/identity.log
+          git -C bench/.work/xstate rev-parse HEAD >> build/proof/identity.log
+          node --version >> build/proof/identity.log
+          sha256sum bench/.work/xstate/packages/core/src/stateUtils.ts bench/.work/xstate/packages/core/test/history.test.ts bench/.work/xstate/packages/core/test/utils.ts bench/.work/xstate/packages/core/vitest.config.mts bench/.work/xstate/packages/core/package.json > build/proof/hashes-before.txt
+          git -C bench/.work/xstate status --porcelain > build/proof/status-before.txt
+          node build/proof/bounded-variant.mjs start
+          cp -R bench/.work/xstate/packages/core/node_modules/.vitant/session/results build/proof/start-records
+          node build/proof/bounded-variant.mjs corrected
+          cp -R bench/.work/xstate/packages/core/node_modules/.vitant/session/results build/proof/corrected-records
+          sha256sum bench/.work/xstate/packages/core/src/stateUtils.ts bench/.work/xstate/packages/core/test/history.test.ts bench/.work/xstate/packages/core/test/utils.ts bench/.work/xstate/packages/core/vitest.config.mts bench/.work/xstate/packages/core/package.json > build/proof/hashes-after.txt
+          git -C bench/.work/xstate status --porcelain > build/proof/status-after.txt
+          cmp build/proof/hashes-before.txt build/proof/hashes-after.txt
+          cmp build/proof/status-before.txt build/proof/status-after.txt
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const read = name => JSON.parse(fs.readFileSync(`build/proof/${name}`, 'utf8'))
+          for (const [variant, verdict, classification] of [['start', 'Killed', 'failed'], ['corrected', 'Timeout', 'timeout']]) {
+            const report = read(`${variant}.json`)
+            const exit = read(`${variant}-exit.json`)
+            const generated = read(`${variant}-generated.json`)
+            assert.equal(exit.code, 0)
+            assert.equal(exit.bounded, false)
+            assert.equal(generated.vitest, '3.2.7')
+            assert.equal(report.tests, 35)
+            assert.equal(report.mutants.length, 1)
+            assert.equal(report.mutants[0].status, verdict)
+            assert.deepEqual(report.mutants[0].location, { start: { line: 823, column: 61 }, end: { line: 825, column: 3 } })
+            assert.deepEqual(report.abandonedFiles, [])
+            assert.deepEqual(report.failedBaselines, [])
+            const records = fs.readdirSync(`build/proof/${variant}-records`).filter(name => name.endsWith('.jsonl')).flatMap(name => fs.readFileSync(`build/proof/${variant}-records/${name}`, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)))
+            assert(records.some(record => record.type === 'diagnostic622Unhandled' && record.phase === 'after' && record.runtimeT === true && record.wholeFailure === classification))
+            assert(records.some(record => ['diagnostic622Rpc', 'diagnostic622Unhandled'].includes(record.type) && record.runtimeT === true && record.error?.message === '[vitant] loop iteration limit exceeded'))
+          }
+          console.log('Exact START Killed and corrected Timeout classifications verified with loop-origin records')
+          JS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: xstate-loop-classification-${{ github.run_id }}
+          path: |
+            setup.log
+            build/proof/*.json
+            build/proof/*.log
+            build/proof/*.patch
+            build/proof/*.txt
+            build/proof/start-records
+            build/proof/corrected-records
+          if-no-files-found: error
