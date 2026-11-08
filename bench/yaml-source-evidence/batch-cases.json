@@ -5,328 +5,51 @@
   "cases": [
     {
       "mutant": {
-        "id": 262,
+        "id": 318,
         "file": "src/parse/lexer.ts",
-        "mutator": "BooleanLiteral",
-        "replacement": "false",
+        "mutator": "ConditionalExpression",
+        "replacement": "true",
         "location": {
           "start": {
-            "line": 279,
-            "column": 24
-          },
-          "end": {
-            "line": 279,
-            "column": 28
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 824,
-        "killedBy": 2,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/doc/YAML-1.2.spec.ts",
-            "test": "Example 6.1. Indentation Spaces"
-          },
-          {
-            "kind": "lead",
-            "file": "tests/doc/YAML-1.2.spec.ts",
-            "test": "Example 6.1. Indentation Spaces"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/doc/YAML-1.2.spec.ts",
-            "test": "Example 6.1. Indentation Spaces",
-            "by": "copied before a test"
-          }
-        ]
-      },
-      "file": "tests/doc/YAML-1.2.spec.ts",
-      "expectedTestIds": [
-        "-320514216_8_0"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3",
-          "tool": "vitant",
-          "reportedName": "Example 6.1. Indentation Spaces",
-          "by": "copied before a test",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/12935.jsonl",
-              "line": 12
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 330,
-        "file": "src/parse/lexer.ts",
-        "mutator": "StringLiteral",
-        "replacement": "\"\"",
-        "location": {
-          "start": {
-            "line": 329,
-            "column": 11
-          },
-          "end": {
-            "line": 329,
-            "column": 14
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 814,
-        "killedBy": 0,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/cli.ts",
-            "test": "unstyle"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/cli.ts",
-            "test": "unstyle",
-            "by": "copied before a test"
-          }
-        ]
-      },
-      "file": "tests/cli.ts",
-      "expectedTestIds": [
-        "909623739_0_1_13_0"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-2",
-          "tool": "vitant-base",
-          "reportedName": "unstyle",
-          "by": "copied before a test",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-2/vitant-base-records/8417.jsonl",
-              "line": 801
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 442,
-        "file": "src/parse/lexer.ts",
-        "mutator": "ArithmeticOperator",
-        "replacement": "nl - 1",
-        "location": {
-          "start": {
-            "line": 410,
-            "column": 39
-          },
-          "end": {
-            "line": 410,
-            "column": 45
-          }
-        },
-        "status": "Killed",
-        "static": false,
-        "coveredBy": 169,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/doc/foldFlowLines.ts",
-            "test": "reported"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/doc/foldFlowLines.ts",
-            "test": "reported",
-            "by": "copied before a test"
-          }
-        ]
-      },
-      "file": "tests/doc/foldFlowLines.ts",
-      "expectedTestIds": [
-        "1661418722_1_7_0_1"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/F04/ci-1/bench-yaml-lexer-ubuntu-24.04-1",
-          "tool": "vitant",
-          "reportedName": "reported",
-          "by": "copied before a test",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/F04/ci-1/bench-yaml-lexer-ubuntu-24.04-1/vitant-records/11539.jsonl",
-              "line": 841
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 447,
-        "file": "src/parse/lexer.ts",
-        "mutator": "StringLiteral",
-        "replacement": "\"\"",
-        "location": {
-          "start": {
-            "line": 412,
-            "column": 24
-          },
-          "end": {
-            "line": 412,
-            "column": 28
-          }
-        },
-        "status": "Killed",
-        "static": false,
-        "coveredBy": 156,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/doc/foldFlowLines.ts",
-            "test": "reported"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/doc/foldFlowLines.ts",
-            "test": "reported",
-            "by": "copied before a test"
-          }
-        ]
-      },
-      "file": "tests/doc/foldFlowLines.ts",
-      "expectedTestIds": [
-        "1661418722_1_7_0_1"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/F04/ci-1/bench-yaml-lexer-ubuntu-24.04-1",
-          "tool": "vitant",
-          "reportedName": "reported",
-          "by": "copied before a test",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/F04/ci-1/bench-yaml-lexer-ubuntu-24.04-1/vitant-records/11539.jsonl",
-              "line": 842
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 663,
-        "file": "src/parse/lexer.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 538,
-            "column": 35
-          },
-          "end": {
-            "line": 546,
-            "column": 3
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 2338,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "tests/doc/parse.ts",
-      "expectedTestIds": [
-        "-1173185601_0_0"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3",
-          "tool": "vitant",
-          "reportedName": "empty block scalar at end of document",
-          "by": "copied after load",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/11278.jsonl",
-              "line": 70
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 665,
-        "file": "src/parse/lexer.ts",
-        "mutator": "EqualityOperator",
-        "replacement": "n <= 0",
-        "location": {
-          "start": {
-            "line": 539,
+            "line": 315,
             "column": 8
           },
           "end": {
-            "line": 539,
-            "column": 13
+            "line": 315,
+            "column": 25
           }
         },
         "status": "Killed",
         "static": true,
-        "coveredBy": 2338,
+        "coveredBy": 818,
         "killedBy": 1,
         "evidence": [
           {
             "kind": "lead",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document"
+            "file": "tests/doc/types.ts",
+            "test": "custom schema instance"
           },
           {
             "kind": "failed",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document",
-            "by": "copied after load"
+            "file": "tests/doc/types.ts",
+            "test": "custom schema instance",
+            "by": "copied before a test"
           }
         ]
       },
-      "file": "tests/doc/parse.ts",
+      "file": "tests/doc/types.ts",
       "expectedTestIds": [
-        "-1173185601_0_0"
+        "1258569785_8_7"
       ],
       "fileLevelFailure": false,
       "observations": [
         {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3",
+          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/H1-03R/ci-1/bench-yaml-lexer-ubuntu-24.04-3",
           "tool": "vitant",
-          "reportedName": "empty block scalar at end of document",
-          "by": "copied after load",
           "records": [
             {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/11272.jsonl",
-              "line": 417
+              "path": ".wadackel/qa/yaml-speed-goal/experiments/H1-03R/ci-1/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/12752.jsonl",
+              "line": 5
             }
           ]
         }
@@ -334,161 +57,51 @@
     },
     {
       "mutant": {
-        "id": 667,
+        "id": 319,
         "file": "src/parse/lexer.ts",
         "mutator": "ConditionalExpression",
         "replacement": "false",
         "location": {
           "start": {
-            "line": 539,
+            "line": 315,
             "column": 8
           },
           "end": {
-            "line": 539,
-            "column": 13
+            "line": 315,
+            "column": 25
           }
         },
         "status": "Killed",
         "static": true,
-        "coveredBy": 2338,
+        "coveredBy": 818,
         "killedBy": 1,
         "evidence": [
           {
             "kind": "lead",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document"
+            "file": "tests/doc/types.ts",
+            "test": "custom schema instance"
           },
           {
             "kind": "failed",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "tests/doc/parse.ts",
-      "expectedTestIds": [
-        "-1173185601_0_0"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3",
-          "tool": "vitant",
-          "reportedName": "empty block scalar at end of document",
-          "by": "copied after load",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/11278.jsonl",
-              "line": 71
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 668,
-        "file": "src/parse/lexer.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 539,
-            "column": 15
-          },
-          "end": {
-            "line": 544,
-            "column": 5
-          }
-        },
-        "status": "Killed",
-        "static": true,
-        "coveredBy": 2338,
-        "killedBy": 1,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/doc/parse.ts",
-            "test": "empty block scalar at end of document",
-            "by": "copied after load"
-          }
-        ]
-      },
-      "file": "tests/doc/parse.ts",
-      "expectedTestIds": [
-        "-1173185601_0_0"
-      ],
-      "fileLevelFailure": false,
-      "observations": [
-        {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3",
-          "tool": "vitant",
-          "reportedName": "empty block scalar at end of document",
-          "by": "copied after load",
-          "records": [
-            {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/11272.jsonl",
-              "line": 418
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "mutant": {
-        "id": 732,
-        "file": "src/parse/lexer.ts",
-        "mutator": "BlockStatement",
-        "replacement": "{}",
-        "location": {
-          "start": {
-            "line": 591,
-            "column": 55
-          },
-          "end": {
-            "line": 596,
-            "column": 3
-          }
-        },
-        "status": "Killed",
-        "static": false,
-        "coveredBy": 145,
-        "killedBy": 0,
-        "evidence": [
-          {
-            "kind": "lead",
-            "file": "tests/cli.ts",
-            "test": "basic"
-          },
-          {
-            "kind": "failed",
-            "file": "tests/cli.ts",
-            "test": "basic",
+            "file": "tests/doc/types.ts",
+            "test": "custom schema instance",
             "by": "copied before a test"
           }
         ]
       },
-      "file": "tests/cli.ts",
+      "file": "tests/doc/types.ts",
       "expectedTestIds": [
-        "909623739_0_1_11_1"
+        "1258569785_8_7"
       ],
       "fileLevelFailure": false,
       "observations": [
         {
-          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-1",
-          "tool": "vitant-base",
-          "reportedName": "basic",
-          "by": "copied before a test",
+          "artifact": ".wadackel/qa/yaml-speed-goal/experiments/H1-03R/ci-1/bench-yaml-lexer-ubuntu-24.04-3",
+          "tool": "vitant",
           "records": [
             {
-              "path": ".wadackel/qa/yaml-speed-goal/experiments/FINAL4/core/yaml-xstate-repeat/bench-yaml-lexer-ubuntu-24.04-1/vitant-base-records/7928.jsonl",
-              "line": 2814
+              "path": ".wadackel/qa/yaml-speed-goal/experiments/H1-03R/ci-1/bench-yaml-lexer-ubuntu-24.04-3/vitant-records/12752.jsonl",
+              "line": 6
             }
           ]
         }

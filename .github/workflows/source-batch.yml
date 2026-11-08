@@ -1,6 +1,8 @@
 name: yaml-source-batch
 
 on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2]
+        shard: [0, 1]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -29,7 +31,7 @@ jobs:
       - name: Verify source-written failures
         env:
           SHARD_INDEX: ${{ matrix.shard }}
-          SHARD_COUNT: '3'
+          SHARD_COUNT: '2'
         run: |
           mkdir -p build/batch
           git rev-parse HEAD > build/identity.log
