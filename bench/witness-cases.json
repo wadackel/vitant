@@ -1,85 +1,136 @@
 {
-  "target": "xstate",
-  "root": "bench/.work/xstate/packages/core",
+  "target": "yaml",
+  "root": "bench/.work/yaml",
   "cases": [
     {
       "mutant": {
-        "id": 669,
-        "file": "src/stateUtils.ts",
-        "mutator": "ArrayDeclaration",
-        "replacement": "[\"Stryker was here\"]",
+        "id": 119,
+        "file": "src/parse/lexer.ts",
+        "mutator": "AssignmentOperator",
+        "replacement": "this.pos -= line.length",
         "location": {
           "start": {
-            "line": 899,
-            "column": 11
+            "line": 151,
+            "column": 6
           },
           "end": {
-            "line": 899,
-            "column": 13
-          }
-        },
-        "status": "Timeout",
-        "static": true,
-        "coveredBy": 173,
-        "killedBy": 0,
-        "timeoutCause": "fresh worker",
-        "evidence": [
-          {
-            "kind": "timeout",
-            "file": "test/invoke.test.ts",
-            "test": "xstate.done.actor events should have unique names when invokee is a machine with an id property",
-            "by": "started"
-          }
-        ]
-      },
-      "file": "test/invoke.test.ts",
-      "expectedKinds": [
-        "timeout"
-      ],
-      "tests": [
-        "xstate.done.actor events should have unique names when invokee is a machine with an id property"
-      ]
-    },
-    {
-      "mutant": {
-        "id": 669,
-        "file": "src/stateUtils.ts",
-        "mutator": "ArrayDeclaration",
-        "replacement": "[\"Stryker was here\"]",
-        "location": {
-          "start": {
-            "line": 899,
-            "column": 11
-          },
-          "end": {
-            "line": 899,
-            "column": 13
+            "line": 151,
+            "column": 29
           }
         },
         "status": "Killed",
-        "static": true,
-        "coveredBy": 173,
+        "static": false,
+        "coveredBy": 140,
         "killedBy": 1,
         "evidence": [
           {
             "kind": "lead",
-            "file": "test/parallel.test.ts",
-            "test": "targetless transition on a parallel state should not enter nor exit any states"
+            "file": "tests/doc/comments.ts",
+            "test": "directives"
           },
           {
             "kind": "failed",
-            "file": "test/parallel.test.ts",
-            "test": "targetless transition on a parallel state should not enter nor exit any states",
-            "by": "copied before a test"
+            "file": "tests/doc/comments.ts",
+            "test": "directives",
+            "by": "copied after load"
           }
         ]
       },
-      "file": "test/parallel.test.ts",
+      "file": "tests/doc/comments.ts",
       "expectedKinds": [
         "failed"
       ],
       "tests": [
-        "targetless transition on a parallel state should not enter nor exit any states"
+        "parse comments body directives"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 561,
+        "file": "src/parse/lexer.ts",
+        "mutator": "ArithmeticOperator",
+        "replacement": "nl + 1",
+        "location": {
+          "start": {
+            "line": 487,
+            "column": 16
+          },
+          "end": {
+            "line": 487,
+            "column": 22
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 320,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "tests/doc/comments.ts",
+            "test": "in seq"
+          },
+          {
+            "kind": "failed",
+            "file": "tests/doc/comments.ts",
+            "test": "in seq",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "tests/doc/comments.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "blank lines not after block scalar with keep chomping in seq"
+      ]
+    },
+    {
+      "mutant": {
+        "id": 670,
+        "file": "src/parse/lexer.ts",
+        "mutator": "AssignmentOperator",
+        "replacement": "this.pos -= n",
+        "location": {
+          "start": {
+            "line": 542,
+            "column": 6
+          },
+          "end": {
+            "line": 542,
+            "column": 19
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 2338,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "tests/doc/foldFlowLines.ts",
+            "test": "reported"
+          },
+          {
+            "kind": "lead",
+            "file": "tests/doc/anchors.ts",
+            "test": "re-defined anchor"
+          },
+          {
+            "kind": "failed",
+            "file": "tests/doc/foldFlowLines.ts",
+            "test": "reported",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "tests/doc/foldFlowLines.ts",
+      "expectedKinds": [
+        "failed"
+      ],
+      "tests": [
+        "double-quoted Folding double-quoted strings Split \\\" escape in double-quoted string (#48) reported"
       ]
     }
   ]

@@ -13,6 +13,7 @@ const out = path.resolve(output)
 const rows = []
 const hash = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex')
 const timeoutError = (error) => /^(Test|Hook) timed out in \d+ms/.test(error.message ?? '')
+const canonicalName = (name) => name.replaceAll(' > ', ' ')
 
 for (const [index, entry] of manifest.cases.entries()) {
   if (index % total !== part - 1) continue
@@ -22,7 +23,9 @@ for (const [index, entry] of manifest.cases.entries()) {
   const report = path.join(dir, 'report.json')
   fs.writeFileSync(report, JSON.stringify({ mutants: [entry.mutant] }, null, 2) + '\n')
   const source = path.join(root, entry.mutant.file)
+  const selected = path.join(root, entry.file)
   const before = hash(source)
+  const testBefore = hash(selected)
   const records = path.join(dir, 'events.jsonl')
   const result = spawnSync(process.execPath, [path.join(import.meta.dirname, 'truth.ts'), 'make',
     '--root', root, '--report', report, '--out', path.join(dir, 'truth.json'), '--timeout=180',
@@ -32,14 +35,17 @@ for (const [index, entry] of manifest.cases.entries()) {
   })
   fs.writeFileSync(path.join(dir, 'truth.log'), (result.stdout ?? '') + (result.stderr ?? ''))
   const row = { index, file: entry.file, mutant: entry.mutant.id, expectedKinds: entry.expectedKinds,
-    before, after: hash(source), exitCode: result.status }
+    before, after: hash(source), testBefore, testAfter: hash(selected), exitCode: result.status }
   try {
     assert.equal(row.after, before, 'source was not restored')
+    assert.equal(row.testAfter, testBefore, 'test source changed')
     assert.equal(result.status, 0, 'source-written truth did not agree')
+    const originalSeconds = Number(/suite ([\d.]+)s unmutated/.exec(result.stderr ?? '')?.[1])
+    assert(Number.isFinite(originalSeconds) && originalSeconds < 180, 'outer budget does not exceed original duration')
+    row.originalSeconds = originalSeconds
     const events = fs.readFileSync(records, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
     const controls = events.filter((event) => /-0\.json\.errors$/.test(event.run))
     const mutated = events.filter((event) => /-1\.json\.errors$/.test(event.run))
-    const selected = path.join(root, entry.file)
     for (const group of [controls, mutated]) {
       const collected = group.filter((event) => event.event === 'collected')
       assert(collected.length > 0 && collected.every((event) => event.tests > 0 && event.files.every((file) => file === selected)), 'missing or unexpected test file')
@@ -48,6 +54,11 @@ for (const [index, entry] of manifest.cases.entries()) {
     const original = fs.readdirSync(path.join(dir, 'raw')).find((name) => /-0\.json$/.test(name))
     const control = JSON.parse(fs.readFileSync(path.join(dir, 'raw', original), 'utf8'))
     assert(control.success && control.numPassedTests > 0 && control.numFailedTests === 0, 'unmutated control did not pass')
+    const originalTests = control.testResults.flatMap((file) => file.assertionResults)
+    for (const name of entry.tests ?? []) {
+      const matching = originalTests.filter((test) => canonicalName(test.fullName) === canonicalName(name))
+      assert(matching.length === 1 && matching[0].status === 'passed', `missing unmutated witness: ${name}`)
+    }
     const failed = mutated.filter((event) => event.event === 'failed' && event.file === selected)
     row.failures = failed.map(({ fullName, errors }) => ({ fullName, errors }))
     row.suite = JSON.parse(fs.readFileSync(path.join(dir, 'truth.json'), 'utf8')).mutants[0].suite
@@ -55,6 +66,10 @@ for (const [index, entry] of manifest.cases.entries()) {
     row.nativeTimeout = failed.some((event) => event.errors.some(timeoutError))
     for (const kind of entry.expectedKinds) {
       assert(kind === 'failed' ? row.ordinary : row.nativeTimeout || row.suite === 'timeout', `missing ${kind} witness`)
+    }
+    for (const name of entry.tests ?? []) {
+      assert(failed.some((event) => canonicalName(event.fullName) === canonicalName(name)
+        && event.errors.some((error) => !timeoutError(error))), `missing requested ordinary failure: ${name}`)
     }
     row.verified = true
   } catch (error) {

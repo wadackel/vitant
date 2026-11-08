@@ -2,7 +2,7 @@ name: source-witness
 
 on:
   push:
-    branches: [experiment/yaml-speed-truth]
+    branches: [experiment/yaml-speed-yaml-witness]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -27,13 +27,13 @@ jobs:
         with:
           node-version: 24
       - run: pnpm install --frozen-lockfile
-      - run: node bench/setup.ts xstate > setup.log 2>&1
+      - run: node bench/setup.ts yaml > setup.log 2>&1
       - run: |
           mkdir -p build/witness
           git rev-parse HEAD > build/identity.log
-          git -C bench/.work/xstate rev-parse HEAD >> build/identity.log
+          git -C bench/.work/yaml rev-parse HEAD >> build/identity.log
           node --version >> build/identity.log
-          node bench/source-witness.mjs bench/witness-cases.json build/witness '${{ matrix.shard }}/2'
+          node bench/source-witness.mjs bench/witness-cases.json build/witness '${{ matrix.shard }}/3'
       - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
