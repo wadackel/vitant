@@ -1,0 +1,77 @@
+name: formbricks-prisma-source
+
+on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts formbricks > setup.log 2>&1
+      - name: Record the unchanged full test file
+        env:
+          BAIL_SUPPLEMENT: '0'
+        run: |
+          mkdir -p build/source
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/formbricks rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          git -C bench/.work/formbricks status --porcelain > build/status-before.txt
+          node bench/formbricks-prisma-source/batch-check.mjs "$PWD/bench/.work/formbricks/apps/web" "$PWD/build/source" "$PWD/bench/formbricks-prisma-source/prisma-1384.json" > build/driver.log 2>&1
+          git -C bench/.work/formbricks status --porcelain > build/status-after.txt
+          cmp build/status-before.txt build/status-after.txt
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const read = file => JSON.parse(fs.readFileSync(file, 'utf8'))
+          const summary = read('build/source/summary.json')
+          assert.equal(summary.exitCode, 0)
+          assert.equal(summary.cases.length, 1)
+          const row = summary.cases[0]
+          assert(row.restored)
+          assert.equal(row.original.code, 0)
+          assert.equal(row.source.code, 1)
+          assert.equal(row.source.bounded, false)
+          const original = read('build/source/000-1384/original.json')
+          const source = read('build/source/000-1384/source.json')
+          assert.equal(original.numPassedTests, 13)
+          assert.equal(original.numFailedTests, 0)
+          assert.equal(source.success, false)
+          const events = fs.readFileSync('build/source/000-1384/source.events.jsonl', 'utf8').trim().split('\n').map(line => JSON.parse(line))
+          const config = events.find(event => event.phase === 'runner-config')
+          assert.equal(config.vitest, '4.1.11')
+          assert.equal(config.testTimeout, 5000)
+          assert.equal(config.hookTimeout, 10000)
+          assert.equal(config.fakeTimers.loopLimit, 10000)
+          const failure = events.find(event => event.phase === 'after' && event.id === '1416562580_4_2' && event.state === 'fail')
+          assert(failure && !failure.flags.fails)
+          assert(failure.errors.some(error => error.message.includes('Aborting after running 10000 timers')))
+          console.log(JSON.stringify({ originalPassed: 13, failure, config, restored: true }, null, 2))
+          JS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: formbricks-prisma-source-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/status-*.txt
+            build/driver.log
+            build/source
+          if-no-files-found: error

@@ -1,0 +1,57 @@
+{
+  "target": "formbricks",
+  "root": "bench/.work/formbricks/apps/web",
+  "sourceSha256": "b4b4909e82187ae6f88973270e5765814490ccc827cc8783d309d4a2b04435e3",
+  "cases": [
+    {
+      "mutant": {
+        "id": 1384,
+        "file": "lib/utils/prisma-error.ts",
+        "mutator": "UpdateOperator",
+        "replacement": "attempt--",
+        "location": {
+          "start": {
+            "line": 52,
+            "column": 26
+          },
+          "end": {
+            "line": 52,
+            "column": 35
+          }
+        },
+        "status": "Killed",
+        "static": false,
+        "coveredBy": 4,
+        "killedBy": 1,
+        "evidence": [
+          {
+            "kind": "lead",
+            "file": "lib/utils/prisma-error.test.ts",
+            "test": "gives up after maxAttempts and rethrows the last conflict"
+          },
+          {
+            "kind": "lead",
+            "file": "modules/ee/analysis/dashboards/lib/dashboards.test.ts",
+            "test": "gives up on a conflict that keeps repeating"
+          },
+          {
+            "kind": "lead",
+            "file": "lib/utils/prisma-error.test.ts",
+            "test": "gives up after maxAttempts and rethrows the last conflict"
+          },
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-error.test.ts",
+            "test": "gives up after maxAttempts and rethrows the last conflict",
+            "by": "copied before a test"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-error.test.ts",
+      "expectedTestIds": [
+        "1416562580_4_2"
+      ],
+      "fileLevelFailure": false
+    }
+  ]
+}
