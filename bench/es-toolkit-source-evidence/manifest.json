@@ -1,0 +1,35 @@
+{
+  "target": "es-toolkit",
+  "targetCommit": "43e1118884e07cebdf1e767038f6e7f697fa27ec",
+  "vitest": "4.1.10",
+  "config": "vitest.config.mts",
+  "boundMs": 90000,
+  "mutant": {
+    "id": 145,
+    "file": "src/array/combinations.ts",
+    "mutator": "EqualityOperator",
+    "start": [
+      71,
+      24
+    ],
+    "end": [
+      71,
+      29
+    ],
+    "original": "j < r",
+    "replacement": "j >= r",
+    "sourceSha256": "55b41933eb9bcbecad8f571fc09c51f01a590bf7091f64cedcdc5a0a29c66521"
+  },
+  "cases": [
+    {
+      "file": "src/fp/array/combinations.spec.ts",
+      "testId": "26736311_0_0",
+      "testName": "works in a pipe"
+    },
+    {
+      "file": "src/array/combinations.spec.ts",
+      "testId": "-151090424_0_0",
+      "testName": "returns all 2-length combinations in lexicographic order"
+    }
+  ]
+}

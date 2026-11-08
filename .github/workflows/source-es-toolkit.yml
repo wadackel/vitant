@@ -1,0 +1,73 @@
+name: es-toolkit-source-evidence
+
+on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: node bench/setup.ts es-toolkit > setup.log 2>&1
+      - name: Check both complete source files
+        run: |
+          mkdir -p build/source
+          git rev-parse HEAD > build/identity.log
+          git -C bench/.work/es-toolkit rev-parse HEAD >> build/identity.log
+          node --version >> build/identity.log
+          git -C bench/.work/es-toolkit status --porcelain > build/status-before.txt
+          node bench/es-toolkit-source-evidence/driver.mjs "$PWD/bench/.work/es-toolkit" "$PWD/build/source" "$PWD/bench/es-toolkit-source-evidence/manifest.json" > build/driver.log 2>&1
+          git -C bench/.work/es-toolkit status --porcelain > build/status-after.txt
+          cmp build/status-before.txt build/status-after.txt
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const read = file => JSON.parse(fs.readFileSync(file, 'utf8'))
+          const summary = read('build/source/summary.json')
+          assert.equal(summary.cases.length, 2)
+          assert(summary.restored)
+          for (const row of summary.cases) {
+            assert.equal(row.original.code, 0)
+            assert.equal(row.source.code, 1)
+            assert.equal(row.source.bounded, false)
+            assert.equal(row.source.signal, null)
+            assert(row.restored)
+            assert.equal(row.source.assessment.kind, 'ordinary-test-failure')
+            const directory = `build/source/${String(row.index).padStart(3, '0')}`
+            const original = read(`${directory}/original.json`)
+            const source = read(`${directory}/source.json`)
+            assert.equal(original.success, true)
+            assert.equal(source.success, false)
+            const events = fs.readFileSync(`${directory}/source.events.jsonl`, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+            const failure = events.find(event => event.phase === 'after' && event.id === row.entry.testId && event.state === 'fail')
+            assert(failure && !failure.flags.fails && failure.flags.retry === null && failure.flags.repeats === null)
+            assert(failure.errors.some(error => error.name === 'RangeError' && error.message === 'Invalid array length'))
+          }
+          console.log(JSON.stringify({ sourceFailures: summary.cases.map(row => ({ file: row.entry.file, testId: row.entry.testId, result: row.source.assessment })), restored: true }, null, 2))
+          JS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: es-toolkit-source-evidence-${{ github.run_id }}
+          path: |
+            setup.log
+            build/identity.log
+            build/status-*.txt
+            build/driver.log
+            build/source
+          if-no-files-found: error
