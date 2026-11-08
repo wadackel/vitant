@@ -1,0 +1,96 @@
+name: yaml-loop-verdict
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        required: true
+        default: 15cc409eb4582931f4de72ee8ebc890cf1db6251
+      candidate:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: stable
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.base }}
+          path: base
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate }}
+          path: candidate
+          persist-credentials: false
+      - run: |
+          ln -s ../node_modules base/node_modules
+          ln -s ../node_modules candidate/node_modules
+      - run: pnpm build:native
+        working-directory: base
+      - run: pnpm build:native
+        working-directory: candidate
+      - run: node bench/setup.ts yaml > setup.log 2>&1
+      - name: Compare the exact loop verdict
+        run: |
+          mkdir -p build/loop-verdict
+          git rev-parse HEAD > build/loop-verdict/identity.log
+          git -C base rev-parse HEAD >> build/loop-verdict/identity.log
+          git -C candidate rev-parse HEAD >> build/loop-verdict/identity.log
+          git -C bench/.work/yaml rev-parse HEAD >> build/loop-verdict/identity.log
+          node --version >> build/loop-verdict/identity.log
+          git -C bench/.work/yaml status --porcelain > build/loop-verdict/status-before.txt
+          node bench/yaml-source-evidence/range-check.mjs "$PWD/base" "$PWD/bench/.work/yaml" "$PWD/build/loop-verdict/before.json" > build/loop-verdict/before.log 2>&1
+          node bench/yaml-source-evidence/range-check.mjs "$PWD/candidate" "$PWD/bench/.work/yaml" "$PWD/build/loop-verdict/after.json" > build/loop-verdict/after.log 2>&1
+          git -C bench/.work/yaml status --porcelain > build/loop-verdict/status-after.txt
+          cmp build/loop-verdict/status-before.txt build/loop-verdict/status-after.txt
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          const read = name => JSON.parse(fs.readFileSync(`build/loop-verdict/${name}`, 'utf8'))
+          const before = read('before.json.observation.json')
+          const after = read('after.json.observation.json')
+          assert(before.restored && after.restored)
+          assert.deepEqual(before.before, after.before)
+          assert.equal(before.exact.length, 1)
+          assert.equal(after.exact.length, 1)
+          assert.equal(before.exact[0].status, 'Killed')
+          assert.equal(after.exact[0].status, 'Timeout')
+          for (const name of ['before.json', 'after.json']) {
+            const report = read(name)
+            assert.equal(report.tests, 33)
+            assert.equal(report.counts.Pending, 0)
+            assert.equal(report.counts.Unconfirmed, 0)
+            assert.deepEqual(report.abandonedFiles, [])
+            assert.deepEqual(report.failedBaselines, [])
+            assert.deepEqual(report.changedFiles, [])
+          }
+          const identity = mutant => [mutant.file, mutant.mutator, mutant.replacement, mutant.location]
+          assert.deepEqual(read('before.json').mutants.map(identity), read('after.json').mutants.map(identity))
+          console.log(JSON.stringify({ before: before.exact, after: after.exact, restored: true }, null, 2))
+          JS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: yaml-loop-verdict-${{ github.run_id }}
+          path: |
+            setup.log
+            build/loop-verdict
+          if-no-files-found: error
