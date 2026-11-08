@@ -1,6 +1,8 @@
 name: yaml-loop-verdict
 
 on:
+  push:
+    branches: [experiment/yaml-speed-yaml-witness]
   workflow_dispatch:
     inputs:
       base:
@@ -8,6 +10,7 @@ on:
         default: 15cc409eb4582931f4de72ee8ebc890cf1db6251
       candidate:
         required: true
+        default: 6c535f1842b7fcc4dbf3dce52e661296b7e6da83
 
 permissions:
   contents: read
@@ -32,12 +35,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.base }}
+          ref: ${{ inputs.base || '15cc409eb4582931f4de72ee8ebc890cf1db6251' }}
           path: base
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.candidate }}
+          ref: ${{ inputs.candidate || '6c535f1842b7fcc4dbf3dce52e661296b7e6da83' }}
           path: candidate
           persist-credentials: false
       - run: |
