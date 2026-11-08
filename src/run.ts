@@ -482,7 +482,6 @@ export type SessionRecord = (
   | ControlRecord
   | PairRecord
   | { type: 'pairing'; file: string }
-  | { type: 'alternative'; mutant: number; test: string }
   /** A copy could not be made as a mutant's module began its own code while the file loaded. */
   | { type: 'loading'; file: string }
   /** A worker given the file's runs made none of them. */
@@ -577,7 +576,6 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
    * after a start without it, which is not a state the suite ever runs in.
    */
   const suspects = new Map<number, Set<string>>()
-  const alternatives = new Map<number, Set<string>>()
   /**
    * Mutants that blocked a worker while a test tried them. Blocking once
    * more, in a run of a whole file, is what a timeout is.
@@ -638,9 +636,6 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.type === 'file' && record.pristine && record.complete) {
       measured.set(record.file, (measured.get(record.file) ?? 0) + 1)
       leftOut.set(record.file, Math.max(leftOut.get(record.file) ?? 0, record.ignored ?? 0))
-    }
-    if (record.type === 'alternative') {
-      alternatives.set(record.mutant, (alternatives.get(record.mutant) ?? new Set()).add(record.test))
     }
     if (record.type === 'statics') {
       const set = staticSites.get(record.file) ?? new Set()
@@ -1053,7 +1048,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1125,7 +1120,6 @@ const PASS_MS = 5000
 type Planned = {
   plan: RoundPlan
   workByFile: Map<string, { workMs: number; chunks: number; wholeRuns: number; wholeMs: number }>
-  alternatives: { mutant: number; test: string }[]
 }
 
 /**
@@ -1135,7 +1129,7 @@ type Planned = {
  * what makes what they find count; then, for what is still open, a run of
  * the file with nothing else running.
  */
-export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
+function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, string[], Map<number, Set<string>>, ArrayLike<number>, ArrayLike<number>]): Planned {
   besideOnly.clear()
   const usual = planPhase(...given, false)
   // With `--led` what these rounds settle is left at that, unconfirmed: the
@@ -1163,7 +1157,6 @@ function planPhase(
   // try it. Given to every test that reaches it, one test a round, it would
   // take as many rounds as there are tests.
   const only = new Map<number, Set<string>>()
-  const alternatives: Planned['alternatives'] = []
   // One file settles a mutant, so the tests of one file try it: the file
   // whose tests take least. The others' turn comes if that one's run, made
   // with nothing else running, passes.
@@ -1182,26 +1175,6 @@ function planPhase(
     const failed = new Set<string>()
     for (const entry of status.evidence.get(mutant) ?? []) {
       if (entry.kind !== 'lead' && entry.test && entry.file === file) failed.add(entry.test)
-    }
-    if (settling && state[mutant] === MUTANT_PENDING && failed.size === 0 &&
-        status.whole.get(wholeKey(mutant, file))!.timedOut > 0 && status.staticSites.get(file)?.has(siteOf[mutant])) {
-      const asked = status.alternatives.get(mutant) ?? new Set<string>()
-      let left = 4 - asked.size
-      const chosenFiles = new Set([...asked].map((id) => status.tests.get(id)?.file))
-      const untried = [...status.tests].filter(([id, test]) =>
-        test.file !== file && !test.done && !test.failed && test.pristine && !status.flaky.has(id) &&
-        test.coverage?.covered.includes(mutant) && !test.judged.has(mutant) && !asked.has(id) &&
-        !status.triedSole.get(mutant)?.has(id) && status.staticSites.get(test.file)?.has(siteOf[mutant]) === false,
-      )
-      untried.sort(([a, first], [b, second]) => second.coverage!.sites - first.coverage!.sites || (a < b ? -1 : a > b ? 1 : 0))
-      for (const [id, test] of untried) {
-        if (left <= 0) break
-        if (chosenFiles.has(test.file)) continue
-        chosenFiles.add(test.file)
-        failed.add(id)
-        alternatives.push({ mutant, test: id })
-        left--
-      }
     }
     only.set(mutant, failed)
   }
@@ -1726,12 +1699,7 @@ function planPhase(
     if (status.detected.has(mutant)) continue
     const open = [...files].filter((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
     if (open.length === 0) continue
-    const alternativeFiles = new Set([...(status.witnesses.get(mutant) ?? [])]
-      .filter((id) => status.alternatives.get(mutant)?.has(id))
-      .map((id) => status.tests.get(id)!.file))
-    // The cheaper loading failure cannot confirm a witness found in another file.
-    const freshAlternative = (file: string) => alternativeFiles.has(file) && !status.whole.has(wholeKey(mutant, file))
-    open.sort((a, b) => Number(freshAlternative(b)) - Number(freshAlternative(a)) || (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
+    open.sort((a, b) => (fileMs.get(a) ?? 0) - (fileMs.get(b) ?? 0))
     wholeJob(mutant, open[0], true)
   }
   // The two runs of a pair wait for each other, each holding a worker, which takes two.
@@ -1782,7 +1750,7 @@ function planPhase(
     // there to show: those of a file whose runs have failed each other wait
     // for the machine to themselves, every other file goes beside them.
     plan.together = strictQuiet ? [] : Object.keys(plan.whole).filter((file) => !status.exclusive.has(file))
-    if (plan.quiet) return { plan, workByFile, alternatives }
+    if (plan.quiet) return { plan, workByFile }
   }
   for (const file of workers < 2 ? [] : status.pairWanted) {
     for (let i = 0; i < 2; i++) {
@@ -1806,7 +1774,7 @@ function planPhase(
     addWork(file, 0, 0, 2)
     workByFile.get(file)!.wholeMs ||= testMs.get(file) ?? 0
   }
-  return { plan, workByFile, alternatives }
+  return { plan, workByFile }
 }
 
 /**
@@ -2185,7 +2153,6 @@ export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<num
   for (const passes of status.measured.values()) count += passes
   for (const runs of status.calms.values()) count += runs
   for (const tried of status.triedSole.values()) count += tried.size
-  for (const asked of status.alternatives.values()) count += asked.size
   let marked = 0
   for (let mutant = 0; mutant < state.length; mutant++) if (state[mutant] !== MUTANT_PENDING) marked++
   // Withdrawing provisional detections can cancel an equal number of
@@ -2760,11 +2727,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
       if (stalled >= 3 || rounds >= options.maxRounds) {
         abandonedFiles.push(...next.workByFile.keys())
         break
-      }
-      if (next.alternatives.length > 0) {
-        // A stopped worker may report no test, but must not reset the search budget.
-        const lines = next.alternatives.map((entry) => JSON.stringify({ type: 'alternative', ...entry, at: Date.now() }))
-        fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${lines.join('\n')}\n`)
       }
       copying = cloning
       // Workers claim a test's mutants a few at a time and
