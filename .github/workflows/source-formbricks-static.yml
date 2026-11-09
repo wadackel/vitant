@@ -48,6 +48,8 @@ jobs:
           const summary = JSON.parse(fs.readFileSync('build/source/summary.json', 'utf8'))
           assert.equal(summary.exitCode, 0)
           assert.equal(summary.cases.length, 10)
+          assert(summary.runnerHashUnchanged)
+          assert(summary.runnerRemoved)
           for (const row of summary.cases) {
             assert(row.restored)
             assert.equal(row.original.code, 0)

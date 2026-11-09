@@ -60,14 +60,16 @@ async function main() {
   const selected = selectCases(manifest.cases, shardIndex, shardCount, ids)
   const require = createRequire(path.join(root, 'package.json'))
   const bin = path.join(path.dirname(require.resolve('vitest/package.json')), 'vitest.mjs')
-  const runner = path.join(scriptDirectory, 'batch-runner.mjs')
+  const runnerSource = path.join(scriptDirectory, 'batch-runner.mjs')
+  // A runner outside the target workspace resolves to an unavailable /@fs module in jsdom.
+  const runner = path.join(root, `.vitant-source-runner-${process.pid}.mjs`)
   const config = path.join(output, 'batch-runner.config.mjs')
   const configSource = path.join(root, manifest.config)
   fs.writeFileSync(config, `import base from ${JSON.stringify('./' + path.relative(output, configSource).split(path.sep).join('/'))}\nexport default { ...base, test: { ...base.test, runner: ${JSON.stringify(runner)}, bail: 0 } }\n`)
   const summary = {
     root, manifest: path.resolve(manifestArgument), manifestSha256: hash(manifestBytes), shardIndex, shardCount,
     ids: [...ids], selectedIndices: selected.map(({ index }) => index), node: process.version,
-    vitest: require('vitest/package.json').version, runnerSha256: hash(fs.readFileSync(runner)),
+    vitest: require('vitest/package.json').version, runnerSha256: hash(fs.readFileSync(runnerSource)),
     driverSha256: hash(fs.readFileSync(fileURLToPath(import.meta.url))), cases: [],
   }
   if (summary.vitest !== manifest.vitest) throw new Error('Vitest version differs from manifest')
@@ -121,7 +123,10 @@ async function main() {
     return result
   }
 
+  let runnerCreated = false
   try {
+    fs.writeFileSync(runner, fs.readFileSync(runnerSource), { flag: 'wx' })
+    runnerCreated = true
     save()
     for (const { entry, index } of selected) {
       const directory = path.join(output, `${String(index).padStart(3, '0')}-${entry.mutant.id}`)
@@ -181,6 +186,12 @@ async function main() {
   } catch (error) {
     summary.fatal = String(error)
   } finally {
+    if (runnerCreated) {
+      summary.runnerHashUnchanged = hash(fs.readFileSync(runner)) === summary.runnerSha256
+      if (!summary.runnerHashUnchanged) summary.fatal = 'Diagnostic runner bytes changed'
+      fs.unlinkSync(runner)
+      summary.runnerRemoved = true
+    }
     process.off('SIGINT', onInterrupt)
     process.off('SIGTERM', onTerminate)
     summary.exitCode = summary.fatal || summary.cases.some(record => record.fatal) ? 2 : summary.cases.some(record => record.assessment?.status === 'manual-review') ? 1 : 0
