@@ -2,7 +2,8 @@ name: hook-compat
 
 on:
   push:
-    branches: [experiment/yaml-speed-retained]
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:

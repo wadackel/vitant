@@ -136,7 +136,7 @@ StrykerJS 10 and vitant at [6c535f1](https://github.com/wadackel/vitant/commit/6
 
 When Stryker is usable, both time columns use those same pairs. Otherwise the vitant column uses all completed vitant runs. Stryker selects zero tests for covered survivors on i18next and date-fns. One es-toolkit `pr` Stryker run failed during a Vite cache rename; its duration is excluded, leaving five usable comparisons and six complete vitant runs. vitant remains slower on that changed-lines scope.
 
-YAML is faster than Stryker in all six final pairs, with median ratio 1.203. The investigation does not demonstrate a practical speed gain over its starting vitant version: median 1.010, below the predeclared 1.15 threshold. All judged stored-truth entries agree; these checks cover subsets of the generated mutants. [CI cohorts, correctness evidence, application results and historical macOS measurements](docs/benchmark.md#on-hosted-ci-runners).
+YAML is faster than Stryker in all six final pairs, with median ratio 1.203. Against [4909b59](https://github.com/wadackel/vitant/commit/4909b596203bd72cd6db587bf28db216e86c8793), the version before these changes, YAML is not measurably faster (median 1.010); that version already beat StrykerJS there. All judged stored-truth entries agree; these checks cover subsets of the generated mutants. [CI cohorts, correctness evidence, application results and historical macOS measurements](docs/benchmark.md#on-hosted-ci-runners).
 
 ## Limits
 
