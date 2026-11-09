@@ -63,7 +63,7 @@ async function main() {
   const runner = path.join(scriptDirectory, 'batch-runner.mjs')
   const config = path.join(output, 'batch-runner.config.mjs')
   const configSource = path.join(root, manifest.config)
-  fs.writeFileSync(config, `import base from ${JSON.stringify(pathToFileURL(configSource).href)}\nexport default { ...base, test: { ...base.test, runner: ${JSON.stringify(runner)}, bail: 0 } }\n`)
+  fs.writeFileSync(config, `import base from ${JSON.stringify('./' + path.relative(output, configSource).split(path.sep).join('/'))}\nexport default { ...base, test: { ...base.test, runner: ${JSON.stringify(runner)}, bail: 0 } }\n`)
   const summary = {
     root, manifest: path.resolve(manifestArgument), manifestSha256: hash(manifestBytes), shardIndex, shardCount,
     ids: [...ids], selectedIndices: selected.map(({ index }) => index), node: process.version,
