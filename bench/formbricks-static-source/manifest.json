@@ -1,0 +1,1283 @@
+{
+  "target": "formbricks",
+  "targetCommit": "33c0761485d709accb05da01a18fb1f67835183e",
+  "root": "bench/.work/formbricks/apps/web",
+  "config": "vitest.config.mts",
+  "vitest": "4.1.11",
+  "integrityFiles": [
+    "vitestSetup.ts",
+    "package.json"
+  ],
+  "sourceHashes": {
+    "lib/utils/file-conversion.ts": "97a46c8f758a80923b007a1e8cd6368b30fd1ea5307903bf62e200494f365f13",
+    "lib/utils/headers.ts": "d95a3950fbc23126a601da69ec85dab904f926c8d00b0abcf7a8c80016732805",
+    "lib/utils/html-opening-tag.ts": "f3e1e3d2e792f3f0f7c3b1579ed492b886bbe017f14e80ed23348de51177fbc2",
+    "lib/utils/like-pattern.ts": "4ff878d5824c280afe82bb5195ccc2c5a613a7281b15f38f356af317adf2d23f",
+    "lib/utils/postgres-text.ts": "19a13f91005a976c9a642f7eb24cf165b4b64e350761a8e960e80ca4853f4f86",
+    "lib/utils/prisma-constraint.ts": "12e72a2a156ba4ea7058dd3c90af0dd6b372a220d37b14960b2cd9cac50296ed",
+    "lib/utils/strings.ts": "a0bef0e28ca9811567dc3c2a1056fe43ffe5f18a293497c622ee25da28e0c8c6",
+    "lib/utils/unexpected-server-action-response.ts": "f7827ba517af1411107ca00bd8b0a8d67f9cfb35fef9e9d0e0abb2f8ae13a69e"
+  },
+  "cases": [
+    {
+      "mutant": {
+        "id": 518,
+        "file": "lib/utils/file-conversion.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 26,
+            "column": 25
+          },
+          "end": {
+            "line": 33,
+            "column": 23
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/file-conversion.test.ts",
+            "test": "quotes strings, leaves numbers bare, and ends with CRLF",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/file-conversion.test.ts",
+            "test": "quotes strings, leaves numbers bare, and ends with CRLF",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/file-conversion.test.ts",
+      "expectedTestIds": [
+        "1496370832_2_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 555,
+        "file": "lib/utils/headers.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 1,
+            "column": 26
+          },
+          "end": {
+            "line": 4,
+            "column": 15
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/headers.test.ts",
+            "test": "should return 'phone' for mobile user agents",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/headers.test.ts",
+            "test": "should return 'phone' for mobile user agents",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/headers.test.ts",
+      "expectedTestIds": [
+        "-1630709361_0_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 760,
+        "file": "lib/utils/html-opening-tag.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 16,
+            "column": 28
+          },
+          "end": {
+            "line": 21,
+            "column": 16
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/html-opening-tag.test.ts",
+            "test": "findOpeningTag reports the regex's index and capture ('p')",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/html-opening-tag.test.ts",
+            "test": "findOpeningTag reports the regex's index and capture ('p')",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/html-opening-tag.test.ts",
+      "expectedTestIds": [
+        "-1714533668_0_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 798,
+        "file": "lib/utils/html-opening-tag.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 27,
+            "column": 25
+          },
+          "end": {
+            "line": 28,
+            "column": 67
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/html-opening-tag.test.ts",
+            "test": "findOpeningTag reports the regex's index and capture ('p')",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/html-opening-tag.test.ts",
+            "test": "findOpeningTag reports the regex's index and capture ('p')",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/html-opening-tag.test.ts",
+      "expectedTestIds": [
+        "-1714533668_0_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 861,
+        "file": "lib/utils/html-opening-tag.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 106,
+            "column": 30
+          },
+          "end": {
+            "line": 107,
+            "column": 57
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/html-opening-tag.test.ts",
+            "test": "findClosingTag matches the case-insensitive close the regex used",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/html-opening-tag.test.ts",
+            "test": "findClosingTag matches the case-insensitive close the regex used",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/html-opening-tag.test.ts",
+      "expectedTestIds": [
+        "-1714533668_0_4"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 863,
+        "file": "lib/utils/like-pattern.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 6,
+            "column": 33
+          },
+          "end": {
+            "line": 6,
+            "column": 104
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "modules/ee/data-retention/lib/exemptions-service.test.ts",
+            "test": "searches survey names literally, so a wildcard in the search matches only itself",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "modules/ee/data-retention/lib/exemptions-service.test.ts",
+            "test": "searches survey names literally, so a wildcard in the search matches only itself",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "modules/ee/data-retention/lib/exemptions-service.test.ts",
+      "expectedTestIds": [
+        "268204954_0_4"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1194,
+        "file": "lib/utils/postgres-text.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 8,
+            "column": 25
+          },
+          "end": {
+            "line": 8,
+            "column": 54
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "app/api/v3/responses/lib/parse-v3-responses-list-query.test.ts",
+            "test": "a NULL byte in a language code is refused, on the list and the count",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "app/api/v3/responses/lib/parse-v3-responses-list-query.test.ts",
+            "test": "a NULL byte in a language code is refused, on the list and the count",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "app/api/v3/responses/lib/parse-v3-responses-list-query.test.ts",
+      "expectedTestIds": [
+        "-658687995_1_3"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1195,
+        "file": "lib/utils/postgres-text.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 10,
+            "column": 18
+          },
+          "end": {
+            "line": 10,
+            "column": 26
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "modules/survey/list/lib/survey-page.test.ts",
+            "test": "applies a name cursor for forward pagination",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "modules/survey/list/lib/survey-page.test.ts",
+            "test": "applies a name cursor for forward pagination",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "modules/survey/list/lib/survey-page.test.ts",
+      "expectedTestIds": [
+        "-786026331_1_2"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1196,
+        "file": "lib/utils/postgres-text.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 22,
+            "column": 29
+          },
+          "end": {
+            "line": 22,
+            "column": 109
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "modules/survey/list/lib/survey-page.test.ts",
+            "test": "applies a name cursor for forward pagination",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "modules/survey/list/lib/survey-page.test.ts",
+            "test": "applies a name cursor for forward pagination",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "modules/survey/list/lib/survey-page.test.ts",
+      "expectedTestIds": [
+        "-786026331_1_2"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1197,
+        "file": "lib/utils/postgres-text.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 22,
+            "column": 53
+          },
+          "end": {
+            "line": 22,
+            "column": 90
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "modules/survey/list/lib/survey-page.test.ts",
+            "test": "applies a name cursor for forward pagination",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "modules/survey/list/lib/survey-page.test.ts",
+            "test": "applies a name cursor for forward pagination",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "modules/survey/list/lib/survey-page.test.ts",
+      "expectedTestIds": [
+        "-786026331_1_2"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1199,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 5,
+            "column": 36
+          },
+          "end": {
+            "line": 5,
+            "column": 43
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "is true only for P2002",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "is true only for P2002",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_0_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1200,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 14,
+            "column": 39
+          },
+          "end": {
+            "line": 15,
+            "column": 101
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "is true only for P2002",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "is true only for P2002",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_0_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1206,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 32,
+            "column": 26
+          },
+          "end": {
+            "line": 33,
+            "column": 96
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "extracts columns from the Prisma 7 driver-adapter shape (no meta.target)",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "extracts columns from the Prisma 7 driver-adapter shape (no meta.target)",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1221,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 35,
+            "column": 22
+          },
+          "end": {
+            "line": 36,
+            "column": 93
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "extracts columns from the Prisma 7 driver-adapter shape (no meta.target)",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "extracts columns from the Prisma 7 driver-adapter shape (no meta.target)",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1228,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ObjectLiteral",
+        "replacement": "{}",
+        "location": {
+          "start": {
+            "line": 46,
+            "column": 74
+          },
+          "end": {
+            "line": 74,
+            "column": 1
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1229,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[]",
+        "location": {
+          "start": {
+            "line": 47,
+            "column": 36
+          },
+          "end": {
+            "line": 47,
+            "column": 45
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "maps the survey projection primary key to scope",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "maps the survey projection primary key to scope",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_2"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1230,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 47,
+            "column": 37
+          },
+          "end": {
+            "line": 47,
+            "column": 44
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "maps the survey projection primary key to scope",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "maps the survey projection primary key to scope",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_2"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1234,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[]",
+        "location": {
+          "start": {
+            "line": 49,
+            "column": 67
+          },
+          "end": {
+            "line": 54,
+            "column": 3
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1235,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 50,
+            "column": 4
+          },
+          "end": {
+            "line": 50,
+            "column": 17
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1236,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 51,
+            "column": 4
+          },
+          "end": {
+            "line": 51,
+            "column": 24
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1237,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 52,
+            "column": 4
+          },
+          "end": {
+            "line": 52,
+            "column": 21
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1238,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 53,
+            "column": 4
+          },
+          "end": {
+            "line": 53,
+            "column": 21
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1253,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[]",
+        "location": {
+          "start": {
+            "line": 65,
+            "column": 37
+          },
+          "end": {
+            "line": 65,
+            "column": 51
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1254,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 65,
+            "column": 38
+          },
+          "end": {
+            "line": 65,
+            "column": 50
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1266,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "ArrayDeclaration",
+        "replacement": "[]",
+        "location": {
+          "start": {
+            "line": 71,
+            "column": 24
+          },
+          "end": {
+            "line": 71,
+            "column": 47
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1267,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 71,
+            "column": 25
+          },
+          "end": {
+            "line": 71,
+            "column": 37
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 1268,
+        "file": "lib/utils/prisma-constraint.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 71,
+            "column": 39
+          },
+          "end": {
+            "line": 71,
+            "column": 46
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/prisma-constraint.test.ts",
+            "test": "resolves names the default rule cannot round-trip from the explicit map",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/prisma-constraint.test.ts",
+      "expectedTestIds": [
+        "1668557459_1_1_1"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 2100,
+        "file": "lib/utils/strings.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 15,
+            "column": 29
+          },
+          "end": {
+            "line": 15,
+            "column": 91
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/strings.test.ts",
+            "test": "returns true for capitalized strings",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/strings.test.ts",
+            "test": "returns true for capitalized strings",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/strings.test.ts",
+      "expectedTestIds": [
+        "821817995_0_2_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 2164,
+        "file": "lib/utils/unexpected-server-action-response.ts",
+        "mutator": "StringLiteral",
+        "replacement": "\"\"",
+        "location": {
+          "start": {
+            "line": 20,
+            "column": 51
+          },
+          "end": {
+            "line": 20,
+            "column": 57
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/unexpected-server-action-response.next-contract.test.ts",
+            "test": "an action answered with a load balancer's 502 page is recognized",
+            "by": "copied after load"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/unexpected-server-action-response.next-contract.test.ts",
+            "test": "an action answered with a load balancer's 502 page is recognized",
+            "by": "copied after load"
+          }
+        ]
+      },
+      "file": "lib/utils/unexpected-server-action-response.next-contract.test.ts",
+      "expectedTestIds": [
+        "1848601393_0_0"
+      ],
+      "fileLevelFailure": false
+    },
+    {
+      "mutant": {
+        "id": 2165,
+        "file": "lib/utils/unexpected-server-action-response.ts",
+        "mutator": "ArrowFunction",
+        "replacement": "() => undefined",
+        "location": {
+          "start": {
+            "line": 22,
+            "column": 53
+          },
+          "end": {
+            "line": 26,
+            "column": 72
+          }
+        },
+        "status": "Killed",
+        "static": true,
+        "coveredBy": 0,
+        "killedBy": 0,
+        "evidence": [
+          {
+            "kind": "failed",
+            "file": "lib/utils/unexpected-server-action-response.next-contract.test.ts",
+            "test": "an action answered with a load balancer's 502 page is recognized",
+            "by": "copied while loading"
+          },
+          {
+            "kind": "failed",
+            "quiet": true,
+            "file": "lib/utils/unexpected-server-action-response.next-contract.test.ts",
+            "test": "an action answered with a load balancer's 502 page is recognized",
+            "by": "copied while loading"
+          }
+        ]
+      },
+      "file": "lib/utils/unexpected-server-action-response.next-contract.test.ts",
+      "expectedTestIds": [
+        "1848601393_0_0"
+      ],
+      "fileLevelFailure": false
+    }
+  ]
+}
