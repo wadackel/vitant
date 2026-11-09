@@ -75,7 +75,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | `--report <file>` | | Write every mutant with its status as JSON. |
 | `--elements <file>` | | Write the result for [mutation-testing-elements](https://github.com/stryker-mutator/mutation-testing-elements): a page for a name ending in `.html`, JSON otherwise. |
 | `--incremental` | off | Reuse the last run's results for test files nothing they load has changed in. |
-| `--static` | off | Also run mutants in code that only runs while a module loads. |
+| `--static` | off | Judge mutants reached only while a module loads. |
 | `--confirm <n>` | every test file that reaches the mutant | Let a mutant go once it has passed the `n` test files nearest to it, and report it as Unconfirmed, not Survived, where others reach it. |
 | `--strict` | off | Make the runs that confirm a failure no lead vouches for one at a time on the whole machine. By default they go beside other test files' runs, one run of a file at a time, and only files whose runs have got in each other's way wait for the machine to themselves; two files that share a port or a path and never meet in the suite could fail each other there. |
 | `--led` | off | Leave a mutant a test failed with while trying it at that, with no run of its test file to confirm it, and report it as Led, not Killed. A mutant that failed a run of a test file next to other runs, with no lead, is not run again with nothing else running either, and is reported as Unconfirmed. |
@@ -100,7 +100,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | Unconfirmed | No run settled the mutant: a test that reaches it was left out for failing with no mutant on, failed in one run of its file and passed in another, or has failed and passed with another mutant; or the files beyond the `--confirm` limit were not run. Or, with `--led`, a file failed with the mutant next to other runs and no run made with nothing else running was made to confirm it; the report names the file. Counted as survived in the score. |
 | Led | Only with `--led`: a test failed with the mutant while trying it, and no run of the whole file was made to confirm it. Counted as survived in the score. |
 | NoCoverage | No test runs the mutated code. |
-| Static | The code only runs while a module loads, and no test or hook reaches it. Not run unless `--static` is given. |
+| Static | Reached only while loading and left unjudged. `--static` requests verdicts for these mutants. |
 | Pending | The run gave up on a test file before the mutant was settled. |
 
 The exact definitions are in [docs/design.md](docs/design.md#statuses).
@@ -118,34 +118,25 @@ How each step was arrived at, what it costs, and what went wrong before it exist
 
 ## Benchmark
 
-StrykerJS 10 and vitant over the same files of real projects at pinned commits, on GitHub's hosted runners. Seconds, the median of three runs; every judged mutant checked in each vitant report agreed with the stored ground truth, see [Checking the verdicts](docs/benchmark.md#checking-the-verdicts). The first table is from 3 and 4 November 2026, with both tools run sequentially in one job; the macOS runners are of one model, the Linux ones are not.
+StrykerJS 10 and vitant at [6c535f1](https://github.com/wadackel/vitant/commit/6c535f1842b7fcc4dbf3dce52e661296b7e6da83), measured sequentially on the same four-core Ubuntu 24.04 runner in each pair, with Node 24.22.2 and pinned target commits. Seconds are medians; speed ratios are medians of within-job ratios, so they need not equal the ratio of the displayed seconds. A ratio above one favors vitant.
 
-| Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
-|---|---|---|---|---|
-| ufo `all` | 54.4 | 23.7 | 63.5 | 44.8 |
-| zustand `all` | 221.2 | 41.5 | 264.7 | 51.5 |
-| es-toolkit `array` | 330.5 | 140.0 | 359.7 | 193.0 |
-| es-toolkit `pr`: lines the pinned commit changed | 38.3 | 49.0 | 31.8 | 47.9 |
-| immer `all` | 402.4 | 214.5 | 597.3 | 340.3 |
-| jotai `vanilla` | 1,855.6 | 439.5 | 1,748.1 | 459.1 |
-| query `core` | 1,737.1 | 397.3 | 1,445.5 | 369.8 |
-| valibot `schemas` | 1,008.6 | 168.7 | 992.5 | 155.5 |
-| xstate `core` | 584.7 | 375.9 | 702.6 | 520.5 |
+| Target and scope | Usable Stryker pairs / vitant runs | StrykerJS s | vitant s | Median paired Stryker / vitant |
+|---|---:|---:|---:|---:|
+| yaml `lexer` | 6 / 6 | 719.6 | 599.0 | 1.203 |
+| ufo `all` | 6 / 6 | 81.3 | 29.1 | 2.730 |
+| immer `all` | 6 / 6 | 520.3 | 293.0 | 1.764 |
+| es-toolkit `array` | 6 / 6 | 264.0 | 130.3 | 1.973 |
+| es-toolkit `pr` | 5 / 6 | 39.6 | 48.9 | 0.806 |
+| xstate `core` | 6 / 6 | 641.1 | 443.3 | 1.482 |
+| i18next `translation` | 0 / 6 | not comparable | 89.3 | — |
+| date-fns `dates` | 0 / 6 | not comparable | 26.2 | — |
+| Secretlint `messages` | 3 / 3 | 7.8 | 2.8 | 2.833 |
+| CSpell `distance` | 3 / 3 | 125.6 | 75.5 | 1.599 |
+| commitlint `lint` | 6 / 6 | 28.8 | 5.9 | 5.155 |
 
-On the eight whole-directory scopes that is 1.3 to 6.4 times as fast on macOS. On the few changed lines of es-toolkit `pr`, StrykerJS is the faster: one of its 93 mutants makes a loop that never ends, and vitant lets it run to the test's own limit before it calls it a timeout. The application targets, the scopes where StrykerJS does not start or reports nothing usable, and the other targets are in [docs/benchmark.md](docs/benchmark.md#on-hosted-ci-runners).
+When Stryker is usable, both time columns use those same pairs. Otherwise the vitant column uses all completed vitant runs. Stryker selects zero tests for covered survivors on i18next and date-fns. One es-toolkit `pr` Stryker run failed during a Vite cache rename; its duration is excluded, leaving five usable comparisons and six complete vitant runs. vitant remains slower on that changed-lines scope.
 
-The six added scopes, measured on 7 November 2026 at [d3967ce](https://github.com/wadackel/vitant/commit/d3967ce78e10644cd55e4bbbdc2e4d9c93929946), use three independent jobs per OS with both tools in the same job. All 36 vitant reports passed the stored-truth check and agreed across runs and OSes, treating Killed and Timeout as detected. [CI run and artifacts](https://github.com/wadackel/vitant/actions/runs/42335023200).
-
-| Target and scope | Linux: StrykerJS | vitant | macOS: StrykerJS | vitant |
-|---|---|---|---|---|
-| i18next `translation` | not comparable | 84.4 | not comparable | 119.6 |
-| yaml `lexer` | 727.3 | 649.2 | 714.3 | 681.0 |
-| date-fns `dates` | not comparable | 18.0 | not comparable | 24.4 |
-| Secretlint `messages` | 10.4 | 3.7 | 8.5 | 4.6 |
-| CSpell `distance` | 138.1 | 92.6 | 133.5 | 113.5 |
-| commitlint `lint` | 26.6 | 5.9 | 26.3 | 7.6 |
-
-StrykerJS selected no tests for the covered survivors of i18next and date-fns, so their timings are omitted. YAML's paired results were mixed: vitant was faster in one of three Linux runs and two of three macOS runs. [Measurement conditions and individual times](docs/benchmark.md#additional-scopes-7-november-2026) explain the spread.
+YAML is faster than Stryker in all six final pairs, with median ratio 1.203. The investigation does not demonstrate a practical speed gain over its starting vitant version: median 1.010, below the predeclared 1.15 threshold. All judged stored-truth entries agree; these checks cover subsets of the generated mutants. [CI cohorts, correctness evidence, application results and historical macOS measurements](docs/benchmark.md#on-hosted-ci-runners).
 
 ## Limits
 
