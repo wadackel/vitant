@@ -125,7 +125,7 @@ jobs:
       - uses: pnpm/action-setup@v6.1.0
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
@@ -191,7 +191,7 @@ jobs:
       - uses: pnpm/action-setup@v6.1.0
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
