@@ -97,6 +97,13 @@ describe('running the fixture project', () => {
     expect(statusOf('src/math.ts', 19, 'value % 2 !== 0')).toBe('Survived')
   })
 
+  it('preserves application error-listener management during whole-file runs', () => {
+    const mutants = result.mutants.filter((mutant) => mutant.file === 'src/process-listeners.ts')
+    expect(mutants).toHaveLength(10)
+    expect(mutants.filter((mutant) => mutant.status === 'Killed')).toHaveLength(2)
+    expect(mutants.filter((mutant) => mutant.status === 'Survived')).toHaveLength(8)
+  })
+
   it('credits every test that reaches a mutant, not just the first', () => {
     const mutant = result.mutants.find(
       (m) => m.file === 'src/math.ts' && m.location.start.line === 4 && m.replacement === 'value >= min',
@@ -160,6 +167,24 @@ describe('running the fixture project', () => {
     expect(statusOf('src/setup.ts', 8, 'value - 1')).toBe('Survived')
   })
 
+  it('does not detect a loop whose caller accepts its VM deadline', () => {
+    expect(statusOf('src/vm-deadline.ts', 2, '{}')).toBe('Survived')
+  })
+
+  it('detects a looping finalizer even when its caller catches errors', () => {
+    expect(statusOf('src/caught-finalizer.ts', 2, '{}')).toBe('Timeout')
+  })
+
+  it('preserves caller interruption within explicit and disabled hook deadlines', () => {
+    expect(statusOf('src/hook-vm.ts', 2, '{}')).toBe('Survived')
+    expect(statusOf('src/untimed-hook-vm.ts', 2, '{}')).toBe('Survived')
+  })
+
+  it('keeps internal hook contexts out of application spies', () => {
+    expect(statusOf('src/hook-context.ts', 1, '{}')).toBe('Survived')
+    expect(statusOf('src/hook-context.ts', 1, 'false')).toBe('Survived')
+  })
+
   it('detects a mutant that makes a test run out of its time, though no control follows the try', () => {
     expect(statusOf('src/delay.ts', 2, 'false')).toBe('Timeout')
     expect(statusOf('src/delay.ts', 2, 'true')).toBe('Survived')
@@ -193,6 +218,10 @@ describe('running the fixture project', () => {
     // The registry keeps the first value it is given; in a worker that ran
     // the test unmutated first, the mutated value is built and dropped.
     expect(statusOf('src/registry.ts', 8, '10 - 10')).toBe('Killed')
+  })
+
+  it('keeps an uncaught loop interruption as a timeout', () => {
+    expect(statusOf('src/uncaught-loop.ts', 2, 'true')).toBe('Timeout')
   })
 
   it('counts an error nothing handles, which fails a run whose tests all pass', () => {

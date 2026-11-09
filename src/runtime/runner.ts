@@ -3,7 +3,7 @@
 // project, so this file works with whichever Vitest version that project
 // resolves.
 
-import { createHook } from 'node:async_hooks'
+import { AsyncLocalStorage, createHook } from 'node:async_hooks'
 import fs from 'node:fs'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
 import path from 'node:path'
@@ -209,6 +209,22 @@ const realClearTimeout = clearTimeout
 const realSetInterval = setInterval
 const realClearInterval = clearInterval
 const preciseNow = performance.now.bind(performance)
+const resourceCpuUsage = process.cpuUsage.bind(process)
+const maximum = Math.max
+const finiteNumber = Number.isFinite
+const HookStorage = AsyncLocalStorage
+const runHookContext = HookStorage.prototype.run
+const readHookContext = HookStorage.prototype.getStore
+
+function hookStorage<T>(): AsyncLocalStorage<T> {
+  const storage = new HookStorage<T>()
+  // Application spies on the shared prototype must not observe the runner's contexts.
+  Object.defineProperties(storage, {
+    run: { value: runHookContext },
+    getStore: { value: readHookContext },
+  })
+  return storage
+}
 
 const sessionDir = process.env.VITANT_SESSION
 if (!sessionDir) throw new Error('VITANT_SESSION is not set')
@@ -438,7 +454,7 @@ function watch(): void {
   }).unref()
 }
 const heartbeat = () => {
-  const usage = process.cpuUsage()
+  const usage = resourceCpuUsage()
   beat[0] = (usage.user + usage.system) / 1000
   stretch[0] = realNow()
   // A copy whose watcher is gone has nobody to hand a verdict to, and one
@@ -654,15 +670,22 @@ let walking = false
  * half of one, if a copy ended while reading it, the next copy.
  */
 /** The wrapped channels: Vitest hands the runner one state and keeps another for itself. */
-const wrapped = new WeakSet<object>()
-function trackCalls(state: { rpc?: object } | undefined): void {
-  if (!state?.rpc || wrapped.has(state.rpc)) return
+const wrapped = new WeakMap<object, { unhandled: () => void }>()
+function trackCalls(state: { rpc?: object } | undefined, unhandled: () => void): void {
+  if (!state?.rpc) return
+  const previous = wrapped.get(state.rpc)
+  if (previous) {
+    previous.unhandled = unhandled
+    return
+  }
+  const observer = { unhandled }
   counting = true
   const plain = state.rpc
   state.rpc = new Proxy(plain, {
     get(target, key, receiver) {
       const value = Reflect.get(target, key, receiver)
       if (typeof value !== 'function' || typeof key !== 'string' || key.startsWith('$')) return value
+      if (!cloner && key !== 'onUnhandledError') return value
       // What a test prints is the one long message a copy would send, and a
       // copy stopped with half of it sent would leave the channel, which the
       // process it was copied from goes on using, with a message that never
@@ -672,8 +695,9 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       // The functions carry variants of themselves as properties, which stay reachable.
       return new Proxy(value, {
         apply(fn, self, args) {
+          if (key === 'onUnhandledError') observer.unhandled()
           const result = Reflect.apply(fn, self, args) as { then?: (resolved: () => void, rejected: () => void) => unknown } | undefined
-          if (result && typeof result.then === 'function') {
+          if (cloner && result && typeof result.then === 'function') {
             calls++
             const done = () => void calls--
             result.then(done, done)
@@ -683,7 +707,7 @@ function trackCalls(state: { rpc?: object } | undefined): void {
       })
     },
   })
-  wrapped.add(state.rpc)
+  wrapped.set(state.rpc, observer)
 }
 /**
  * How much longer than a loop past its count may keep the process busy the
@@ -1025,7 +1049,7 @@ function loadedModules(state: {
 }
 
 function cpuMs(): number {
-  const usage = process.cpuUsage()
+  const usage = resourceCpuUsage()
   return (usage.user + usage.system) / 1000
 }
 
@@ -1207,17 +1231,44 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
   return class MutationRunner extends Base {
     constructor(...args: any[]) {
       super(...args)
-      // From the start, so that as few calls as possible are out uncounted
-      // when the first copy is made.
-      if (cloner) {
-        trackCalls(this.workerState as { rpc?: object })
-        // What a test prints is sent through the state Vitest keeps in a
-        // global, which is not always the one the runner is given: its
-        // calls went uncounted, and a copy made with one under way read
-        // the answer in place of the process that waits for it.
-        trackCalls((globalThis as { __vitest_worker__?: { rpc?: object } }).__vitest_worker__)
-        trackChannel()
+      const global = globalThis as Record<string, unknown>
+      const observed = global.__vitant_hookPatched as { module?: string; hash?: string } | undefined
+      if (!observed?.module || !observed.hash) throw new Error('Vitest hook deadline observer was not loaded in this worker')
+      if (process.env.VITANT_DEBUG) emit({ type: 'hookObserver', module: observed.module, hash: observed.hash })
+      global.__vitant_hookStart = (timeout: number) => {
+        if (!this.whole || this.whole.trial !== undefined || !(timeout > 0) || !finiteNumber(timeout)) return undefined
+        const scope = { job: this.whole, timeout, active: false, clock: 0, cpu: 0, exceeded: () => false }
+        return {
+          run: (invoke: () => unknown) => this.hookContext.run(scope, invoke),
+          start: (exceeded: () => boolean) => {
+            scope.clock = preciseNow()
+            scope.cpu = cpuMs()
+            scope.exceeded = exceeded
+            scope.active = true
+            // A shorter parallel hook must not lower another hook's bound.
+            this.hookFloorMs = maximum(this.hookFloorMs, timeout)
+            this.wholeClockMs = maximum(this.wholeClockMs, this.wholeBase + timeout + LOOP_FIRST_MS)
+            if (bodyClockMs > 0) bodyClockMs = maximum(bodyClockMs, this.wholeClockMs)
+            this.limitWhole()
+            this.clockOn()
+            heartbeat()
+          },
+          end: () => { scope.active = false },
+        }
       }
+      // Replacing process listeners changes handlers owned by the project
+      // and can invoke its patched listener-management methods.
+      const unhandled = () => {
+        if (this.walking) this.walkFailed = true
+        if (this.whole && !config.dangerouslyIgnoreUnhandledErrors) {
+          this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
+        }
+      }
+      trackCalls(this.workerState as { rpc?: object }, unhandled)
+      // Vitest's global state is not always the one the runner is given;
+      // uncounted calls can leave a reply for the wrong copy to read.
+      trackCalls((globalThis as { __vitest_worker__?: { rpc?: object } }).__vitest_worker__, unhandled)
+      if (cloner) trackChannel()
     }
 
     /** Tests admitted in `onBeforeRunTask`, waiting for their first attempt. */
@@ -1248,6 +1299,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private measuring = false
     /** In a run of a whole file, the shortest stretch, on the processor and by the clock, that ends it: the suite's own limit for what is running. */
     private floorMs = 0
+    private hookFloorMs = 0
+    private hookContext = hookStorage<{ job: WholeJob; timeout: number; active: boolean; clock: number; cpu: number; exceeded: () => boolean }>()
     /** In a run of a whole file, the limit on a stretch that comes from what the file takes. */
     private wholeBase = 0
     /** In a run of a whole file, how long by the clock it may go without moving on, see `clockOn`. */
@@ -1649,8 +1702,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     /** The limits on a stretch of a run of a whole file, for what is running now. */
     private limitWhole(): void {
-      const floor = this.floorMs && this.floorMs + LOOP_FIRST_MS
-      limitStretch(Math.max(this.wholeBase, floor), floor)
+      const minimum = maximum(this.floorMs, this.hookFloorMs)
+      const floor = minimum && minimum + LOOP_FIRST_MS
+      limitStretch(maximum(this.wholeBase, floor), floor)
     }
 
     /**
@@ -1676,15 +1730,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       workerResources = this.heldBeforeLoad
       // What the tests before set off is put off in the copies, as a timer set while the file loaded is.
       timerHook.enable()
-      for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
-        for (const listener of process.listeners(event) as ((...args: unknown[]) => void)[]) {
-          process.off(event, listener)
-          process.on(event, (...args: unknown[]) => {
-            this.walkFailed = true
-            listener(...args)
-          })
-        }
-      }
     }
 
     /**
@@ -1822,21 +1867,6 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (beforeLoad) runtime.n = 0
       runtime.t = false
       runtime.l = job.fileLoops * config.loopFactor + config.loopSlack
-      // An error nothing handles fails the run with every test passing.
-      // Vitest reports one only while its own listener is the only one,
-      // taking any other for the project handling such errors itself, so
-      // a listener added here would silence it. Its listener is wrapped
-      // instead, and counts what it would report.
-      for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
-        for (const listener of process.listeners(event) as ((...args: unknown[]) => void)[]) {
-          process.off(event, listener)
-          process.on(event, (...args: unknown[]) => {
-            const reported = process.listeners(event).length === 1 && !this.config.dangerouslyIgnoreUnhandledErrors
-            if (reported && this.whole) this.wholeFailure ??= 'failed'
-            listener(...args)
-          })
-        }
-      }
       heartbeat()
       beatMutant[0] = job.mutant
       beatMutant[1] = 1
@@ -1850,6 +1880,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // where the project gives a test 60 s passes the suite, and was
       // reported as a timeout.
       this.wholeBase = job.stalled ? limitMs(file) : hardLimitMs(file)
+      this.hookFloorMs = 0
       this.floorMs = deadline(this.config.hookTimeout)
       this.limitWhole()
       heartbeat()
@@ -1866,7 +1897,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // loop of the file is likely to.
       const busyMs = Math.min(beat[1], Math.max(1000, job.fileMs * 2))
       runtime.x = (() => {
-        if (cpuMs() - beat[0] < Math.max(busyMs, this.floorMs) || realNow() - stretch[0] < this.floorMs) {
+        const stored = this.hookContext.getStore()
+        // Async descendants retain their store after the hook has settled.
+        const hook = stored?.active && stored.job === this.whole ? stored : undefined
+        const floor = hook?.timeout ?? this.floorMs
+        const elapsed = hook ? preciseNow() - hook.clock : realNow() - stretch[0]
+        if (cpuMs() - (hook?.cpu ?? beat[0]) < maximum(busyMs, floor) || elapsed < floor || (hook && !hook.exceeded())) {
           runtime.l += config.loopSlack
           return
         }

@@ -183,6 +183,80 @@ node bench/run.ts commitlint lint
 
 ## On hosted CI runners
 
+### Corrected Linux measurements
+
+StrykerJS 10 and vitant at [6c535f1](https://github.com/wadackel/vitant/commit/6c535f1842b7fcc4dbf3dce52e661296b7e6da83), measured sequentially on the same four-core Ubuntu 24.04 runner in each pair, with Node 24.22.2 and pinned target commits. Seconds are medians; speed ratios are medians of within-job ratios, so they need not equal the ratio of the displayed seconds. A ratio above one favors vitant.
+
+The final core comparison was measured on 8 November 2026 in the [initial cohort](https://github.com/wadackel/vitant/actions/runs/42508644063), [control repeats](https://github.com/wadackel/vitant/actions/runs/42510975871), [YAML/XState repeat](https://github.com/wadackel/vitant/actions/runs/42513011947), and [Immer repeat](https://github.com/wadackel/vitant/actions/runs/42517154492). There are 60 complete START/vitant pairs across 11 scopes, with `runs=1`, `records=true`, unchanged dependencies and default complete mutation testing. START is [4909b59](https://github.com/wadackel/vitant/commit/4909b596203bd72cd6db587bf28db216e86c8793). Every job records its source SHAs, CPU model, reports and worker records.
+
+| Target and scope | Usable Stryker pairs / vitant runs | StrykerJS s | vitant s | Median paired Stryker / vitant |
+|---|---:|---:|---:|---:|
+| yaml `lexer` | 6 / 6 | 719.6 | 599.0 | 1.203 |
+| ufo `all` | 6 / 6 | 81.3 | 29.1 | 2.730 |
+| immer `all` | 6 / 6 | 520.3 | 293.0 | 1.764 |
+| es-toolkit `array` | 6 / 6 | 264.0 | 130.3 | 1.973 |
+| es-toolkit `pr` | 5 / 6 | 39.6 | 48.9 | 0.806 |
+| xstate `core` | 6 / 6 | 641.1 | 443.3 | 1.482 |
+| i18next `translation` | 0 / 6 | not comparable | 89.3 | — |
+| date-fns `dates` | 0 / 6 | not comparable | 26.2 | — |
+| Secretlint `messages` | 3 / 3 | 7.8 | 2.8 | 2.833 |
+| CSpell `distance` | 3 / 3 | 125.6 | 75.5 | 1.599 |
+| commitlint `lint` | 6 / 6 | 28.8 | 5.9 | 5.155 |
+
+When Stryker is usable, both time columns use those same pairs. Otherwise the vitant column uses all completed vitant runs. Stryker selects zero tests for covered survivors on i18next and date-fns. One es-toolkit `pr` Stryker run failed during a Vite cache rename; its duration is excluded, leaving five usable comparisons and six complete vitant runs. vitant remains slower on that changed-lines scope.
+
+The table above is also in the README. Older measurements below retain their own source versions, operating systems and conditions.
+
+#### Comparison with the starting implementation
+
+| Target and scope | Pairs | START s | vitant s | Median paired START / vitant | vitant wins |
+|---|---:|---:|---:|---:|---:|
+| yaml `lexer` | 6 | 605.1 | 599.0 | 1.010 | 5 / 6 |
+| ufo `all` | 6 | 28.6 | 29.1 | 0.972 | 0 / 6 |
+| immer `all` | 6 | 282.0 | 293.0 | 0.959 | 0 / 6 |
+| es-toolkit `array` | 6 | 131.5 | 130.3 | 1.009 | 4 / 6 |
+| es-toolkit `pr` | 6 | 48.7 | 49.3 | 0.994 | 1 / 6 |
+| xstate `core` | 6 | 410.6 | 443.3 | 0.952 | 0 / 6 |
+| i18next `translation` | 6 | 83.2 | 89.3 | 0.927 | 0 / 6 |
+| date-fns `dates` | 6 | 25.4 | 26.2 | 0.966 | 0 / 6 |
+| Secretlint `messages` | 3 | 2.9 | 2.8 | 1.036 | 2 / 3 |
+| CSpell `distance` | 3 | 76.7 | 75.5 | 1.016 | 2 / 3 |
+| commitlint `lint` | 6 | 5.8 | 5.9 | 0.985 | 0 / 6 |
+
+The practical threshold was fixed at 1.15 after same-commit controls showed symmetric timing variation up to 1.1224. Acceptance requires a median paired ratio above 1.15 and five wins in six pairs, or eight in the one permitted extension to nine. Controls with two slower initial observations are repeated under the same rule with ratios inverted. The smaller consistent slowdowns in this table remain reported: i18next's median adverse ratio is 1.079, XState's 1.050 and Immer's 1.043. No control demonstrates a regression beyond 1.15; this is not a claim that no slowdown exists.
+
+YAML's final START/vitant ratios are 1.189216, 1.005897, 1.005264, 0.881818, 1.015082 and 1.018287: median 1.010490 with five wins. A practical gain over START is not demonstrated. Its Stryker/vitant ratios are 1.319636, 1.211827, 1.156111, 1.181431, 1.247924 and 1.194658: median 1.203242 with six wins, meeting the declared criterion. START already beats Stryker in all six of these jobs, with median Stryker/START ratio 1.188963, so the full Stryker advantage cannot be attributed to this investigation.
+
+The retained bounded alternative-witness search was also measured in isolation, with all correctness repairs on both sides. Against [the corrected control without that search](https://github.com/wadackel/vitant/commit/f08834c6eee9421e68f66c75d1c8a0154ff06095), nine YAML pairs have median control/vitant ratio 1.164625, range 0.885950–1.265082 and eight wins. The [first](https://github.com/wadackel/vitant/actions/runs/42530711432), [second](https://github.com/wadackel/vitant/actions/runs/42533399687) and [final](https://github.com/wadackel/vitant/actions/runs/42536497085) cohorts retain all observations. Quiet confirmations decrease in eight pairs, but trial CPU increases in seven. Median paired control/vitant ratios are 1.003479 for whole-file counts, 0.956931 for trial CPU and 1.039029 for summed whole-file time. Summed process durations are distinct from elapsed time; no phase duration is subtracted to estimate a speedup.
+
+#### Verdict evidence
+
+All judged entries in the stored truth agree in the current core reports. That is sampled and survivor-focused source-written truth, not exhaustive source execution for every generated mutant. Raw Killed/Timeout differences remain distinct and were checked against identity-specific source failures, native test deadlines, worker errors or corrections to old tool-generated loop classifications. An external process cap alone proves neither a failed test nor nontermination.
+
+YAML has 840 Stryker mutants, 737 vitant mutants and 729 matched identities in each final pair. The same 17 mutants survive Stryker but are detected by vitant and fail the source-written suite. Stryker also times out 3–14 matched mutants per pair that pass the source-written suite and survive vitant. All detected/undetected disagreements in these pairs agree with vitant under the stored truth; this does not establish source truth for all 737 mutants.
+
+The [standard validation](https://github.com/wadackel/vitant/actions/runs/42508450872) at the measured implementation passed all 35 jobs and 25 result manifests, including Linux truth and required non-Linux lanes. Full local truth also agrees: 272 judged basic mutants in default mode with 29 Static entries unjudged, all 301 with `--static`, and the stuck, clash and walk fixtures. The packed tool matches all 301 source mutants. [The actual YAML regression](https://github.com/wadackel/vitant/actions/runs/42508589857) confirms that an injected loop interruption retains Timeout rather than becoming an ordinary Killed verdict.
+
+#### Application comparisons
+
+The same implementation is also checked on Umami, Formbricks, Actual and both Immich scopes. Stryker's covered survivors with zero completed tests make its Umami and Immich results incomparable: two such survivors on Umami, 2,366 on Immich utils and 7,186 on services in each measured report. Actual has no usable paired Stryker comparison; a [Linux adapter reproduction](https://github.com/wadackel/vitant/actions/runs/42420417140) confirms that the pinned Stryker/Vitest combination cannot reuse its nested test identifiers. Its comparison runs START and vitant over the unchanged full server scope.
+
+| Target and scope | Valid START pairs / incomplete START runs | START s | vitant s | Median paired START / vitant | vitant wins | Median paired Stryker / vitant |
+|---|---:|---:|---:|---:|---:|---:|
+| Umami `lib` | 3 / 0 | 909.3 | 894.7 | 1.016 | 2 / 3 | not comparable |
+| Formbricks `utils` | 6 / 6 | 1,221.6 | 1,231.8 | 0.991 | 3 / 6 | 1.609 (11 / 12 wins) |
+| Actual `server` | 3 / 2 | 10,477.9 | 10,424.8 | 1.005 | 2 / 3 | not comparable |
+| Immich `utils` | 6 / 0 | 2,111.5 | 2,073.6 | 1.018 | 5 / 6 | not comparable |
+| Immich `services` | 6 / 0 | 2,675.4 | 2,699.9 | 0.997 | 3 / 6 | not comparable |
+
+Seconds are medians over the valid START pairs. An incomplete START run left mutants Pending after abandoning test files; the candidate completed every mutant in all 32 of its application runs, and its partial-duration baselines are excluded from the ratios. No scope shows a material regression, and none reaches the 1.15 threshold for a gain. The Formbricks Stryker ratio uses all twelve completed candidate runs, including the slow one below. The cohorts are the [initial applications](https://github.com/wadackel/vitant/actions/runs/42508652860), [Actual](https://github.com/wadackel/vitant/actions/runs/42508599983) with its [replacements](https://github.com/wadackel/vitant/actions/runs/42543636681), the [Immich repeat](https://github.com/wadackel/vitant/actions/runs/42529033753), the [Formbricks repeat](https://github.com/wadackel/vitant/actions/runs/42543626696) and its [replacements](https://github.com/wadackel/vitant/actions/runs/42559824759). Every candidate report agrees with every stored truth entry of its scope: 1,367 on Umami, 473 on Formbricks, 240 on Actual, 531 on Immich utils and 250 on services.
+
+Formbricks used an external per-vitant-process cap of 300 minutes for the initial cohort and replacements 1–4, and 150 minutes for the control repeat and its two replacements. Every recorded process ended before the smaller cap, including failed START attempts; the longest candidate took 4,291.6 seconds. This cap did not change Vitest test, hook or mutant limits.
+
+Formbricks has a retained slow observation: [one candidate run](https://github.com/wadackel/vitant/actions/runs/42543626696/job/128923840566) took 4,291.6 seconds against Stryker's 2,176.2 seconds. START left 914 Pending in that job, so its partial duration is excluded from START ratios. The candidate completed all 2,559 mutants. Two requested coverage measurements for the Cube client file finished without clean test-level observations, leaving its coverage uncertain. This triggers conservative whole-file checks, including checks of otherwise skipped static mutants. Conflicting whole-file outcomes later trigger exclusive reruns. The Cube file alone accounts for 1,117 whole-file runs; the late rounds contain 495 such checks and span 1,894.6 seconds of wall time. The records do not establish physical interference between processes, and the first rejected baseline error text was not retained.
+
+That run checks all 65 identities previously reported Static and detects 30 of them. Their mutation identities, static flags and zero test-level coverage are unchanged. [Thirty source-written checks on Linux](https://github.com/wadackel/vitant/actions/runs/42559023159) confirm every new Killed judgment: the original full files pass, the literal mutants fail at the expected test IDs, and all recorded source/test/configuration hashes restore. A previous Static label is an unjudged result, not evidence that the mutant passes. The slow observation and all raw label changes remain included.
+
 ### Additional scopes, 7 November 2026
 
 [Run 42335023200](https://github.com/wadackel/vitant/actions/runs/42335023200) measured the six additions at [d3967ce](https://github.com/wadackel/vitant/commit/d3967ce78e10644cd55e4bbbdc2e4d9c93929946). The workflow used `tools=stryker,vitant`, `runs=1`, `jobs=3` and `only=i18next yaml date-fns secretlint cspell commitlint`: three independent jobs per scope and OS, with StrykerJS and vitant run sequentially on the same machine in each job. All used Node 24.22.2. Linux was x64 with four cores; macOS was arm64 with three cores on an Apple M1 (Virtual).
@@ -235,7 +309,7 @@ The application targets, in runs of 31 October 2026 with the copies made while a
 | actual `server` | 13,887.3 (9V45) | 7,528.6 (9V74) | 18,884.8 | 7,611.2 |
 | Roo-Code `utils` | does not start | 892.1 (9V45) | does not start | 2,110.0 |
 
-On macOS that is 1.8 times as fast on umami, 1.4 on formbricks, 1.7 on immich `utils`, 1.4 on `services` and 2.5 on actual. On Linux no row had both tools on one processor; every time of this tool is below StrykerJS's. immich `services` on Linux took 9,076 s on a 9V74 before the timers were put off: `detect-libc` leaves a request to Node's thread pool under way while those test files load, no copy is made while they do, and `exiftool-vendored`'s timer kept every copy from being made once they had. formbricks on Linux had given up on `proxy.test.ts` in two runs out of four, after three rounds in which no process said a word of the file, with every mutant it reaches reported as pending; such a file's runs now go to workers started for them, which happened twice in the three runs above, and each of the three ran to its end.
+On macOS that is 1.8 times as fast on umami, 1.4 on formbricks, 1.7 on immich `utils`, 1.4 on `services` and 2.5 on actual. On Linux no row had both tools on one processor; every time of this tool is below StrykerJS's. immich `services` on Linux took 9,076 s on a 9V74 before the timers were put off: `detect-libc` leaves a request to Node's thread pool under way while those test files load, no copy is made while they do, and `exiftool-vendored`'s timer kept every copy from being made once they had. formbricks on Linux had given up on `proxy.test.ts` in two runs out of four, after three rounds in which no process said a word of the file, with every mutant it reaches reported as pending; such a file's runs now go to workers started for them, which happened twice in the three runs above, and each of the three ran to its end. That did not settle it: [4909b59](https://github.com/wadackel/vitant/commit/4909b596203bd72cd6db587bf28db216e86c8793) still gave up on the file in six of twelve later runs, and [6c535f1](https://github.com/wadackel/vitant/commit/6c535f1842b7fcc4dbf3dce52e661296b7e6da83) completed it in all twelve; see [Application comparisons](#application-comparisons).
 
 Where the scopes short of twice StrykerJS's speed spend their time, from the records of these runs (`bench/run.ts --records`, read with `bench/spent.ts`) and of runs on this Mac with three workers:
 

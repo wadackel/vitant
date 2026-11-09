@@ -308,10 +308,35 @@ describe('what the runs of whole files settle', () => {
 })
 
 describe('a round that got somewhere', () => {
+  it('counts completed whole-file runs when provisional detections are withdrawn', () => {
+    const state = new Uint8Array(4).fill(MUTANT_KILLED)
+    const records = Array.from(state, (_, mutant) => whole(mutant, 'failed'))
+    let previous = headway(inspect(records), state)
+
+    for (let mutant = 0; mutant < 3; mutant++) {
+      records.push(whole(mutant, 'failed', { alone: true }))
+      state[mutant] = 0
+      const current = headway(inspect(records), state)
+      expect(current).not.toEqual(previous)
+      previous = current
+    }
+  })
+
+  it('counts a mutation-state change even without another result record', () => {
+    const status = inspect([])
+    expect(headway(status, new Uint8Array([MUTANT_KILLED]))).not.toEqual(headway(status, new Uint8Array(1)))
+  })
+
+  it('does not count another inspection of unchanged work as progress', () => {
+    const status = inspect([whole(0, 'failed')])
+    const state = new Uint8Array(1)
+    expect(headway(status, state)).toEqual(headway(status, state))
+  })
+
   it('is one in which a test tried, with its file to itself, a mutant it had tried next to other runs', () => {
     const state = new Uint8Array(1)
     const before = [lead(0, 't1', false), lead(0, 't2', false), whole(0, 'failed'), lead(0, 't1')]
-    expect(headway(inspect([...before, lead(0, 't2')]), state)).toBeGreaterThan(headway(inspect(before), state))
+    expect(headway(inspect([...before, lead(0, 't2')]), state).work).toBeGreaterThan(headway(inspect(before), state).work)
   })
 })
 

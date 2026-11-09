@@ -25,6 +25,7 @@ export interface SessionConfig {
   /** A mutant run may execute `baselineLoops * loopFactor + loopSlack` guarded loop iterations. */
   loopFactor: number
   loopSlack: number
+  dangerouslyIgnoreUnhandledErrors?: boolean
 }
 
 /** What the main process asks of the workers in every round after the first. */
