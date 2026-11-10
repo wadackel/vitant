@@ -1137,10 +1137,12 @@ const nearestFiles = new Map<number, string[]>()
 const PASS_MS = 5000
 
 /**
- * With `--fast`, the tests that failed with a mutant only next to other runs
- * of their file and can still try it with the file to themselves.
+ * With `--fast`, the tests that looped with a mutant next to other runs of
+ * their file and can still try it with the file to themselves.
  */
 function besideLeft(status: ReturnType<typeof inspect>, mutant: number): string[] {
+  // A mutant a run of a whole file has failed is settled the way it is without the option.
+  if (!status.besideLoops.has(mutant) || status.evidence.get(mutant)?.some((entry) => entry.kind !== 'lead')) return []
   return [...(status.beside.get(mutant) ?? [])].filter((id) => {
     const test = status.tests.get(id)
     return test !== undefined && !test.done && !test.failed && test.coverage !== undefined && !status.flaky.has(id) && !status.triedSole.get(mutant)?.has(id)
@@ -2758,7 +2760,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
           continue
         }
         // With `--fast` a loop made next to other runs is tried again alone before anything else is made of the mutant.
-        if (fastLeads && status.besideLoops.has(mutant) && !status.detected.has(mutant) && (retryAlone.has(mutant) || state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT) && besideLeft(status, mutant).length > 0) {
+        if (fastLeads && !status.detected.has(mutant) && (retryAlone.has(mutant) || state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT) && besideLeft(status, mutant).length > 0) {
           retryAlone.add(mutant)
           if (state[mutant] !== MUTANT_PENDING) {
             state[mutant] = MUTANT_PENDING
