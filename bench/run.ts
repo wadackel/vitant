@@ -1,7 +1,7 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast] [--runs N] [--limit MINUTES]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES]
 //
 // `--limit` ends a run of this tool that goes on for that long, having first
 // written down what its processes were doing (`<tool>.hang.txt`).
@@ -39,7 +39,7 @@ const { values, positionals } = parseArgs({
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast] [--runs N] [--limit MINUTES] [--records] [--workers N]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES] [--records] [--workers N]')
   process.exit(1)
 }
 
@@ -200,10 +200,10 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4', 'vitant-led', 'vitant-fast']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
-  const toolRoot = tool === 'vitant-base' ? process.env.VITANT_BASE : repoRoot
+  const toolRoot = tool === 'vitant-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot
   if (!toolRoot) {
     console.error('vitant-base: VITANT_BASE is to name the checkout of the tool to compare with')
     process.exit(1)
@@ -213,7 +213,7 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if (tool === 'vitant-confirm4') args.push('--confirm', '4')
   if (tool === 'vitant-led') args.push('--led')
-  if (tool === 'vitant-fast') args.push('--fast')
+  if (tool === 'vitant-fast' || tool === 'vitant-base-fast') args.push('--fast')
   if ('changed' in scope) args.push('--changed', scope.changed)
   else for (const glob of scope.mutate) args.push('--mutate', glob)
   // What the last run of the scope said, to hold this one against. Two runs
@@ -253,7 +253,7 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
     mutants: Reported[]
   }
   reports[tool] = { counts, wholeRuns, work, quiet: quietRuns.failed + quietRuns.passed, rounds, abandonedFiles: abandonedFiles.length }
-  if (tool === 'vitant-confirm4' || tool === 'vitant-led' || tool === 'vitant-fast') {
+  if (tool === 'vitant-confirm4' || tool === 'vitant-led' || tool === 'vitant-fast' || tool === 'vitant-base-fast') {
     // A limit leaves runs out and guesses nothing: a mutant is unconfirmed or as the run without the limit has it.
     // A led mutant is held against the same run, by what that run has it as.
     if (!fs.existsSync(vitantReport)) {

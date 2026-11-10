@@ -1137,12 +1137,12 @@ const nearestFiles = new Map<number, string[]>()
 const PASS_MS = 5000
 
 /**
- * With `--fast`, the tests that looped with a mutant next to other runs of
- * their file and can still try it with the file to themselves.
+ * With `--fast`, the tests that failed or looped with a mutant next to other
+ * runs of their file and can still try it with the file to themselves.
  */
 function besideLeft(status: ReturnType<typeof inspect>, mutant: number): string[] {
   // A mutant a run of a whole file has failed is settled the way it is without the option.
-  if (!status.besideLoops.has(mutant) || status.evidence.get(mutant)?.some((entry) => entry.kind !== 'lead')) return []
+  if (status.evidence.get(mutant)?.some((entry) => entry.kind !== 'lead')) return []
   return [...(status.beside.get(mutant) ?? [])].filter((id) => {
     const test = status.tests.get(id)
     return test !== undefined && !test.done && !test.failed && test.coverage !== undefined && !status.flaky.has(id) && !status.triedSole.get(mutant)?.has(id)
@@ -1236,12 +1236,11 @@ function planPhase(
     }
     only.set(mutant, failed)
   }
-  // With `--fast` a test that looped with the mutant next to other runs of
-  // its file tries it again with the file to itself, where the loop is cut
-  // by its count, rather than a run of the whole file waiting out the test's
-  // limit: on a 4-core runner yaml sent 243 mutants to such runs. Retrying
-  // every lead that way instead took vue from 101 s to 108 s where
-  // whole-file runs had taken 62 s: an ordinary failure is cheap to confirm.
+  // With `--fast` a test that failed or looped with the mutant next to other
+  // runs of its file tries it again with the file to itself before any run of
+  // the whole file: that run would be followed by the same retry to make the
+  // failure count (immich 4,080 such mutants on a 4-core runner), and a
+  // whole-file run of a loop waits out the test's limit.
   if (fastLeads && settling) {
     for (const mutant of retryAlone) {
       const left = besideLeft(status, mutant)
