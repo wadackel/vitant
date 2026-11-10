@@ -7,11 +7,12 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { parseSync } from 'oxc-parser'
 import type { Generated } from './mutate/generate.ts'
 import { relative } from './session.ts'
 
 /** Bumped whenever cached data would be read differently. */
-const FORMAT = 9
+const FORMAT = 10
 
 export interface CachedTest {
   name: string
@@ -66,13 +67,62 @@ export function cachePath(root: string): string {
 
 const hashes = new Map<string, string>()
 
-/** Content hash of a file, or a marker when it does not exist. */
+const SCRIPT = /\.(m|c)?[jt]sx?$/
+// Syntax that only TypeScript reads: nothing of it is left once the module is compiled.
+const TYPE_ONLY = new Set([
+  'TSTypeAnnotation',
+  'TSTypeParameterDeclaration',
+  'TSTypeParameterInstantiation',
+  'TSInterfaceDeclaration',
+  'TSTypeAliasDeclaration',
+  'TSDeclareFunction',
+])
+const UNWRAPPED = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSTypeAssertion', 'ParenthesizedExpression'])
+
+function runtimeShape(node: unknown): unknown {
+  if (Array.isArray(node)) return node.flatMap((child) => (isTypeOnly(child) ? [] : [runtimeShape(child)]))
+  if (!node || typeof node !== 'object') return node
+  const object = node as Record<string, unknown>
+  if (typeof object.type === 'string' && UNWRAPPED.has(object.type)) return runtimeShape(object.expression)
+  const shape: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(object)) {
+    if (key === 'start' || key === 'end' || key === 'range' || key === 'loc') continue
+    // A type left out and no type at all have to look the same.
+    if (value === null || value === undefined || isTypeOnly(value)) continue
+    shape[key] = runtimeShape(value)
+  }
+  return shape
+}
+
+function isTypeOnly(node: unknown): boolean {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return false
+  const object = node as Record<string, unknown>
+  if (typeof object.type !== 'string') return false
+  if (TYPE_ONLY.has(object.type)) return true
+  if (object.declare === true) return true
+  if ((object.type === 'ImportDeclaration' || object.type === 'ExportNamedDeclaration') && (object.importKind === 'type' || object.exportKind === 'type')) return true
+  return (object.type === 'ImportSpecifier' || object.type === 'ExportSpecifier') && (object.importKind === 'type' || object.exportKind === 'type')
+}
+
+/**
+ * Content hash of a file, or a marker when it does not exist. A script is
+ * hashed by its syntax tree without positions, comments and types, so that a
+ * change Vite compiles away does not count as one; positions are left out too,
+ * which a test that reads its own stack's line numbers would see.
+ */
 export function hashFile(file: string): string {
   let hash = hashes.get(file)
   if (hash === undefined) {
-    hash = fs.existsSync(file)
-      ? crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex')
-      : 'missing'
+    if (!fs.existsSync(file)) hash = 'missing'
+    else {
+      const bytes = fs.readFileSync(file)
+      let content: string | Buffer = bytes
+      if (SCRIPT.test(file)) {
+        const parsed = parseSync(file, bytes.toString('utf8'))
+        if (parsed.errors.length === 0) content = JSON.stringify(runtimeShape(parsed.program), (_, value) => (typeof value === 'bigint' ? `${value}n` : value))
+      }
+      hash = crypto.createHash('sha1').update(content).digest('hex')
+    }
     hashes.set(file, hash)
   }
   return hash
@@ -89,6 +139,24 @@ export function fingerprint(root: string, vitestVersion: string, limits: unknown
     .sort()
     .map((name) => `${name}:${hashFile(path.join(root, name))}`)
   return JSON.stringify([FORMAT, process.versions.node.split('.')[0], process.platform, process.arch, vitestVersion, limits, shared])
+}
+
+/**
+ * Per source whose hash still holds, cached mutant keys by the current
+ * mutant's id, where the mutants are the same kinds and replacements in the
+ * same order: lines added or taken away that held no code moved them. Any
+ * other difference leaves the source out, and its mutants count as new.
+ */
+export function alignedKeys(cache: Cache, currentBySource: Map<string, string[]>, idByKey: Map<string, number>, root: string): Map<string, number> {
+  const moved = new Map<string, number>()
+  const kind = (key: string) => key.split('|').filter((_, i) => i !== 1 && i !== 2).join('|')
+  for (const [source, cached] of Object.entries(cache.mutants)) {
+    const current = currentBySource.get(source)
+    if (!current || current.length !== cached.length || hashFile(path.join(root, source)) === 'missing') continue
+    if (!current.every((key, i) => kind(key) === kind(cached[i]))) continue
+    cached.forEach((key, i) => moved.set(key, idByKey.get(current[i])!))
+  }
+  return moved
 }
 
 /** Per read site, `<source file>#<binding>`. */
@@ -150,11 +218,13 @@ export function isFresh(
   root: string,
   cache: Cache,
   currentBySource: Map<string, string[]>,
+  /** Sources whose mutants are those of the cached run in the same order, at moved positions. */
+  aligned: ReadonlySet<string>,
 ): boolean {
   for (const [dep, hash] of Object.entries(cached.deps)) {
     if (hashFile(path.join(root, dep)) !== hash) return false
     const current = currentBySource.get(dep)
-    if (!current) continue
+    if (!current || aligned.has(dep)) continue
     const known = new Set(cache.mutants[dep])
     if (current.some((key) => !known.has(key))) return false
   }

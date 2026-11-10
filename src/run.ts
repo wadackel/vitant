@@ -13,6 +13,7 @@ import {
   fingerprint,
   hashFile,
   isFresh,
+  alignedKeys,
   hintKeys,
   loadCache,
   loadKillers,
@@ -1863,6 +1864,10 @@ function restore(
     const source = relative(root, mutant.file)
     bySource.set(source, [...(bySource.get(source) ?? []), keys[id]])
   })
+  // Cached keys of sources that only moved, read as the current mutants they are.
+  const moved = alignedKeys(cache, bySource, idByKey, root)
+  const aligned = new Set(Object.keys(cache.mutants).filter((source) => cache.mutants[source].some((key) => moved.has(key))))
+  for (const [key, id] of moved) idByKey.set(key, id)
   const ids = (list: string[]) => list.flatMap((key) => idByKey.get(key) ?? [])
   const sites = (list: string[]) => [...new Set(ids(list).map((id) => generated.mutants[id].site))]
   const reused = new Set<string>()
@@ -1870,7 +1875,7 @@ function restore(
   const verdicts = new Map<number, number>()
   for (const file of files) {
     const cached = cache.files[relative(root, file)]
-    if (!cached || !isFresh(cached, root, cache, bySource)) continue
+    if (!cached || !isFresh(cached, root, cache, bySource, aligned)) continue
     reused.add(file)
     lines.push(
       JSON.stringify({

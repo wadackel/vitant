@@ -49,11 +49,23 @@ describe('reusing an earlier run', () => {
 
   it('runs again only the test files that load a changed file', () => {
     const before = runCopy().result
-    fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\n// touched\n')
+    // A statement with nothing to mutate, which the module still runs.
+    fs.appendFileSync(path.join(copy, 'src/counter.ts'), '\nexport {}\n')
     const after = runCopy()
     // Only counter.test.ts imports counter.ts.
     expect(after.reused).toBe(before.testFiles - 1)
     expect(after.result.counts).toEqual(before.counts)
+  }, 180_000)
+
+  it('reuses every test file after an edit of comments and types alone, at the moved positions', () => {
+    const before = runCopy().result
+    const file = path.join(copy, 'src/math.ts')
+    fs.writeFileSync(file, `// about the limits\ntype Bound = number\n\n${fs.readFileSync(file, 'utf8')}`)
+    const after = runCopy()
+    expect(after.reused).toBe(before.testFiles)
+    expect(statuses(after.result)).toEqual(statuses(before))
+    const line = (run: RunResult) => run.mutants.find((m) => m.file === 'src/math.ts')!.location.start.line
+    expect(line(after.result)).toBe(line(before) + 3)
   }, 180_000)
 
   it('picks up a new test that kills a mutant the cached run left alive', () => {
