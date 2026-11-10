@@ -27,6 +27,8 @@ for each one whether the suite detects it.
                           as unconfirmed, not as survived, where others reach it (default: all of them)
   --led                   leave a mutant a test failed with while trying it at that, with no run of its
                           test file to confirm it, and report it as led, not as killed
+  --fast                  --led and --confirm 1, where only a test that failed with its file to itself
+                          leads, and led mutants count as detected in the score
   --strict                make the runs that confirm a failure no lead vouches for one at a time on the
                           whole machine, not one per test file beside other files' runs
   --no-related            run every test file, not only those that import a mutated file
@@ -66,6 +68,7 @@ const { values, positionals } = (() => {
         static: { type: 'boolean', default: false },
         confirm: { type: 'string' },
         led: { type: 'boolean', default: false },
+        fast: { type: 'boolean', default: false },
         strict: { type: 'boolean', default: false },
         report: { type: 'string' },
         elements: { type: 'string' },
@@ -95,7 +98,7 @@ function recycleDefault(): number {
   return Math.max(512, Math.min(1536, Math.floor((os.totalmem() / 1024 / 1024) * 0.5 / workers / 1.5)))
 }
 
-const confirm = values.confirm === undefined ? Infinity : Number(values.confirm)
+const confirm = values.confirm === undefined ? (values.fast ? 1 : Infinity) : Number(values.confirm)
 if (!(confirm === Infinity || (Number.isInteger(confirm) && confirm >= 1))) {
   console.error(`--confirm takes a whole number of files, 1 or more\n\n${usage}`)
   process.exit(2)
@@ -123,6 +126,7 @@ const result = await run({
   clone: !values['no-clone'],
   static: values.static,
   led: values.led,
+  fast: values.fast,
   strict: values.strict,
   confirm,
   // No more than there are processors: tests that wait on the clock fail on a machine that is behind.
@@ -131,9 +135,10 @@ const result = await run({
 })
 
 const { counts } = result
-const detected = counts.Killed + counts.Timeout
+// With `--fast` a led mutant counts as detected: that is what the option is for.
+const detected = counts.Killed + counts.Timeout + (values.fast ? counts.Led : 0)
 // Unconfirmed counts as survived: a score that is to be relied on must not rest on runs that were not made.
-const covered = detected + counts.Survived + counts.Unconfirmed + counts.Led
+const covered = detected + counts.Survived + counts.Unconfirmed + (values.fast ? 0 : counts.Led)
 const percent = (part: number, whole: number) =>
   whole === 0 ? 'n/a' : `${((part / whole) * 100).toFixed(2)}%`
 
@@ -157,7 +162,7 @@ const order: MutantStatus[] = [
   'Timeout',
   'Survived',
   ...(confirm === Infinity && counts.Unconfirmed === 0 ? [] : (['Unconfirmed'] as const)),
-  ...(values.led ? (['Led'] as const) : []),
+  ...(values.led || values.fast ? (['Led'] as const) : []),
   'NoCoverage',
   'Static',
   'Pending',
@@ -168,7 +173,9 @@ if (confirm !== Infinity) {
     `--confirm ${confirm}: ${result.mutants.filter((mutant) => mutant.confirmed).length} mutant(s) passed the test files nearest to them and were not run against the rest; they count as survived in the score`,
   )
 }
-if (values.led) {
+if (values.fast) {
+  console.log(`--fast: ${counts.Led} mutant(s) failed a test with its file to itself and no run of a whole file confirmed it; they count as detected in the score`)
+} else if (values.led) {
   const sole = result.mutants.filter((mutant) => mutant.led?.sole).length
   console.log(
     `--led: ${counts.Led} mutant(s) failed a test while trying it and no run of a whole file confirmed it (${sole} with no other run of the test's file under way); ` +

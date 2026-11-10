@@ -358,3 +358,30 @@ describe('with leads taken at their word', () => {
     expect(`${delayed.status} ${delayed.besideOnly}`).toBe('Unconfirmed test/delay.test.ts')
   }, 180_000)
 })
+
+describe('with --fast', () => {
+  it('leads only by tests that failed with their file to themselves, and settles failures next to other runs', () => {
+    const report = reportPath('fast')
+    const cli = tool(['--root', fixture('basic'), '--fast', '--report', report])
+    expect(cli.status, cli.stderr).toBe(0)
+    const fast: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(fast.counts.Led).toBeGreaterThan(0)
+    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
+    for (const mutant of fast.mutants) {
+      expect(mutant.besideOnly).toBeUndefined()
+      const plain = kind(result.mutants[mutant.id].status)
+      if (mutant.status === 'Led') {
+        expect(mutant.led!.sole).toBe(true)
+        expect(['Killed', 'Survived']).toContain(plain)
+      } else if (mutant.status === 'Unconfirmed') expect(['Killed', 'Survived']).toContain(plain)
+      else expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${plain}`)
+    }
+    // The delayed test leads to nothing, so its failure is made again alone as without the option.
+    const delayed = fast.mutants.find((m) => m.file === 'src/delay.ts' && m.location.start.line === 2 && m.replacement === 'false')!
+    expect(kind(delayed.status)).toBe(kind(result.mutants[delayed.id].status))
+    const { Killed, Timeout, Led, Survived, Unconfirmed, NoCoverage } = fast.counts
+    const score = ((Killed + Timeout + Led) / (Killed + Timeout + Led + Survived + Unconfirmed + NoCoverage)) * 100
+    expect(cli.stdout).toContain(`score ${score.toFixed(2)}%`)
+    expect(cli.stdout).toMatch(/--fast: \d+ mutant\(s\) failed a test with its file to itself/)
+  }, 180_000)
+})

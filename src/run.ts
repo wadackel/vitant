@@ -221,6 +221,12 @@ export interface RunOptions extends GenerateOptions {
   confirm: number
   /** Leave a mutant a test failed with while trying it at that, reported as led, with no run of a whole file to confirm it. */
   led: boolean
+  /**
+   * With `led`: only a lead whose test failed with its file to itself counts,
+   * and a failure next to other runs that no lead vouches for is still made
+   * again with nothing else running.
+   */
+  fast: boolean
   /** Make the runs that are to be made with nothing else running one at a time on the machine, not only one per test file. */
   strict: boolean
   log: (message: string) => void
@@ -957,7 +963,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const files = suspects.get(mutant) ?? new Set()
     files.add(file)
     suspects.set(mutant, files)
-    if (!failedAgain && !refuted.has(test)) {
+    // Eight of nine leads that `--led` took wrongly over 28 scopes had other
+    // runs of their file under way: a test that times itself failed by chance.
+    if (!failedAgain && !refuted.has(test) && (!fastLeads || passedAgain)) {
       const entry = led.get(mutant) ?? { tests: new Set(), sole: false }
       entry.tests.add(test)
       entry.sole ||= passedAgain
@@ -1115,6 +1123,8 @@ let watchedAgain: readonly (number[] | undefined)[] = []
  * reported as led, never as killed.
  */
 let takeLeads = false
+/** See `RunOptions.fast`. */
+let fastLeads = false
 const unconfirmed = new Map<number, { passed: number; open: number }>()
 /** With `--led`, the mutants whose failure next to other runs was left at that, with the file. */
 const besideOnly = new Map<number, string>()
@@ -1142,7 +1152,7 @@ export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, str
   // With `--led` what these rounds settle is left at that, unconfirmed: the
   // tries made with a file to itself one after another were a quarter of a
   // run of rea's `ExecFileOutput.ts`.
-  if (takeLeads) return usual
+  if (takeLeads && !fastLeads) return usual
   return usual.workByFile.size > 0 ? usual : planPhase(...given, true)
 }
 
@@ -1514,7 +1524,7 @@ function planPhase(
     if (!quiet && !unknown && entry && entry.passed === 0 && entry.repeated === 0 && entry.failed + entry.timedOut + entry.died > 0) {
       // With `--led` the run made with nothing else running is left out like the run a lead would get: in rea's
       // `ReverseEngineeringService.ts` it was a round of its own for two mutants that a run had stopped hanging.
-      if (takeLeads) besideOnly.set(mutant, file)
+      if (takeLeads && !fastLeads) besideOnly.set(mutant, file)
       else quietJobs.push([mutant, file])
       return
     }
@@ -2205,7 +2215,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0, browserTests: 0 }
   judgeStatic = options.static
   confirmFiles = options.confirm
-  takeLeads = options.led
+  takeLeads = options.led || options.fast
+  fastLeads = options.fast
   strictQuiet = options.strict
   watchedReads = []
   unconfirmed.clear()
