@@ -606,6 +606,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const apart = new Map<string, boolean>()
   /** Per mutant, the tests that failed with it and passed without it next to other runs of their file. */
   const beside = new Map<number, Set<string>>()
+  /** Mutants whose test ran out of its loop's or the clock's limit while trying them next to other runs of its file. */
+  const besideLoops = new Set<number>()
   /** Per mutant, the tests that tried it with their file to themselves. */
   const triedSole = new Map<number, Set<string>>()
   const wholeRecords: (WholeRecord & { at: number })[] = []
@@ -747,6 +749,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         slow: record.overran === true,
       })
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
+      if (!record.sole && record.timedOut.includes(mutant)) besideLoops.add(mutant)
     }
     if (record.sole) {
       for (const mutant of [...record.survived, ...record.killed, ...record.timedOut, ...(record.suspected ?? [])]) {
@@ -1062,7 +1065,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1231,10 +1234,12 @@ function planPhase(
     }
     only.set(mutant, failed)
   }
-  // With `--fast` a lead made next to other runs of its file is tried again
-  // by its test with the file to itself, not confirmed by a run of the whole
-  // file: on a 4-core runner yaml sent 243 such mutants to whole-file runs,
-  // most of them waiting out a looping test's limit.
+  // With `--fast` a test that looped with the mutant next to other runs of
+  // its file tries it again with the file to itself, where the loop is cut
+  // by its count, rather than a run of the whole file waiting out the test's
+  // limit: on a 4-core runner yaml sent 243 mutants to such runs. Retrying
+  // every lead that way instead took vue from 101 s to 108 s where
+  // whole-file runs had taken 62 s: an ordinary failure is cheap to confirm.
   if (fastLeads && settling) {
     for (const mutant of retryAlone) {
       const left = besideLeft(status, mutant)
@@ -1286,7 +1291,7 @@ function planPhase(
   const tries = (id: string, mutant: number) =>
     only.has(mutant)
       ? settling && ((only.get(mutant)!.has(id) && !status.triedSole.get(mutant)?.has(id)) || again(id, mutant))
-      : !settling && !spent.has(mutant)
+      : !settling && !spent.has(mutant) && !(fastLeads && retryAlone.has(mutant))
   // In a file that runs one process at a time tests do not try mutants
   // one by one: one worker would go through a file that takes seconds once
   // a round for as many rounds as it takes, where a run of the whole file
@@ -2752,8 +2757,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
           }
           continue
         }
-        // With `--fast` such a lead is tried again alone before anything else is made of the mutant.
-        if (fastLeads && !status.detected.has(mutant) && (retryAlone.has(mutant) || state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT) && besideLeft(status, mutant).length > 0) {
+        // With `--fast` a loop made next to other runs is tried again alone before anything else is made of the mutant.
+        if (fastLeads && status.besideLoops.has(mutant) && !status.detected.has(mutant) && (retryAlone.has(mutant) || state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT) && besideLeft(status, mutant).length > 0) {
           retryAlone.add(mutant)
           if (state[mutant] !== MUTANT_PENDING) {
             state[mutant] = MUTANT_PENDING
