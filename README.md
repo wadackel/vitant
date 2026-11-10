@@ -74,7 +74,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | `--project <name>` | every project | The Vitest project to run. Repeatable. |
 | `--report <file>` | | Write every mutant with its status as JSON. |
 | `--elements <file>` | | Write the result for [mutation-testing-elements](https://github.com/stryker-mutator/mutation-testing-elements): a page for a name ending in `.html`, JSON otherwise. |
-| `--incremental` | off | Reuse the last run's results for test files nothing they load has changed in. |
+| `--incremental` | off | Reuse the last run's results for test files nothing they load has changed in; a change to comments, layout or types alone is no change. |
 | `--static` | off | Judge mutants reached only while a module loads. |
 | `--confirm <n>` | every test file that reaches the mutant | Let a mutant go once it has passed the `n` test files nearest to it, and report it as Unconfirmed, not Survived, where others reach it. |
 | `--strict` | off | Make the runs that confirm a failure no lead vouches for one at a time on the whole machine. By default they go beside other test files' runs, one run of a file at a time, and only files whose runs have got in each other's way wait for the machine to themselves; two files that share a port or a path and never meet in the suite could fail each other there. |
