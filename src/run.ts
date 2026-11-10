@@ -1133,6 +1133,19 @@ const nearestFiles = new Map<number, string[]>()
 /** The work counted for a pass through a file that tries nothing, as if it took this long. */
 const PASS_MS = 5000
 
+/**
+ * With `--fast`, the tests that failed with a mutant only next to other runs
+ * of their file and can still try it with the file to themselves.
+ */
+function besideLeft(status: ReturnType<typeof inspect>, mutant: number): string[] {
+  return [...(status.beside.get(mutant) ?? [])].filter((id) => {
+    const test = status.tests.get(id)
+    return test !== undefined && !test.done && !test.failed && test.coverage !== undefined && !status.flaky.has(id) && !status.triedSole.get(mutant)?.has(id)
+  })
+}
+/** With `--fast`, the mutants pending until such a test has tried them alone. */
+const retryAlone = new Set<number>()
+
 type Planned = {
   plan: RoundPlan
   workByFile: Map<string, { workMs: number; chunks: number; wholeRuns: number; wholeMs: number }>
@@ -1173,6 +1186,8 @@ function planPhase(
   // among the pending ones for one purpose: the tests that failed are to
   // try it. Given to every test that reaches it, one test a round, it would
   // take as many rounds as there are tests.
+  // A mutant whose tests have tried it alone, or can no longer, goes on as without `--fast`.
+  for (const mutant of [...retryAlone]) if (status.led.has(mutant) || besideLeft(status, mutant).length === 0) retryAlone.delete(mutant)
   const only = new Map<number, Set<string>>()
   const alternatives: Planned['alternatives'] = []
   // One file settles a mutant, so the tests of one file try it: the file
@@ -1215,6 +1230,18 @@ function planPhase(
       }
     }
     only.set(mutant, failed)
+  }
+  // With `--fast` a lead made next to other runs of its file is tried again
+  // by its test with the file to itself, not confirmed by a run of the whole
+  // file: on a 4-core runner yaml sent 243 such mutants to whole-file runs,
+  // most of them waiting out a looping test's limit.
+  if (fastLeads && settling) {
+    for (const mutant of retryAlone) {
+      const left = besideLeft(status, mutant)
+      if (only.has(mutant) || left.length === 0) continue
+      only.set(mutant, new Set(left))
+      settledIn.set(mutant, status.tests.get(left[0])!.file)
+    }
   }
   // A test that cannot be run a second time in a worker never tries a
   // mutant there, so a failure of the file in it has no witness and waits
@@ -1512,6 +1539,7 @@ function planPhase(
     // without settling anything is pending again, and the run that settles it
     // is what keeps it from being called survived.
     if (takeLeads && status.led.has(mutant) && (state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT)) return
+    if (fastLeads && retryAlone.has(mutant)) return
     const already = planned.get(wholeKey(mutant, file))
     if (already) {
       already.confirm ||= confirm
@@ -2217,6 +2245,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   confirmFiles = options.confirm
   takeLeads = options.led || options.fast
   fastLeads = options.fast
+  retryAlone.clear()
   strictQuiet = options.strict
   watchedReads = []
   unconfirmed.clear()
@@ -2716,12 +2745,23 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // mutants of rea's `ExecFileOutput.ts` led that way went on to be run
         // whole, with nothing else running at the end.
         if (takeLeads && status.led.has(mutant) && !status.detected.has(mutant)) {
+          retryAlone.delete(mutant)
           if (state[mutant] === MUTANT_PENDING || state[mutant] === MUTANT_STALLED) {
             state[mutant] = MUTANT_KILLED
             writeStateByte(paths.state, mutant, MUTANT_KILLED)
           }
           continue
         }
+        // With `--fast` such a lead is tried again alone before anything else is made of the mutant.
+        if (fastLeads && !status.detected.has(mutant) && (retryAlone.has(mutant) || state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT) && besideLeft(status, mutant).length > 0) {
+          retryAlone.add(mutant)
+          if (state[mutant] !== MUTANT_PENDING) {
+            state[mutant] = MUTANT_PENDING
+            writeStateByte(paths.state, mutant, MUTANT_PENDING)
+          }
+          continue
+        }
+        retryAlone.delete(mutant)
         if ((state[mutant] !== MUTANT_KILLED && state[mutant] !== MUTANT_TIMEOUT) || status.detected.has(mutant)) continue
         // A failure that settles nothing is not waited on: the test that
         // failed is given the mutant to try, which is what could settle it.
@@ -3155,7 +3195,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // Only what runs of whole files found counts; what a test found while trying a mutant led to them.
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
-    else if (pending) status = 'Pending'
+    else if (pending || retryAlone.has(mutant.id)) status = 'Pending'
     else if (takeLeads && (state[mutant.id] === MUTANT_KILLED || state[mutant.id] === MUTANT_TIMEOUT)) status = ledBy.has(mutant.id) ? 'Led' : 'Pending'
     else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || besideOnly.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
