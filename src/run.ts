@@ -221,6 +221,12 @@ export interface RunOptions extends GenerateOptions {
   confirm: number
   /** Leave a mutant a test failed with while trying it at that, reported as led, with no run of a whole file to confirm it. */
   led: boolean
+  /**
+   * With `led`: only a lead whose test failed with its file to itself counts,
+   * and a failure next to other runs that no lead vouches for is still made
+   * again with nothing else running.
+   */
+  fast: boolean
   /** Make the runs that are to be made with nothing else running one at a time on the machine, not only one per test file. */
   strict: boolean
   log: (message: string) => void
@@ -600,6 +606,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const apart = new Map<string, boolean>()
   /** Per mutant, the tests that failed with it and passed without it next to other runs of their file. */
   const beside = new Map<number, Set<string>>()
+  /** Mutants whose test ran out of its loop's or the clock's limit while trying them next to other runs of its file. */
+  const besideLoops = new Set<number>()
   /** Per mutant, the tests that tried it with their file to themselves. */
   const triedSole = new Map<number, Set<string>>()
   const wholeRecords: (WholeRecord & { at: number })[] = []
@@ -741,6 +749,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
         slow: record.overran === true,
       })
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
+      if (!record.sole && record.timedOut.includes(mutant)) besideLoops.add(mutant)
     }
     if (record.sole) {
       for (const mutant of [...record.survived, ...record.killed, ...record.timedOut, ...(record.suspected ?? [])]) {
@@ -957,7 +966,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const files = suspects.get(mutant) ?? new Set()
     files.add(file)
     suspects.set(mutant, files)
-    if (!failedAgain && !refuted.has(test)) {
+    // Eight of nine leads that `--led` took wrongly over 28 scopes had other
+    // runs of their file under way: a test that times itself failed by chance.
+    if (!failedAgain && !refuted.has(test) && (!fastLeads || passedAgain)) {
       const entry = led.get(mutant) ?? { tests: new Set(), sole: false }
       entry.tests.add(test)
       entry.sole ||= passedAgain
@@ -1054,7 +1065,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1115,6 +1126,8 @@ let watchedAgain: readonly (number[] | undefined)[] = []
  * reported as led, never as killed.
  */
 let takeLeads = false
+/** See `RunOptions.fast`. */
+let fastLeads = false
 const unconfirmed = new Map<number, { passed: number; open: number }>()
 /** With `--led`, the mutants whose failure next to other runs was left at that, with the file. */
 const besideOnly = new Map<number, string>()
@@ -1122,6 +1135,21 @@ const besideOnly = new Map<number, string>()
 const nearestFiles = new Map<number, string[]>()
 /** The work counted for a pass through a file that tries nothing, as if it took this long. */
 const PASS_MS = 5000
+
+/**
+ * With `--fast`, the tests that looped with a mutant next to other runs of
+ * their file and can still try it with the file to themselves.
+ */
+function besideLeft(status: ReturnType<typeof inspect>, mutant: number): string[] {
+  // A mutant a run of a whole file has failed is settled the way it is without the option.
+  if (!status.besideLoops.has(mutant) || status.evidence.get(mutant)?.some((entry) => entry.kind !== 'lead')) return []
+  return [...(status.beside.get(mutant) ?? [])].filter((id) => {
+    const test = status.tests.get(id)
+    return test !== undefined && !test.done && !test.failed && test.coverage !== undefined && !status.flaky.has(id) && !status.triedSole.get(mutant)?.has(id)
+  })
+}
+/** With `--fast`, the mutants pending until such a test has tried them alone. */
+const retryAlone = new Set<number>()
 
 type Planned = {
   plan: RoundPlan
@@ -1142,7 +1170,7 @@ export function planRound(...given: [ReturnType<typeof inspect>, Uint8Array, str
   // With `--led` what these rounds settle is left at that, unconfirmed: the
   // tries made with a file to itself one after another were a quarter of a
   // run of rea's `ExecFileOutput.ts`.
-  if (takeLeads) return usual
+  if (takeLeads && !fastLeads) return usual
   return usual.workByFile.size > 0 ? usual : planPhase(...given, true)
 }
 
@@ -1163,6 +1191,8 @@ function planPhase(
   // among the pending ones for one purpose: the tests that failed are to
   // try it. Given to every test that reaches it, one test a round, it would
   // take as many rounds as there are tests.
+  // A mutant whose tests have tried it alone, or can no longer, goes on as without `--fast`.
+  for (const mutant of [...retryAlone]) if (status.led.has(mutant) || besideLeft(status, mutant).length === 0) retryAlone.delete(mutant)
   const only = new Map<number, Set<string>>()
   const alternatives: Planned['alternatives'] = []
   // One file settles a mutant, so the tests of one file try it: the file
@@ -1205,6 +1235,20 @@ function planPhase(
       }
     }
     only.set(mutant, failed)
+  }
+  // With `--fast` a test that looped with the mutant next to other runs of
+  // its file tries it again with the file to itself, where the loop is cut
+  // by its count, rather than a run of the whole file waiting out the test's
+  // limit: on a 4-core runner yaml sent 243 mutants to such runs. Retrying
+  // every lead that way instead took vue from 101 s to 108 s where
+  // whole-file runs had taken 62 s: an ordinary failure is cheap to confirm.
+  if (fastLeads && settling) {
+    for (const mutant of retryAlone) {
+      const left = besideLeft(status, mutant)
+      if (only.has(mutant) || left.length === 0) continue
+      only.set(mutant, new Set(left))
+      settledIn.set(mutant, status.tests.get(left[0])!.file)
+    }
   }
   // A test that cannot be run a second time in a worker never tries a
   // mutant there, so a failure of the file in it has no witness and waits
@@ -1249,7 +1293,7 @@ function planPhase(
   const tries = (id: string, mutant: number) =>
     only.has(mutant)
       ? settling && ((only.get(mutant)!.has(id) && !status.triedSole.get(mutant)?.has(id)) || again(id, mutant))
-      : !settling && !spent.has(mutant)
+      : !settling && !spent.has(mutant) && !(fastLeads && retryAlone.has(mutant))
   // In a file that runs one process at a time tests do not try mutants
   // one by one: one worker would go through a file that takes seconds once
   // a round for as many rounds as it takes, where a run of the whole file
@@ -1502,6 +1546,7 @@ function planPhase(
     // without settling anything is pending again, and the run that settles it
     // is what keeps it from being called survived.
     if (takeLeads && status.led.has(mutant) && (state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT)) return
+    if (fastLeads && retryAlone.has(mutant)) return
     const already = planned.get(wholeKey(mutant, file))
     if (already) {
       already.confirm ||= confirm
@@ -1514,7 +1559,7 @@ function planPhase(
     if (!quiet && !unknown && entry && entry.passed === 0 && entry.repeated === 0 && entry.failed + entry.timedOut + entry.died > 0) {
       // With `--led` the run made with nothing else running is left out like the run a lead would get: in rea's
       // `ReverseEngineeringService.ts` it was a round of its own for two mutants that a run had stopped hanging.
-      if (takeLeads) besideOnly.set(mutant, file)
+      if (takeLeads && !fastLeads) besideOnly.set(mutant, file)
       else quietJobs.push([mutant, file])
       return
     }
@@ -2205,7 +2250,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0, browserTests: 0 }
   judgeStatic = options.static
   confirmFiles = options.confirm
-  takeLeads = options.led
+  takeLeads = options.led || options.fast
+  fastLeads = options.fast
+  retryAlone.clear()
   strictQuiet = options.strict
   watchedReads = []
   unconfirmed.clear()
@@ -2705,12 +2752,23 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // mutants of rea's `ExecFileOutput.ts` led that way went on to be run
         // whole, with nothing else running at the end.
         if (takeLeads && status.led.has(mutant) && !status.detected.has(mutant)) {
+          retryAlone.delete(mutant)
           if (state[mutant] === MUTANT_PENDING || state[mutant] === MUTANT_STALLED) {
             state[mutant] = MUTANT_KILLED
             writeStateByte(paths.state, mutant, MUTANT_KILLED)
           }
           continue
         }
+        // With `--fast` a loop made next to other runs is tried again alone before anything else is made of the mutant.
+        if (fastLeads && !status.detected.has(mutant) && (retryAlone.has(mutant) || state[mutant] === MUTANT_KILLED || state[mutant] === MUTANT_TIMEOUT) && besideLeft(status, mutant).length > 0) {
+          retryAlone.add(mutant)
+          if (state[mutant] !== MUTANT_PENDING) {
+            state[mutant] = MUTANT_PENDING
+            writeStateByte(paths.state, mutant, MUTANT_PENDING)
+          }
+          continue
+        }
+        retryAlone.delete(mutant)
         if ((state[mutant] !== MUTANT_KILLED && state[mutant] !== MUTANT_TIMEOUT) || status.detected.has(mutant)) continue
         // A failure that settles nothing is not waited on: the test that
         // failed is given the mutant to try, which is what could settle it.
@@ -3144,7 +3202,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // Only what runs of whole files found counts; what a test found while trying a mutant led to them.
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
-    else if (pending) status = 'Pending'
+    else if (pending || retryAlone.has(mutant.id)) status = 'Pending'
     else if (takeLeads && (state[mutant.id] === MUTANT_KILLED || state[mutant.id] === MUTANT_TIMEOUT)) status = ledBy.has(mutant.id) ? 'Led' : 'Pending'
     else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || besideOnly.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'

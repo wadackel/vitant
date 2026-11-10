@@ -77,6 +77,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | `--incremental` | off | Reuse the last run's results for test files nothing they load has changed in; a change to comments, layout or types alone is no change. |
 | `--static` | off | Judge mutants reached only while a module loads. |
 | `--confirm <n>` | every test file that reaches the mutant | Let a mutant go once it has passed the `n` test files nearest to it, and report it as Unconfirmed, not Survived, where others reach it. |
+| `--fast` | off | `--led` and `--confirm 1`, with a lead counted only from a test that failed with its file to itself, and led mutants counted as detected in the score. About 1.5 to 5 times as fast as without it on the benchmark targets. |
 | `--strict` | off | Make the runs that confirm a failure no lead vouches for one at a time on the whole machine. By default they go beside other test files' runs, one run of a file at a time, and only files whose runs have got in each other's way wait for the machine to themselves; two files that share a port or a path and never meet in the suite could fail each other there. |
 | `--led` | off | Leave a mutant a test failed with while trying it at that, with no run of its test file to confirm it, and report it as Led, not Killed. A mutant that failed a run of a test file next to other runs, with no lead, is not run again with nothing else running either, and is reported as Unconfirmed. |
 | `--no-related` | | Run every test file, not only those that import a mutated file. |
@@ -88,7 +89,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | `--help` | | Print the usage. |
 | `--version` | | Print the version. |
 
-`--confirm` and `--led` trade part of the answer for time. Neither guesses: what they left open is reported under a status of its own, and the score counts it as survived. What each saves and what it leaves out is measured in [docs/design.md](docs/design.md#tuning).
+`--confirm` and `--led` trade part of the answer for time. Neither guesses: what they left open is reported under a status of its own, and the score counts it as survived. `--fast` goes one step further and counts a led mutant as detected: on the Linux benchmark runs no led mutant was one the suite passes with, and locally two of about 21,000 were. What each saves and what it leaves out is measured in [docs/design.md](docs/design.md#tuning).
 
 ## Statuses
 
