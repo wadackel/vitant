@@ -553,6 +553,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const finished = new Map<string, string[][]>()
   /** Per test file, the shortest complete run of it, from taking it on to its end. */
   const fileWall = new Map<string, number>()
+  /** Per test file, the shortest time a worker took to load it: what one more worker on the file costs. */
+  const loadMs = new Map<string, number>()
   /** Per file, how often a worker gave up while going through it for coverage. */
   const taints = new Map<string, number>()
   /** Per test file, the mutants that would have changed a value while it loaded. */
@@ -635,6 +637,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   /** Files whose runs are not made before a test, and runs of mutants whose code ran before the test: see `WholeJob.before`. */
   const unwalked = new Set<string>()
   for (const record of records) {
+    if (record.type === 'loaded') loadMs.set(record.file, Math.min(loadMs.get(record.file) ?? Infinity, record.ms))
     if (record.type === 'walk') unwalked.add(record.mutant === undefined ? record.file : wholeKey(record.mutant, record.file))
     if (record.type === 'file' && record.complete) {
       order.set(record.file, record.tests)
@@ -1065,7 +1068,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { besideLoops, loadMs, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -2860,8 +2863,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // a worker cannot move to another file, and one that finds nothing
         // left costs little.
         const share = wholeWork > 0 ? (work.wholeRuns * work.wholeMs) / wholeWork : 0
-        // Starting one costs about as much as a second of such runs.
-        const worth = Math.ceil((work.wholeRuns * (work.wholeMs / 2 + 10)) / 1000)
+        // Starting one costs loading the file, a second at the least: in
+        // umami that was six seconds a worker, and a file split over workers
+        // by seconds of work loaded once for each.
+        const startMs = Math.max(1000, status.loadMs.get(spec.moduleId) ?? 0)
+        const worth = Math.ceil((work.wholeRuns * (work.wholeMs / 2 + 10)) / startMs)
         // The runs of a file that is run one process at a time stand in one
         // line whatever is done; more workers for it would hold a place each
         // while they wait their turn.
@@ -2902,7 +2908,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // A pass one worker makes is a chunk of its own, the rest the file's tries.
         let measured = next.plan.measure.includes(spec.moduleId) ? 1 : 0
         const chunks = work.chunks - measured
-        const tries = Math.max(1, Math.min(chunks, (takeLeads ? 2 : 1) * Math.ceil((work.workMs - measured * PASS_MS) / unitMs))) + Math.min(Math.round(likely), 2)
+        const tries = Math.max(1, Math.min(chunks, (takeLeads ? 2 : 1) * Math.ceil((work.workMs - measured * PASS_MS) / Math.max(unitMs, startMs)))) + Math.min(Math.round(likely), 2)
         // Tries one worker would make with the file to itself, which counts
         // for what they find, would have the pass beside them: it waits.
         if (measured > 0 && chunks > 0 && tries === 1 && wholeUnits + alone === 0) {
