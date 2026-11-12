@@ -46,6 +46,12 @@ if (!scope) {
 const dir = fs.realpathSync(projectDir(targetName))
 assertStrykerRestored(dir)
 const outDir = path.join(import.meta.dirname, 'results', `${targetName}-${scopeName}`)
+// Experiment variants: the tool from this checkout with something set in its environment.
+const toolEnv: Record<string, Record<string, string>> = {
+  'vitant-semi': { VITANT_V8_FLAGS: '--max-semi-space-size=64 --min-semi-space-size=64' },
+  'vitant-cc': { NODE_COMPILE_CACHE: path.join(outDir, 'compile-cache') },
+  'vitant-loopstop': { VITANT_LOOP_PROBE: '1', VITANT_LOOP_STOP: '1' },
+}
 fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
 const tools = new Set(values.tool === 'both' ? ['stryker', 'vitant'] : values.tool.split(','))
@@ -75,7 +81,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
       timeout: limitMs === undefined ? undefined : limitMs + 120_000,
       killSignal: 'SIGKILL',
       // The log then says what each round was made of.
-      env: { ...process.env, VITANT_DEBUG: '1' },
+      env: { ...process.env, VITANT_DEBUG: '1', ...toolEnv[tool] },
     })
     if (watcher?.pid) {
       try {
@@ -200,7 +206,7 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
   const toolRoot = tool === 'vitant-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot

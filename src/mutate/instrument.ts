@@ -107,6 +107,8 @@ interface Site {
   plan?: ProbePlan
   /** Whether the enclosing site's probe decides if this site's mutants changed anything. */
   deferred: boolean
+  /** Experiment: the names a loop reads, for the state probe. */
+  loopNames?: string[]
 }
 
 /** What a site's probe works out during the unmutated run. */
@@ -530,7 +532,18 @@ export function instrument(
         node.type === 'WhileStatement' ||
         node.type === 'DoWhileStatement'
       ) {
-        siteFor('loop', node.body, node.body.start)
+        const loopSite = siteFor('loop', node.body, node.body.start)
+        if (process.env.VITANT_LOOP_PROBE && !loopSite.loopNames) {
+          const names = new Set<string>()
+          walk(node, ({ node: inner, parent: up, key: at }) => {
+            if (inner.type !== 'Identifier' || !up) return
+            if (up.type === 'MemberExpression' && at === 'property' && !up.computed) return
+            if ((up.type === 'Property' || up.type === 'MethodDefinition' || up.type === 'PropertyDefinition') && at === 'key' && !up.computed) return
+            if (up.type === 'LabeledStatement' || up.type === 'BreakStatement' || up.type === 'ContinueStatement') return
+            if (/^[A-Za-z_$][\w$]*$/.test(inner.name) && inner.name !== 'arguments') names.add(inner.name)
+          })
+          loopSite.loopNames = [...names].slice(0, 40)
+        }
       }
       if (node.type === 'ExpressionStatement' && statementLists.has(parent.type)) statementStarts.add(node.start)
       if (node.type === 'Identifier' && namespaces.has(node.name)) {
@@ -899,6 +912,11 @@ export function instrument(
 
   const render = (site: Site, range: (from: number, to: number, children: Site[]) => string, original: (site: Site) => string): string => {
     if (site.kind === 'loop') {
+      if (site.loopNames) {
+        const getters = site.loopNames.map((name) => `()=>${name}`).join(',')
+        const probe = `${RUNTIME_GLOBAL}.Q&&${RUNTIME_GLOBAL}.Q(${options.mutantBase},${site.start},[${getters}],()=>this,${JSON.stringify(site.loopNames.join(','))});`
+        return `{if(++${RUNTIME_GLOBAL}.n>${RUNTIME_GLOBAL}.l){${probe}${RUNTIME_GLOBAL}.x()}${range(site.start, site.end, site.children)}}`
+      }
       return `{if(++${RUNTIME_GLOBAL}.n>${RUNTIME_GLOBAL}.l)${RUNTIME_GLOBAL}.x();${range(site.start, site.end, site.children)}}`
     }
     if (site.kind === 'block') {

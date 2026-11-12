@@ -327,6 +327,101 @@ function emit(record: unknown): void {
 
 emit({ type: 'worker' })
 
+// Experiment: once a loop is past its count, compare what it can see from one
+// iteration to the next: equal, equal but for arrays/maps/sets that grew, or changed.
+let loopStopAsked: string | undefined
+if (process.env.VITANT_LOOP_PROBE) {
+  const isProxy = runtime.P
+  const describe = Object.getOwnPropertyDescriptors
+  const mapSize = Object.getOwnPropertyDescriptor(Map.prototype, 'size')!.get!
+  const setSize = Object.getOwnPropertyDescriptor(Set.prototype, 'size')!.get!
+  const ids = new WeakMap<object, number>()
+  let nextId = 1
+  const idOf = (value: object) => {
+    let id = ids.get(value)
+    if (id === undefined) ids.set(value, (id = nextId++))
+    return id
+  }
+  const leaf = (value: unknown): string => {
+    if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
+      return typeof value === 'bigint' ? `${value}n` : typeof value === 'symbol' ? `sym` : `${typeof value}:${String(value)}`
+    }
+    return `#${idOf(value as object)}`
+  }
+  // One level into objects: own data properties only, no getters, no proxies.
+  const shallow = (value: unknown, into: Map<string, string>, prefix: string) => {
+    into.set(prefix, leaf(value))
+    if (value === null || typeof value !== 'object') return
+    if (isProxy(value)) { into.set(`${prefix}!`, 'proxy'); return }
+    if (value instanceof Map) { into.set(`${prefix}#size`, String(Reflect.apply(mapSize, value, []))); return }
+    if (value instanceof Set) { into.set(`${prefix}#size`, String(Reflect.apply(setSize, value, []))); return }
+    let props: Record<string, PropertyDescriptor>
+    try { props = describe(value) } catch { into.set(`${prefix}!`, 'opaque'); return }
+    const keys = Object.keys(props)
+    if (Array.isArray(value)) {
+      into.set(`${prefix}#len`, String(keys.length - 1))
+      // An array's elements are compared only up to what both iterations had; growth is told apart.
+      for (const key of keys.slice(0, 64)) if (key !== 'length' && 'value' in props[key]) into.set(`${prefix}[${key}]`, leaf(props[key].value))
+      return
+    }
+    for (const key of keys.slice(0, 200)) {
+      const d = props[key]
+      into.set(`${prefix}.${key}`, 'value' in d ? leaf(d.value) : 'accessor')
+      if ('value' in d && Array.isArray(d.value) && !isProxy(d.value)) into.set(`${prefix}.${key}#len`, String(d.value.length))
+      if ('value' in d && typeof d.value === 'string') into.set(`${prefix}.${key}#strlen`, String(d.value.length))
+    }
+  }
+  const loops = new Map<string, { last?: Map<string, string>; repeat: number; grow: number; change: number; hits: number; changed: Map<string, number>; grown: Map<string, number>; streak: number; done: boolean }>()
+  ;(runtime as unknown as Record<string, unknown>).Q = (base: number, pos: number, getters: (() => unknown)[], self: () => unknown, names: string) => {
+    const key = `${base}:${pos}`
+    let loop = loops.get(key)
+    if (!loop) loops.set(key, (loop = { repeat: 0, grow: 0, change: 0, hits: 0, changed: new Map(), grown: new Map(), streak: 0, done: false }))
+    if (loop.done) return
+    loop.hits++
+    const now = new Map<string, string>()
+    const list = names.split(',')
+    getters.forEach((get, i) => { let v: unknown; try { v = get() } catch { v = 'unbound' } shallow(v, now, list[i]) })
+    let me: unknown
+    try { me = self() } catch { me = undefined }
+    shallow(me, now, 'this')
+    const last = loop.last
+    if (last) {
+      let grew = false
+      let other = false
+      for (const [k, v] of now) {
+        const before = last.get(k)
+        if (before === v) continue
+        const growth = /#(len|size|strlen)$/.test(k) && before !== undefined && Number(v) > Number(before)
+        // Elements past what the array held one iteration before are new, not changed.
+        const appended = /\[\d+\]$/.test(k) && before === undefined
+        if (growth || appended) {
+          grew = true
+          const what = appended ? k.replace(/\[\d+\]$/, '[]') : k
+          loop.grown.set(what, (loop.grown.get(what) ?? 0) + 1)
+        }
+        else { other = true; loop.changed.set(k, (loop.changed.get(k) ?? 0) + 1) }
+      }
+      for (const k of last.keys()) if (!now.has(k)) { other = true; loop.changed.set(k, (loop.changed.get(k) ?? 0) + 1) }
+      // Only arrays may grow for the stop: strings, maps and sets reach a limit that throws something catchable within seconds.
+      const unsafeGrowth = [...now.keys()].some((k) => /#(strlen|size)$/.test(k) && last.get(k) !== now.get(k))
+      if (other) loop.change++
+      else if (grew) loop.grow++
+      else loop.repeat++
+      loop.streak = other || unsafeGrowth ? 0 : loop.streak + 1
+      if (process.env.VITANT_LOOP_STOP && loop.streak >= 3) {
+        loopStopAsked = `${base}:${pos}`
+        loop.streak = 0
+      }
+    }
+    loop.last = now
+    if (loop.hits === 6 || loop.hits === 300) {
+      loop.done = loop.hits === 300
+      const changed = [...loop.changed].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, n]) => `${k}:${n}`)
+      emit({ type: 'loopProbe', grown: [...loop.grown.keys()].slice(0, 8), hits: loop.hits, mutant: runtime.a, base, pos, names, repeat: loop.repeat, grow: loop.grow, change: loop.change, changed })
+    }
+  }
+}
+
 /**
  * A mutant that blocks the event loop never yields back to the runner, so only
  * another thread can notice. It records which test stalled under which mutant
@@ -1897,6 +1992,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // loop of the file is likely to.
       const busyMs = Math.min(beat[1], Math.max(1000, job.fileMs * 2))
       runtime.x = (() => {
+        if (loopStopAsked !== undefined) {
+          emit({ type: 'loopStop', mutant: runtime.a, loop: loopStopAsked, file: this.wholeFile })
+          loopStopAsked = undefined
+          return this.loopLimit()
+        }
         const stored = this.hookContext.getStore()
         // Async descendants retain their store after the hook has settled.
         const hook = stored?.active && stored.job === this.whole ? stored : undefined

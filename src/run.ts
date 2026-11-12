@@ -2424,6 +2424,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   workerArgv.length = 0
   if (addon) {
     workerArgv.push('--single-threaded', `--require=${paths.preload}`)
+    workerArgv.push(...(process.env.VITANT_V8_FLAGS ?? '').split(' ').filter(Boolean))
     process.env.VITANT_FORK = addon
     // macOS ends a copy in which a class of its own frameworks is set up
     // for the first time, lest another thread was at that when the copy was
