@@ -925,6 +925,23 @@ async function calm(before: Map<string, number>, ignored: string[]): Promise<boo
  * file opened and left open keeps nothing alive, and copies made afterwards
  * would read on from where the one before stopped.
  */
+// Experiment (VITANT_DESC_RELAX, Linux): descriptors opened since loading that are all regular files
+// (a snapshot file being read, for one) do not keep a copy from being made before a test.
+function onlyRegularFilesOpened(open: Set<string> | undefined, before: Set<string> | undefined): boolean {
+  if (!process.env.VITANT_DESC_RELAX || !open || !before) return false
+  const added = [...open].filter((fd) => !before.has(fd))
+  const regular = added.every((fd) => {
+    try {
+      const target = fs.readlinkSync(`/proc/self/fd/${fd}`)
+      return target.startsWith('/') && !target.startsWith('/dev/') && !target.startsWith('/proc/') && fs.statSync(target).isFile()
+    } catch {
+      return false
+    }
+  })
+  if (regular && added.length > 0) emit({ type: 'relaxed', fds: added.length })
+  return regular
+}
+
 function openDescriptors(): Set<string> | undefined {
   try {
     return new Set(fs.readdirSync('/dev/fd'))
@@ -1875,7 +1892,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           ? 'wrote'
           : calls > 0 || unanswered.size > 0
             ? 'calls'
-            : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
+            : (open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))) && !onlyRegularFilesOpened(open, this.openBeforeLoad)
               ? 'descriptors'
               : // A close under way finishes in this process and never in the
                 // copy, which keeps the descriptor and is told nothing: in immer

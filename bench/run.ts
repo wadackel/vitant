@@ -52,6 +52,8 @@ const toolEnv: Record<string, Record<string, string>> = {
   'vitant-cc': { NODE_COMPILE_CACHE: path.join(outDir, 'compile-cache') },
   'vitant-loopstop': { VITANT_LOOP_PROBE: '1', VITANT_LOOP_STOP: '1' },
   'vitant-forktime': { VITANT_FORK_TIMING: '1' },
+  'vitant-desc': { VITANT_DESC_RELAX: '1' },
+  'vitant-diverge': { VITANT_DIVERGE: path.join(outDir, 'vitant-diverge') },
   'vitant-resolve': { VITANT_V8_FLAGS: `--require=${path.join(import.meta.dirname, 'resolve-memo.cjs')}`, RESOLVE_MEMO: path.join(outDir, 'resolve-memo.tsv') },
 }
 fs.mkdirSync(outDir, { recursive: true })
@@ -208,7 +210,7 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-forktime', 'vitant-resolve', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-forktime', 'vitant-resolve', 'vitant-desc', 'vitant-diverge', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
   const toolRoot = tool === 'vitant-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot
@@ -232,8 +234,13 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', '
   fs.rmSync(report, { force: true })
   // Each run of the memo variant starts with nothing remembered, as a run on CI does.
   if (tool === 'vitant-resolve') for (const made of ['resolve-memo.tsv', 'resolve-memo.tsv.claims']) fs.rmSync(path.join(outDir, made), { recursive: true, force: true })
+  if (tool === 'vitant-diverge') {
+    fs.rmSync(path.join(outDir, 'vitant-diverge'), { recursive: true, force: true })
+    fs.mkdirSync(path.join(outDir, 'vitant-diverge'), { recursive: true })
+  }
   // From the project, as its own scripts run: configs resolve paths against the working directory.
   const timing = time(tool, process.execPath, args, dir)
+  { const sites = path.join(dir, 'node_modules/.vitant/session/sites.bin'); if (fs.existsSync(sites)) fs.copyFileSync(sites, path.join(outDir, `${tool}-sites.bin`)) }
   timings.push(timing)
   // What the workers wrote down goes with a run that went wrong: the report
   // says what came of it, and only this says how. The next run of the
