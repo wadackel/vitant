@@ -52,6 +52,7 @@ const toolEnv: Record<string, Record<string, string>> = {
   'vitant-cc': { NODE_COMPILE_CACHE: path.join(outDir, 'compile-cache') },
   'vitant-loopstop': { VITANT_LOOP_PROBE: '1', VITANT_LOOP_STOP: '1' },
   'vitant-forktime': { VITANT_FORK_TIMING: '1' },
+  'vitant-resolve': { VITANT_V8_FLAGS: `--require=${path.join(import.meta.dirname, 'resolve-memo.cjs')}`, RESOLVE_MEMO: path.join(outDir, 'resolve-memo.tsv') },
 }
 fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
@@ -207,7 +208,7 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-forktime', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-forktime', 'vitant-resolve', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
   const toolRoot = tool === 'vitant-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot
@@ -229,6 +230,8 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', '
   // stored ground truth had no entry for showed as such a difference first.
   const before = fs.existsSync(report) ? (JSON.parse(fs.readFileSync(report, 'utf8')) as { mutants: Reported[] }).mutants : undefined
   fs.rmSync(report, { force: true })
+  // Each run of the memo variant starts with nothing remembered, as a run on CI does.
+  if (tool === 'vitant-resolve') for (const made of ['resolve-memo.tsv', 'resolve-memo.tsv.claims']) fs.rmSync(path.join(outDir, made), { recursive: true, force: true })
   // From the project, as its own scripts run: configs resolve paths against the working directory.
   const timing = time(tool, process.execPath, args, dir)
   timings.push(timing)

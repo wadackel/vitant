@@ -332,7 +332,7 @@ emit({ type: 'worker' })
 let loopStopAsked: string | undefined
 if (process.env.VITANT_LOOP_PROBE) {
   const isProxy = runtime.P
-  const describe = Object.getOwnPropertyDescriptors
+  const getOwn = Object.getOwnPropertyDescriptor
   const mapSize = Object.getOwnPropertyDescriptor(Map.prototype, 'size')!.get!
   const setSize = Object.getOwnPropertyDescriptor(Set.prototype, 'size')!.get!
   const ids = new WeakMap<object, number>()
@@ -355,24 +355,30 @@ if (process.env.VITANT_LOOP_PROBE) {
     if (isProxy(value)) { into.set(`${prefix}!`, 'proxy'); return }
     if (value instanceof Map) { into.set(`${prefix}#size`, String(Reflect.apply(mapSize, value, []))); return }
     if (value instanceof Set) { into.set(`${prefix}#size`, String(Reflect.apply(setSize, value, []))); return }
-    let props: Record<string, PropertyDescriptor>
-    try { props = describe(value) } catch { into.set(`${prefix}!`, 'opaque'); return }
-    const keys = Object.keys(props)
     if (Array.isArray(value)) {
-      into.set(`${prefix}#len`, String(keys.length - 1))
-      // An array's elements are compared only up to what both iterations had; growth is told apart.
-      for (const key of keys.slice(0, 64)) if (key !== 'length' && 'value' in props[key]) into.set(`${prefix}[${key}]`, leaf(props[key].value))
+      // Length and the first and last few elements: describing a long array would cost as much as the loop.
+      const length = value.length
+      into.set(`${prefix}#len`, String(length))
+      const at = (i: number) => {
+        const d = getOwn(value, i)
+        into.set(`${prefix}[${i}]`, d === undefined ? 'hole' : 'value' in d ? leaf(d.value) : 'accessor')
+      }
+      for (let i = 0; i < Math.min(length, 8); i++) at(i)
+      for (let i = Math.max(8, length - 8); i < length; i++) at(i)
       return
     }
-    for (const key of keys.slice(0, 200)) {
-      const d = props[key]
+    let names: string[]
+    try { names = Object.getOwnPropertyNames(value) } catch { into.set(`${prefix}!`, 'opaque'); return }
+    for (const key of names.slice(0, 200)) {
+      const d = getOwn(value, key)
+      if (!d) continue
       into.set(`${prefix}.${key}`, 'value' in d ? leaf(d.value) : 'accessor')
       if ('value' in d && Array.isArray(d.value) && !isProxy(d.value)) into.set(`${prefix}.${key}#len`, String(d.value.length))
       if ('value' in d && typeof d.value === 'string') into.set(`${prefix}.${key}#strlen`, String(d.value.length))
     }
   }
   const loops = new Map<string, { last?: Map<string, string>; repeat: number; grow: number; change: number; hits: number; changed: Map<string, number>; grown: Map<string, number>; streak: number; done: boolean }>()
-  ;(runtime as unknown as Record<string, unknown>).Q = (base: number, pos: number, getters: (() => unknown)[], self: () => unknown, names: string) => {
+  ;(runtime as unknown as Record<string, unknown>).Q = (base: number, pos: number, values: unknown[], self: unknown, names: string) => {
     const key = `${base}:${pos}`
     let loop = loops.get(key)
     if (!loop) loops.set(key, (loop = { repeat: 0, grow: 0, change: 0, hits: 0, changed: new Map(), grown: new Map(), streak: 0, done: false }))
@@ -380,10 +386,8 @@ if (process.env.VITANT_LOOP_PROBE) {
     loop.hits++
     const now = new Map<string, string>()
     const list = names.split(',')
-    getters.forEach((get, i) => { let v: unknown; try { v = get() } catch { v = 'unbound' } shallow(v, now, list[i]) })
-    let me: unknown
-    try { me = self() } catch { me = undefined }
-    shallow(me, now, 'this')
+    values.forEach((v, i) => shallow(v, now, list[i]))
+    shallow(self, now, 'this')
     const last = loop.last
     if (last) {
       let grew = false
@@ -401,7 +405,8 @@ if (process.env.VITANT_LOOP_PROBE) {
         }
         else { other = true; loop.changed.set(k, (loop.changed.get(k) ?? 0) + 1) }
       }
-      for (const k of last.keys()) if (!now.has(k)) { other = true; loop.changed.set(k, (loop.changed.get(k) ?? 0) + 1) }
+      // An element the last sample saw near the end of an array that grew is no longer among the last few.
+      for (const k of last.keys()) if (!now.has(k) && !/\[\d+\]$/.test(k)) { other = true; loop.changed.set(k, (loop.changed.get(k) ?? 0) + 1) }
       // Only arrays may grow for the stop: strings, maps and sets reach a limit that throws something catchable within seconds.
       const unsafeGrowth = [...now.keys()].some((k) => /#(strlen|size)$/.test(k) && last.get(k) !== now.get(k))
       if (other) loop.change++

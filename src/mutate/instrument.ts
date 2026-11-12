@@ -535,12 +535,18 @@ export function instrument(
         const loopSite = siteFor('loop', node.body, node.body.start)
         if (process.env.VITANT_LOOP_PROBE && !loopSite.loopNames) {
           const names = new Set<string>()
+          // Names declared inside the body are in their temporal dead zone where the probe runs.
+          const declared = new Set<string>()
+          walk(node.body, ({ node: inner, parent: up, key: at }) => {
+            if (inner.type !== 'Identifier' || !up) return
+            if ((up.type === 'VariableDeclarator' && at === 'id') || ((up.type === 'FunctionDeclaration' || up.type === 'ClassDeclaration') && at === 'id') || (up.type === 'CatchClause' && at === 'param')) declared.add(inner.name)
+          })
           walk(node, ({ node: inner, parent: up, key: at }) => {
             if (inner.type !== 'Identifier' || !up) return
             if (up.type === 'MemberExpression' && at === 'property' && !up.computed) return
             if ((up.type === 'Property' || up.type === 'MethodDefinition' || up.type === 'PropertyDefinition') && at === 'key' && !up.computed) return
             if (up.type === 'LabeledStatement' || up.type === 'BreakStatement' || up.type === 'ContinueStatement') return
-            if (/^[A-Za-z_$][\w$]*$/.test(inner.name) && inner.name !== 'arguments') names.add(inner.name)
+            if (/^[A-Za-z_$][\w$]*$/.test(inner.name) && inner.name !== 'arguments' && !declared.has(inner.name)) names.add(inner.name)
           })
           loopSite.loopNames = [...names].slice(0, 40)
         }
@@ -913,8 +919,9 @@ export function instrument(
   const render = (site: Site, range: (from: number, to: number, children: Site[]) => string, original: (site: Site) => string): string => {
     if (site.kind === 'loop') {
       if (site.loopNames) {
-        const getters = site.loopNames.map((name) => `()=>${name}`).join(',')
-        const probe = `${RUNTIME_GLOBAL}.Q&&${RUNTIME_GLOBAL}.Q(${options.mutantBase},${site.start},[${getters}],()=>this,${JSON.stringify(site.loopNames.join(','))});`
+        // Values, not closures: a closure would move what it captures out of registers for every iteration.
+        const values = site.loopNames.map((name) => `typeof ${name}==='undefined'?void 0:${name}`).join(',')
+        const probe = `if(${RUNTIME_GLOBAL}.Q)try{${RUNTIME_GLOBAL}.Q(${options.mutantBase},${site.start},[${values}],this,${JSON.stringify(site.loopNames.join(','))})}catch{}`
         return `{if(++${RUNTIME_GLOBAL}.n>${RUNTIME_GLOBAL}.l){${probe}${RUNTIME_GLOBAL}.x()}${range(site.start, site.end, site.children)}}`
       }
       return `{if(++${RUNTIME_GLOBAL}.n>${RUNTIME_GLOBAL}.l)${RUNTIME_GLOBAL}.x();${range(site.start, site.end, site.children)}}`
