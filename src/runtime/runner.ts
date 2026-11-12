@@ -1072,7 +1072,30 @@ function mutantsAt(site: number): number[] {
   return list
 }
 
+// Experiment: when, from the last drain, each site was first reached and each mutant's value first differed.
+let divergeFrom = 0
+let divergeFd: number | undefined
+let divergeTest: { file: string; id: string } | undefined
+let firstReach: [number, number][] = []
+let firstDiffer: [number, number][] = []
+if (process.env.VITANT_DIVERGE) {
+  const R = runtime as unknown as Record<string, unknown>
+  R.T = (site: number) => { firstReach.push([site, preciseNow() - divergeFrom]) }
+  R.U = (mutant: number) => { firstDiffer.push([mutant, preciseNow() - divergeFrom]) }
+}
+
 function drainCoverage(): { sites: number[]; mutants: number[] } {
+  if (process.env.VITANT_DIVERGE) {
+    // To a directory of its own: the main process reads every record of the results directory.
+    if (firstReach.length || firstDiffer.length) {
+      divergeFd ??= fs.openSync(path.join(process.env.VITANT_DIVERGE, `${process.pid}.jsonl`), 'a')
+      fs.writeSync(divergeFd, `${JSON.stringify({ type: 'diverge', ...divergeTest, span: preciseNow() - divergeFrom, reach: firstReach, differ: firstDiffer, at: realNow(), pid: process.pid })}\n`)
+    }
+    divergeTest = undefined
+    firstReach = []
+    firstDiffer = []
+    divergeFrom = preciseNow()
+  }
   const hits = runtime.h
   const infected = runtime.i
   const unfinished = runtime.b
@@ -2012,7 +2035,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         const floor = hook?.timeout ?? this.floorMs
         const elapsed = hook ? preciseNow() - hook.clock : realNow() - stretch[0]
         if (cpuMs() - (hook?.cpu ?? beat[0]) < maximum(busyMs, floor) || elapsed < floor || (hook && !hook.exceeded())) {
-          runtime.l += config.loopSlack
+          // Experiment: sample the loop's state often enough that a repeat is seen within milliseconds.
+          runtime.l += process.env.VITANT_LOOP_STOP ? Math.min(config.loopSlack, 10_000) : config.loopSlack
           return
         }
         return this.loopLimit()
@@ -2477,7 +2501,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // What only the cleanup hooks reach is not something a mutant run of
       // the test could reach either.
       const run = this.active?.test === test ? this.active.run : undefined
-      if (run?.attempt === 'baseline' && !run.settled) run.reached = drainCoverage()
+      if (run?.attempt === 'baseline' && !run.settled) {
+        divergeTest = { file: test.file.filepath, id: test.id }
+        run.reached = drainCoverage()
+      }
       return super.onTaskFinished?.(test)
     }
 
