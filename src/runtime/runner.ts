@@ -1487,8 +1487,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const self = process.pid
       for (let copies = 1; ; copies++) {
         let pid: number
+        const forkStart = process.env.VITANT_FORK_TIMING ? preciseNow() : 0
         try {
           pid = cloner!.fork(forkLock)
+          if (forkStart && pid > 0) emit({ type: 'forkMs', ms: preciseNow() - forkStart, rss: process.memoryUsage.rss(), where: 'handOver' })
         } catch (error) {
           // Running the file here would leave its traces for the next; the
           // round after this one finds its work not done, and gives the file
@@ -1715,8 +1717,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
       let pid: number
+      const forkStart = process.env.VITANT_FORK_TIMING ? preciseNow() : 0
       try {
         pid = cloner!.fork(forkLock)
+        if (forkStart && pid > 0) emit({ type: 'forkMs', ms: preciseNow() - forkStart, rss: process.memoryUsage.rss(), where: 'copy' })
       } catch {
         // No copy could be made; a worker started for the job makes the run.
         emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
