@@ -196,8 +196,12 @@ const testParents = new Set([
 const probeHelpers = [
   'function __vitant_is(x,y){return x===y?x!==0||1/x===1/y:x!==x&&y!==y}',
   'function __vitant_plain(v){return v===null||typeof v!=="object"&&typeof v!=="function"}',
-  `function __vitant_mark(s){for(;s;s=s.n)${RUNTIME_GLOBAL}.i[s.k]=1}`,
-  `function __vitant_markTruthy(s,o){for(;s;s=s.n)if(!s.v!==!o)${RUNTIME_GLOBAL}.i[s.k]=1}`,
+  process.env.VITANT_DIVERGE
+    ? `function __vitant_mark(s){var R=${RUNTIME_GLOBAL};for(;s;s=s.n){if(R.U&&!R.i[s.k])R.U(s.k);R.i[s.k]=1}}`
+    : `function __vitant_mark(s){for(;s;s=s.n)${RUNTIME_GLOBAL}.i[s.k]=1}`,
+  process.env.VITANT_DIVERGE
+    ? `function __vitant_markTruthy(s,o){var R=${RUNTIME_GLOBAL};for(;s;s=s.n)if(!s.v!==!o){if(R.U&&!R.i[s.k])R.U(s.k);R.i[s.k]=1}}`
+    : `function __vitant_markTruthy(s,o){for(;s;s=s.n)if(!s.v!==!o)${RUNTIME_GLOBAL}.i[s.k]=1}`,
   // Counts a read that may have run code: an accessor, a proxy, or a key that
   // had to be converted. Primitives are looked up from their prototype.
   `function __vitant_get(o,k){var R=${RUNTIME_GLOBAL};if(R.a<0){if(!__vitant_plain(k))R.v++;else if(o!==null&&o!==void 0)` +
@@ -878,7 +882,10 @@ export function instrument(
   }
 
   const active = `${RUNTIME_GLOBAL}.a`
-  const hit = (site: Site) => `${RUNTIME_GLOBAL}.h[${site.id}]=1`
+  const hit = (site: Site) =>
+    process.env.VITANT_DIVERGE
+      ? `(${RUNTIME_GLOBAL}.h[${site.id}]||${RUNTIME_GLOBAL}.T&&${RUNTIME_GLOBAL}.T(${site.id}),${RUNTIME_GLOBAL}.h[${site.id}]=1)`
+      : `${RUNTIME_GLOBAL}.h[${site.id}]=1`
   const reached = `${RUNTIME_GLOBAL}.r=1`
 
   const renderRange = (from: number, to: number, children: Site[]): string => {
