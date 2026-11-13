@@ -53,6 +53,7 @@ const toolEnv: Record<string, Record<string, string>> = {
   'vitant-loopstop': { VITANT_LOOP_PROBE: '1', VITANT_LOOP_STOP: '1' },
   'vitant-forktime': { VITANT_FORK_TIMING: '1' },
   'vitant-desc': { VITANT_DESC_RELAX: '1' },
+  'vitant-resolvecount': { VITANT_V8_FLAGS: `--require=${path.join(import.meta.dirname, 'resolve-count.cjs')}`, RESOLVE_MEMO: path.join(outDir, 'resolve-memo.tsv'), RESOLVE_COUNTS: path.join(outDir, 'resolve-counts') },
   'vitant-diverge': { VITANT_DIVERGE: path.join(outDir, 'vitant-diverge') },
   'vitant-resolve': { VITANT_V8_FLAGS: `--require=${path.join(import.meta.dirname, 'resolve-memo.cjs')}`, RESOLVE_MEMO: path.join(outDir, 'resolve-memo.tsv') },
 }
@@ -210,7 +211,7 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-forktime', 'vitant-resolve', 'vitant-desc', 'vitant-diverge', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
+for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', 'vitant-cc', 'vitant-loopstop', 'vitant-forktime', 'vitant-resolve', 'vitant-desc', 'vitant-diverge', 'vitant-resolvecount', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
   const toolRoot = tool === 'vitant-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot
@@ -233,7 +234,8 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-semi', '
   const before = fs.existsSync(report) ? (JSON.parse(fs.readFileSync(report, 'utf8')) as { mutants: Reported[] }).mutants : undefined
   fs.rmSync(report, { force: true })
   // Each run of the memo variant starts with nothing remembered, as a run on CI does.
-  if (tool === 'vitant-resolve') for (const made of ['resolve-memo.tsv', 'resolve-memo.tsv.claims']) fs.rmSync(path.join(outDir, made), { recursive: true, force: true })
+  if (tool === 'vitant-resolve' || tool === 'vitant-resolvecount') for (const made of ['resolve-memo.tsv', 'resolve-memo.tsv.claims', 'resolve-counts']) fs.rmSync(path.join(outDir, made), { recursive: true, force: true })
+  if (tool === 'vitant-resolvecount') fs.mkdirSync(path.join(outDir, 'resolve-counts'), { recursive: true })
   if (tool === 'vitant-diverge') {
     fs.rmSync(path.join(outDir, 'vitant-diverge'), { recursive: true, force: true })
     fs.mkdirSync(path.join(outDir, 'vitant-diverge'), { recursive: true })
