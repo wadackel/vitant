@@ -5,6 +5,7 @@
 
 import { AsyncLocalStorage, createHook } from 'node:async_hooks'
 import fs from 'node:fs'
+import os from 'node:os'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -382,7 +383,10 @@ for (;;) {
     const current = new Uint8Array(1)
     // A run with no mutant on has no byte here; the position -1 would be read as the file's own.
     if (stalled >= 0) fs.readSync(fd, current, 0, 1, stalled)
-    if (stalled >= 0 && !cold && (current[0] === ${MUTANT_PENDING} || current[0] === ${MUTANT_STALLED})) {
+    // A run of a whole file stopped for its memory is no verdict: the suite
+    // sets no such limit. The main process makes it again, alone, from the record.
+    const verdictless = by === 'memory' && mutant[1] === 1
+    if (stalled >= 0 && !cold && !verdictless && (current[0] === ${MUTANT_PENDING} || current[0] === ${MUTANT_STALLED})) {
       fs.writeSync(fd, new Uint8Array([mutant[1] ? ${MUTANT_TIMEOUT} : ${MUTANT_STALLED}]), 0, 1, stalled)
     }
     // A worker that is gone with a mutant on is taken to have died of it.
@@ -493,7 +497,7 @@ interface Cloner {
   turned(): void
   /** Waits for a copy that watches itself; the code it ended itself with, -1, or -2 where it was stopped as stuck. */
   host(pid: number, stuckMs: number): number
-  Ended: { Done: number; Blocked: number; Lost: number }
+  Ended: { Done: number; Blocked: number; Memory: number; Lost: number }
   exit(code: number): never
 }
 /** In a copy: the id of the process it was copied from. */
@@ -601,11 +605,9 @@ if (cloner) countWrites()
 
 /**
  * Where a copy notes the test it is in. The process that copied it stops it
- * from outside, on its time on the processor or its memory, and a copy's
- * memory is its own: read from here, the stop names the test, as one by the
- * watchdog of a worker started for the run does, and a lead of that test
- * vouches for it. Without it a mutant whose loop filled memory waited for a
- * run made with nothing else running.
+ * from outside, on its time on the processor, and a copy's memory is its
+ * own: read from here, the stop names the test, as one by the watchdog of a
+ * worker started for the run does, and a lead of that test vouches for it.
  */
 const testSlot = cloner ? fs.openSync(path.join(sessionDir!, `slot.${process.pid}`), 'w+') : undefined
 
@@ -1089,7 +1091,10 @@ function hardLimitMs(run: { baselineMs: number }): number {
  * measured, and for a file that takes most of its memory while it loads,
  * what this process holds stands in.
  */
-function residentLimitOf(job: { fileRss: number }): number {
+function residentLimitOf(job: { fileRss: number; roomy?: boolean }): number {
+  // Made again alone for its memory: the suite has no limit of its own, and
+  // past three quarters of the machine's it is the machine that is at stake.
+  if (job.roomy) return os.totalmem() * 0.75
   return Math.max(job.fileRss, process.memoryUsage.rss()) * 4 + 1024 ** 3
 }
 
@@ -1665,6 +1670,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           by,
           ms: preciseNow() - copiedAt,
         })
+      } else if (ended === cloner!.Ended.Memory) {
+        // The suite sets no limit on memory: a run that holds this much and
+        // then ends passes there. It is made again alone, with the machine's memory to hold.
+        emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant, memory: true })
       } else if (ended === cloner!.Ended.Lost) {
         // The copy ended without a verdict, by this process's hand or its
         // own. Whatever it was, a worker started for the job alone decides.

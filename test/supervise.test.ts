@@ -12,9 +12,9 @@ const watch = (takes: number, limit: number) =>
   spawnSync(process.execPath, ['--single-threaded', path.join(import.meta.dirname, 'supervise.mjs'), addon!, String(takes), String(limit)], { encoding: 'utf8' })
 
 describe.runIf(addon && fs.existsSync(addon))('watching a copy of a process', () => {
-  it('stops a copy that takes memory without end', () => {
+  it('stops a copy that takes memory without end, and says it was for its memory', () => {
     const result = watch(0, 512)
-    expect(result.stdout.trim(), result.stderr).toBe('Blocked')
+    expect(result.stdout.trim(), result.stderr).toBe('Memory')
   }, 90_000)
 
   it('lets a copy end that stays under what it may hold', () => {
