@@ -463,6 +463,8 @@ interface PlainRecord {
   type: 'plain'
   file: string
   mutant: number
+  /** It was stopped for the memory it held, which says nothing of the suite. */
+  memory?: boolean
 }
 
 /** A copy of a worker that had been handed a test file ended with no mutant on and without getting through it. */
@@ -563,6 +565,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const unpaused = new Set<string>()
   /** Whole-file runs that a copy of a worker did not get through. */
   const plain = new Set<string>()
+  /** Whole-file runs that a copy was stopped in for the memory it held. */
+  const roomy = new Set<string>()
   /** Per test file, the sites whose code ran outside its tests in an unmutated run. */
   const staticSites = new Map<string, Set<number>>()
   /** Per test file, the sites the hooks that run once it has loaded reached. */
@@ -664,7 +668,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.type === 'unhanded') unhanded.add(record.file)
     if (record.type === 'plain') {
       plain.add(wholeKey(record.mutant, record.file))
-      lost.add(record.file)
+      if (record.memory) roomy.add(wholeKey(record.mutant, record.file))
+      else lost.add(record.file)
     }
     if (record.type === 'pairing') pairOf(record.file).asked++
     if (record.type === 'pair' && record.met) {
@@ -1065,7 +1070,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1551,6 +1556,12 @@ function planPhase(
       already.confirm ||= confirm
       return
     }
+    // A run stopped for its memory is made again with the machine's memory
+    // to hold, which only a run with nothing else running may have.
+    if (!quiet && status.roomy.has(wholeKey(mutant, file))) {
+      quietJobs.push([mutant, file])
+      return
+    }
     const entry = status.whole.get(wholeKey(mutant, file))
     // Unless a test of the file has given a lead that no run so far knew of: a run that goes on to it comes first.
     const unknown =
@@ -1620,6 +1631,7 @@ function planPhase(
       // limit holds up the copies due after it for as long as that takes;
       // started for the run, the workers of such mutants wait side by side.
       // Where it is, each such run gets a worker run of its own.
+      roomy: status.roomy.has(wholeKey(mutant, file)) || undefined,
       plain:
         status.plain.has(wholeKey(mutant, file)) ||
         status.uncopied.has(file) ||
@@ -2576,7 +2588,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     /** How many runs of the round in flight stand first for pairs, see `WholeJob.pair`. */
     let leading = 0
     /** The whole-file runs of the round in flight, with how many records each pair had before it. */
-    let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
+    let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; roomy: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
     let plannedAt = 0
     let stalled = 0
     // Round one runs every test once, unmutated, and lets only fast tests try
@@ -2666,12 +2678,27 @@ export async function run(options: RunOptions): Promise<RunResult> {
 
       const state = fs.readFileSync(paths.state)
       let status = inspect(readRecords(), siteOf)
+      // A stop on time on the processor names the test it came in, as a
+      // loop this runner ended in the test would: a lead its test gave for
+      // the same mutant then vouches for it, where 28 of es-toolkit's went to
+      // runs made one at a time. One by the clock names none, as a busy
+      // machine can make one of a wait that only got longer. One on memory
+      // is no verdict, the suite having no such limit.
+      const stops = readRecords().filter((record): record is StallRecord & { at: number } => record.type === 'stall' && record.whole === true && record.at >= plannedAt)
+      const stoppedIn = (mutant: number, file: string) => {
+        const stop = stops.findLast((record) => record.mutant === mutant && status.tests.get(record.id)?.file === file)
+        return stop && stop.by !== 'clock' && stop.id !== '' ? { test: stop.id, tests: [stop.id] } : {}
+      }
+      const stoppedForMemory = (mutant: number, file: string) =>
+        stops.some((record) => record.mutant === mutant && record.by === 'memory' && (record.id === '' || status.tests.get(record.id)?.file === file))
       // A whole-file run that blocks is stopped by the watchdog, which marks
       // the mutant and kills the worker before it can write its verdict.
       const total = (entry?: WholeState) => entry?.runs ?? 0
       const stopped = planned.filter(
         (job) =>
           state[job.mutant] === MUTANT_TIMEOUT &&
+          // A lead that ran out of time leaves the mark of its own before the run.
+          !stoppedForMemory(job.mutant, job.file) &&
           total(status.whole.get(wholeKey(job.mutant, job.file))) === job.had &&
           fs.existsSync(path.join(paths.claims, `whole.${job.id}`)),
       )
@@ -2696,22 +2723,18 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const unreached = planned.filter(
         (job) => !job.plain && !heard.has(job.file) && !fs.existsSync(path.join(paths.claims, `whole.${job.id}`)) && !stopped.includes(job),
       )
-      // A stop on time on the processor or on memory names the test it came
-      // in, as a loop this runner ended in the test would: a lead its test
-      // gave for the same mutant then vouches for it, where 28 of es-toolkit's
-      // went to runs made one at a time. One by the clock names none, as a
-      // busy machine can make one of a wait that only got longer.
-      const stops = readRecords().filter((record): record is StallRecord & { at: number } => record.type === 'stall' && record.whole === true && record.at >= plannedAt)
-      const stoppedIn = (mutant: number, file: string) => {
-        const stop = stops.findLast((record) => record.mutant === mutant && status.tests.get(record.id)?.file === file)
-        return stop && stop.by !== 'clock' && stop.id !== '' ? { test: stop.id, tests: [stop.id] } : {}
-      }
       const lines = [
         ...stopped.map(({ mutant, file, alone, quiet, knew }) => ({ type: 'whole', file, mutant, verdict: 'timeout', ...stoppedIn(mutant, file), alone, quiet, knew, by: 'started' })),
-        ...silent.map(({ mutant, file, plain, alone, quiet, knew }) =>
-          plain
-            ? { type: 'whole', file, mutant, verdict: 'failed', died: true, alone, quiet, knew, by: 'started' }
-            : { type: 'plain', file, mutant },
+        ...silent.map(({ mutant, file, plain, alone, quiet, knew, roomy }) =>
+          // Stopped for its memory, which the suite sets no limit on: made
+          // again alone with the machine's memory to hold, and past that a timeout.
+          stoppedForMemory(mutant, file)
+            ? roomy
+              ? { type: 'whole', file, mutant, verdict: 'timeout', ...stoppedIn(mutant, file), alone, quiet, knew, by: 'started' }
+              : { type: 'plain', file, mutant, memory: true }
+            : plain
+              ? { type: 'whole', file, mutant, verdict: 'failed', died: true, alone, quiet, knew, by: 'started' }
+              : { type: 'plain', file, mutant },
         ),
         ...unreached.map(({ mutant, file }) => ({ type: 'plain', file, mutant })),
         ...[...new Set(unreached.map((job) => job.file))].map((file) => ({ type: 'unhanded', file })),
@@ -2804,11 +2827,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
       plannedAt = Date.now()
       planned = Object.entries(next.plan.whole).flatMap(([file, jobs]) =>
-        jobs.filter((job) => !job.control && job.trial === undefined).map(({ id, mutant, plain, exclusive, quiet, witnesses }) => ({
+        jobs.filter((job) => !job.control && job.trial === undefined).map(({ id, mutant, plain, roomy, exclusive, quiet, witnesses }) => ({
           id,
           mutant,
           file,
           plain,
+          roomy: roomy === true,
           alone: exclusive === true || quiet === true,
           quiet: quiet === true,
           knew: (witnesses?.length ?? 0) > 0,
@@ -3144,7 +3168,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     if (record.type === 'whole' && record.by) {
       wholeRuns[record.by]++
       work.wholeMs[record.verdict === 'passed' ? 'passed' : 'detected'] += record.ms ?? 0
-    } else if (record.type === 'plain') wholeRuns.lost++
+    } else if (record.type === 'plain' && !record.memory) wholeRuns.lost++
     else if (record.type === 'test') {
       work.trials += record.attempts
       work.trialCpuMs += record.cpuMs

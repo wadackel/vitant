@@ -257,10 +257,13 @@ pub fn done() -> Result<()> {
 pub enum Ended {
     /// By itself, having written its verdict.
     Done,
-    /// Stopped for using more CPU time than it may without a heartbeat, or
-    /// for holding more memory than it may: it blocks, or it would take the
-    /// machine with it, either of which is a verdict.
+    /// Stopped for using more CPU time than it may without a heartbeat: it
+    /// blocks, which is a verdict.
     Blocked,
+    /// Stopped for holding more memory than it may, lest it take the machine
+    /// with it. Not a verdict: the suite sets no such limit, and a run that
+    /// holds that much and then ends passes there.
+    Memory,
     /// Without a verdict. It ended on its own, as it does once it is over
     /// its time by the clock; or it sat without using CPU time or returning
     /// to its event loop, as one waiting for a thread it does not have
@@ -307,7 +310,7 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
         // of memory.
         if resident_limit > 0.0 && resident_bytes(pid).is_some_and(|held| held > resident_limit) {
             stop(pid);
-            return Ok(Ended::Blocked);
+            return Ok(Ended::Memory);
         }
         // Without its CPU time the copy cannot be judged here; it ends itself by the clock.
         let Some(cpu) = cpu_ms(pid) else { continue };

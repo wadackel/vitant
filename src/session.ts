@@ -167,6 +167,8 @@ export interface WholeJob {
   before?: string
   /** A copy of a worker ended without a verdict for this run; a worker started for it alone makes it. */
   plain: boolean
+  /** A copy was stopped in this run for the memory it held: it gets the machine's to hold, in a worker started for it. */
+  roomy?: boolean
 }
 
 export interface PlannedTest {
