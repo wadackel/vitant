@@ -1487,8 +1487,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // file loads, or does once their module begins its own code. A copy
         // made once it has loaded, or as that module begins, is for them what
         // a run that had the mutant on all along would be at that point. Until
-        // then no mutant is on and no probe runs.
-        this.template = jobs.some((job) => !job.plain && (!job.early || job.loading) && this.open(job))
+        // then no mutant is on and no probe runs. A run another worker of the
+        // file has claimed is made there; with every one claimed, a load here
+        // would make no copy.
+        this.template = jobs.some((job) => !job.plain && (!job.early || job.loading) && this.open(job) && !claimed(`whole.${job.id}`))
         if (this.template) {
           this.waiting = jobs.filter((job) => !job.plain && job.loading && this.open(job))
           this.unpaused = false
