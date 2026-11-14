@@ -183,6 +183,44 @@ node bench/run.ts commitlint lint
 
 ## On hosted CI runners
 
+### Linux measurements at bc4025c
+
+StrykerJS 10 and vitant at [bc4025c](https://github.com/wadackel/vitant/commit/bc4025c9fbdc22c4333e1110d18e2536b8eac153), measured on 15 November 2026 one after the other in each job on a four-core Ubuntu 24.04 runner, with Node 24.22.2 and pinned target commits: three jobs a scope ([libraries](https://github.com/wadackel/vitant/actions/runs/43624239141), [date-fns, Secretlint and commitlint](https://github.com/wadackel/vitant/actions/runs/43627153264)). Seconds are medians; speed ratios are medians of within-job ratios, so they need not equal the ratio of the displayed seconds. A ratio above one favors vitant.
+
+| Target and scope | Usable Stryker pairs / vitant runs | StrykerJS s | vitant s | vitant `--fast` s | Median paired Stryker / vitant |
+|---|---:|---:|---:|---:|---:|
+| yaml `lexer` | 3 / 3 | 525.0 | 393.0 | 71.0 | 1.251 |
+| ufo `all` | 3 / 3 | 61.5 | 31.0 | 5.0 | 1.984 |
+| immer `all` | 3 / 3 | 689.5 | 428.3 | 203.6 | 1.585 |
+| es-toolkit `array` | 2 / 3 | 308.8 | 160.8 | 37.0 | 1.911 |
+| es-toolkit `pr` | 3 / 3 | 26.9 | 49.8 | 13.5 | 0.532 |
+| xstate `core` | 3 / 3 | 677.5 | 422.8 | 156.0 | 1.600 |
+| i18next `translation` | 0 / 3 | not comparable | 72.2 | 32.8 | — |
+| date-fns `dates` | 0 / 3 | not comparable | 18.0 | 8.7 | — |
+| Secretlint `messages` | 3 / 3 | 8.8 | 2.9 | 1.9 | 3.088 |
+| CSpell `distance` | 3 / 3 | 141.0 | 98.0 | 37.9 | 1.439 |
+| commitlint `lint` | 3 / 3 | 24.0 | 4.7 | 3.0 | 5.200 |
+
+When Stryker is usable, the StrykerJS and vitant columns use those same pairs; the `--fast` column uses every run. A Stryker run is usable when it exited with 0: one es-toolkit `array` run ended in 6 s with 1. Stryker selects zero tests for covered survivors on i18next and date-fns. vitant remains slower than StrykerJS on es-toolkit `pr`, the changed-lines scope, where two fifths of its time go to mutants whose loops run out a test's limit; `--fast` is not.
+
+The table above is also in the README.
+
+#### Application scopes
+
+The same commit on the same runners, two jobs a scope ([applications](https://github.com/wadackel/vitant/actions/runs/43624241499)), and actual `server` in a run of its own without StrykerJS, as on 10 November ([actual](https://github.com/wadackel/vitant/actions/runs/43624286153)).
+
+| Target and scope | Jobs | vitant s | vitant `--fast` s | Median paired Stryker / vitant |
+|---|---:|---:|---:|---:|
+| Umami `lib` | 2 | 878.5 | 359.7 | not comparable |
+| Formbricks `utils` | 2 | 1,253.9 | 780.5 | 1.704 (1 / 2 pairs) |
+| Immich `utils` | 2 | 2,269.1 | 1,152.6 | not comparable |
+| Immich `services` | 2 | 2,510.9 | 1,672.0 | not comparable |
+| Actual `server` | 1 | 10,939.1 | 4,645.1 | not run |
+
+Stryker's covered survivors with zero completed tests make its Umami and Immich results incomparable; on Formbricks one of its two runs failed. Every judged stored-truth entry agrees: 1,367 on Umami, 473 on Formbricks, 531 and 250 on Immich, 240 on Actual. One Immich `services` job exited with 1 for four mutants of `database-backup.service.ts` that the two modes report as NoCoverage and Survived, both undetected, which flip between jobs on earlier commits as well.
+
+Actual's time follows the processor more than anything else: the same work, 13,921 to 14,070 runs of whole files, took 5,486 s on an EPYC 9V45, 7,549 to 7,951 s on an EPYC 9V74 in four runs of this and the commits before it, and 10,939 s on the EPYC 7763 this run had. Within one job, before against after, [#21](https://github.com/wadackel/vitant/pull/21) gave Umami `lib` 1.06, Formbricks `utils` 1.02, Immich `utils` 1.08 and `services` 1.10, [#22](https://github.com/wadackel/vitant/pull/22) 1.08, 1.03, 1.05 and 1.04, [#23](https://github.com/wadackel/vitant/pull/23) 1.03, 1.04 in its one comparable job, 0.99 and 1.05 (see [Making such a process cheap](design.md#making-such-a-process-cheap) and [Tuning](design.md#tuning)).
+
 ### Corrected Linux measurements
 
 StrykerJS 10 and vitant at [6c535f1](https://github.com/wadackel/vitant/commit/6c535f1842b7fcc4dbf3dce52e661296b7e6da83), measured sequentially on the same four-core Ubuntu 24.04 runner in each pair, with Node 24.22.2 and pinned target commits. Seconds are medians; speed ratios are medians of within-job ratios, so they need not equal the ratio of the displayed seconds. A ratio above one favors vitant.
@@ -205,7 +243,7 @@ The final core comparison was measured on 8 November 2026 in the [initial cohort
 
 When Stryker is usable, both time columns use those same pairs. Otherwise the vitant column uses all completed vitant runs. Stryker selects zero tests for covered survivors on i18next and date-fns. One es-toolkit `pr` Stryker run failed during a Vite cache rename; its duration is excluded, leaving five usable comparisons and six complete vitant runs. vitant remains slower on that changed-lines scope.
 
-The table above is also in the README. Older measurements below retain their own source versions, operating systems and conditions.
+Older measurements below retain their own source versions, operating systems and conditions.
 
 #### Comparison with the starting implementation
 

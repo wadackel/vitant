@@ -119,25 +119,25 @@ How each step was arrived at, what it costs, and what went wrong before it exist
 
 ## Benchmark
 
-StrykerJS 10 and vitant at [6c535f1](https://github.com/wadackel/vitant/commit/6c535f1842b7fcc4dbf3dce52e661296b7e6da83), measured sequentially on the same four-core Ubuntu 24.04 runner in each pair, with Node 24.22.2 and pinned target commits. Seconds are medians; speed ratios are medians of within-job ratios, so they need not equal the ratio of the displayed seconds. A ratio above one favors vitant.
+StrykerJS 10 and vitant at [bc4025c](https://github.com/wadackel/vitant/commit/bc4025c9fbdc22c4333e1110d18e2536b8eac153), measured on 15 November 2026 one after the other in each job on a four-core Ubuntu 24.04 runner, with Node 24.22.2 and pinned target commits: three jobs a scope ([libraries](https://github.com/wadackel/vitant/actions/runs/43624239141), [three more](https://github.com/wadackel/vitant/actions/runs/43627153264)). Seconds are medians; speed ratios are medians of within-job ratios, so they need not equal the ratio of the displayed seconds. A ratio above one favors vitant.
 
-| Target and scope | Usable Stryker pairs / vitant runs | StrykerJS s | vitant s | Median paired Stryker / vitant |
-|---|---:|---:|---:|---:|
-| yaml `lexer` | 6 / 6 | 719.6 | 599.0 | 1.203 |
-| ufo `all` | 6 / 6 | 81.3 | 29.1 | 2.730 |
-| immer `all` | 6 / 6 | 520.3 | 293.0 | 1.764 |
-| es-toolkit `array` | 6 / 6 | 264.0 | 130.3 | 1.973 |
-| es-toolkit `pr` | 5 / 6 | 39.6 | 48.9 | 0.806 |
-| xstate `core` | 6 / 6 | 641.1 | 443.3 | 1.482 |
-| i18next `translation` | 0 / 6 | not comparable | 89.3 | — |
-| date-fns `dates` | 0 / 6 | not comparable | 26.2 | — |
-| Secretlint `messages` | 3 / 3 | 7.8 | 2.8 | 2.833 |
-| CSpell `distance` | 3 / 3 | 125.6 | 75.5 | 1.599 |
-| commitlint `lint` | 6 / 6 | 28.8 | 5.9 | 5.155 |
+| Target and scope | Usable Stryker pairs / vitant runs | StrykerJS s | vitant s | vitant `--fast` s | Median paired Stryker / vitant |
+|---|---:|---:|---:|---:|---:|
+| yaml `lexer` | 3 / 3 | 525.0 | 393.0 | 71.0 | 1.251 |
+| ufo `all` | 3 / 3 | 61.5 | 31.0 | 5.0 | 1.984 |
+| immer `all` | 3 / 3 | 689.5 | 428.3 | 203.6 | 1.585 |
+| es-toolkit `array` | 2 / 3 | 308.8 | 160.8 | 37.0 | 1.911 |
+| es-toolkit `pr` | 3 / 3 | 26.9 | 49.8 | 13.5 | 0.532 |
+| xstate `core` | 3 / 3 | 677.5 | 422.8 | 156.0 | 1.600 |
+| i18next `translation` | 0 / 3 | not comparable | 72.2 | 32.8 | — |
+| date-fns `dates` | 0 / 3 | not comparable | 18.0 | 8.7 | — |
+| Secretlint `messages` | 3 / 3 | 8.8 | 2.9 | 1.9 | 3.088 |
+| CSpell `distance` | 3 / 3 | 141.0 | 98.0 | 37.9 | 1.439 |
+| commitlint `lint` | 3 / 3 | 24.0 | 4.7 | 3.0 | 5.200 |
 
-When Stryker is usable, both time columns use those same pairs. Otherwise the vitant column uses all completed vitant runs. Stryker selects zero tests for covered survivors on i18next and date-fns. One es-toolkit `pr` Stryker run failed during a Vite cache rename; its duration is excluded, leaving five usable comparisons and six complete vitant runs. vitant remains slower on that changed-lines scope.
+When Stryker is usable, the StrykerJS and vitant columns use those same pairs; the `--fast` column uses every run. A Stryker run is usable when it exited with 0: one es-toolkit `array` run ended in 6 s with 1. Stryker selects zero tests for covered survivors on i18next and date-fns. vitant remains slower than StrykerJS on es-toolkit `pr`, the changed-lines scope, where two fifths of its time go to mutants whose loops run out a test's limit; `--fast` is not.
 
-YAML is faster than Stryker in all six final pairs, with median ratio 1.203. Against [4909b59](https://github.com/wadackel/vitant/commit/4909b596203bd72cd6db587bf28db216e86c8793), the version before these changes, YAML is not measurably faster (median 1.010); that version already beat StrykerJS there. All judged stored-truth entries agree; these checks cover subsets of the generated mutants. [CI cohorts, correctness evidence, application results and historical macOS measurements](docs/benchmark.md#on-hosted-ci-runners).
+Against the same measurement of [b58eef9](https://github.com/wadackel/vitant/commit/b58eef9) on 10 November, the medians moved by a tenth or less, except Secretlint `messages` from 2.710 to 3.088, es-toolkit `array` from 2.218 to 1.911, immer from 1.755 to 1.585 and es-toolkit `pr` from 0.693 to 0.532. Between the two, [#16](https://github.com/wadackel/vitant/pull/16) makes a run stopped for its memory again alone, which within one job cost es-toolkit `array` 13 and immer 11 in a hundred; within one job the changes after it gave these 0.96 to 1.08. Every judged stored-truth entry agrees; these checks cover subsets of the generated mutants. [Application scopes, CI cohorts, correctness evidence and historical macOS measurements](docs/benchmark.md#on-hosted-ci-runners).
 
 ## Limits
 
