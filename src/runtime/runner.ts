@@ -1236,9 +1236,6 @@ if (diagnosing)
       Error.stackTraceLimit = limit
       pendingRequests.set(id, `${type} ${stack}`)
     },
-    after(id) {
-      pendingRequests.delete(id)
-    },
     destroy(id) {
       pendingRequests.delete(id)
     },
