@@ -231,6 +231,12 @@ const sessionDir = process.env.VITANT_SESSION
 if (!sessionDir) throw new Error('VITANT_SESSION is not set')
 const paths = sessionPaths(sessionDir)
 let config: SessionConfig = JSON.parse(fs.readFileSync(paths.config, 'utf8'))
+// Diagnostic only, see run.ts.
+let readSites: number[] = []
+try {
+  readSites = JSON.parse(fs.readFileSync(path.join(sessionDir, 'readsites.json'), 'utf8'))
+} catch {}
+let madeCopy = false
 
 const siteMutants = new Uint32Array(
   new Uint8Array(fs.readFileSync(paths.sites)).buffer,
@@ -1304,6 +1310,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private measuring = false
     /** In a run of a whole file, the shortest stretch, on the processor and by the clock, that ends it: the suite's own limit for what is running. */
     private floorMs = 0
+    private readStarts: { starts: [number, number, number[]][]; note: () => number[] } | undefined
     private hookFloorMs = 0
     private hookContext = hookStorage<{ job: WholeJob; timeout: number; active: boolean; clock: number; cpu: number; exceeded: () => boolean }>()
     /** In a run of a whole file, the limit on a stretch that comes from what the file takes. */
@@ -1508,6 +1515,23 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           timerHook.enable()
           if (this.waiting.length > 0) runtime.m = (first, end) => this.copyWhileLoading(first, end)
           this.loadStart = realNow()
+          if (readSites.length > 0) {
+            const inner = runtime.m
+            const at = this.loadStart
+            const seen = new Set<number>()
+            const starts: [number, number, number[]][] = []
+            const note = () => {
+              const hit = readSites.filter((site) => runtime.h[site] === 1 && !seen.has(site))
+              for (const site of hit) seen.add(site)
+              return hit
+            }
+            note()
+            runtime.m = (first, end) => {
+              starts.push([Math.round(realNow() - at), first, note()])
+              return inner?.(first, end)
+            }
+            this.readStarts = { starts, note }
+          }
           return super.onBeforeCollect?.(paths)
         }
       } else {
@@ -1571,7 +1595,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         emit({ type: 'early', file: this.wholeFile, site: job.site })
         return false
       }
-      return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
+      const copied = this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
+      if (!copied) madeCopy = true
+      return copied
     }
 
     /**
@@ -1588,8 +1614,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     /** Leaves nothing under way between this process and the main one, so that a copy can be made. */
     private async standStill(): Promise<void> {
+      const began = preciseNow()
+      const consecutive = madeCopy
+      madeCopy = false
       // An answer still on its way to this process would go to the copy.
       await quiet()
+      const asked = preciseNow()
       // Calls made before the count began are not in it. Answers mostly come
       // in the order of the calls, so one more call and its answer leave
       // few of those outstanding, and counting again leaves none of its own.
@@ -1598,8 +1628,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // turn first, and Vitest sends what a test printed from just such a
       // queue. So the last look is made here, with nothing between it and
       // the copy.
+      const answered = preciseNow()
       do await quiet()
       while (calls > 0 || unanswered.size > 0)
+      emit({ type: 'stand', consecutive, ms: Math.round((preciseNow() - began) * 100) / 100, rpcMs: Math.round((answered - asked) * 100) / 100 })
     }
 
     /**
@@ -1925,6 +1957,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // A copy made while the file loaded has its loading from the process it was copied from.
       if (this.wholeBy !== 'copied while loading') emit({ type: 'loaded', file: this.wholeFile, ms: realNow() - this.loadStart, template: this.template, whole: this.whole !== undefined })
       if (this.template) {
+        if (this.readStarts) emit({ type: 'modstarts', file: this.wholeFile, ms: Math.round(realNow() - this.loadStart), starts: this.readStarts.starts, after: this.readStarts.note() })
+        this.readStarts = undefined
         runtime.m = undefined
         // Jobs whose modules did not begin while the file loaded.
         const unbegun = this.waiting.filter((job) => this.open(job))

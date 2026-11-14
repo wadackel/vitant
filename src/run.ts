@@ -2054,6 +2054,10 @@ function writeSession(
     loopSlack: options.loopSlack,
   }
   fs.writeFileSync(paths.config, JSON.stringify(config))
+  // Diagnostic only: read sites of the bindings that can be made again.
+  const againOf = Object.fromEntries(generated.mutants.flatMap((mutant, index) => (mutant.again ? [[index, mutant.again]] : [])))
+  fs.writeFileSync(path.join(dir, 'readsites.json'), JSON.stringify([...new Set(Object.values(againOf).flat())]))
+  fs.appendFileSync(path.join(paths.results, 'main.jsonl'), `${JSON.stringify({ type: 'againmap', again: againOf, files: generated.mutants.map((mutant) => mutant.file) })}\n`)
   fs.writeFileSync(paths.preload, channelWatch)
   fs.writeFileSync(paths.sites, new Uint8Array(generated.siteMutants.buffer))
   fs.writeFileSync(paths.tracked, generated.tracked)
