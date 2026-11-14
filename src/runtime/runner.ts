@@ -11,6 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import v8 from 'node:v8'
 import { constants, PerformanceObserver } from 'node:perf_hooks'
+import vm from 'node:vm'
 import { Worker } from 'node:worker_threads'
 import {
   createRuntime,
@@ -237,6 +238,20 @@ try {
   readSites = JSON.parse(fs.readFileSync(path.join(sessionDir, 'readsites.json'), 'utf8'))
 } catch {}
 let madeCopy = false
+let moduleBegins: ((file: string) => void) | undefined
+{
+  const evaluate = vm.runInThisContext
+  vm.runInThisContext = function (this: unknown, code: string, options?: vm.RunningScriptOptions | string) {
+    const made = evaluate.apply(this, arguments as unknown as Parameters<typeof evaluate>)
+    if (typeof code !== 'string' || !code.startsWith("'use strict';async (") || typeof made !== 'function') return made
+    const file = typeof options === 'object' && options ? String(options.filename) : '?'
+    return function (this: unknown, ...args: unknown[]) {
+      moduleBegins?.(file)
+      return (made as (...a: unknown[]) => unknown).apply(this, args)
+    }
+  } as typeof vm.runInThisContext
+  syncBuiltinESMExports()
+}
 
 const siteMutants = new Uint32Array(
   new Uint8Array(fs.readFileSync(paths.sites)).buffer,
@@ -1310,7 +1325,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private measuring = false
     /** In a run of a whole file, the shortest stretch, on the processor and by the clock, that ends it: the suite's own limit for what is running. */
     private floorMs = 0
-    private readStarts: { starts: [number, number, number[]][]; note: () => number[] } | undefined
+    private readStarts: { starts: [number, number, number[], string?][]; note: () => number[] } | undefined
     private hookFloorMs = 0
     private hookContext = hookStorage<{ job: WholeJob; timeout: number; active: boolean; clock: number; cpu: number; exceeded: () => boolean }>()
     /** In a run of a whole file, the limit on a stretch that comes from what the file takes. */
@@ -1519,7 +1534,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             const inner = runtime.m
             const at = this.loadStart
             const seen = new Set<number>()
-            const starts: [number, number, number[]][] = []
+            const starts: [number, number, number[], string?][] = []
             const note = () => {
               const hit = readSites.filter((site) => runtime.h[site] === 1 && !seen.has(site))
               for (const site of hit) seen.add(site)
@@ -1530,6 +1545,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
               starts.push([Math.round(realNow() - at), first, note()])
               return inner?.(first, end)
             }
+            moduleBegins = (file) => starts.push([Math.round(realNow() - at), -1, note(), file.split('/').slice(-3).join('/')])
             this.readStarts = { starts, note }
           }
           return super.onBeforeCollect?.(paths)
@@ -1959,6 +1975,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       if (this.template) {
         if (this.readStarts) emit({ type: 'modstarts', file: this.wholeFile, ms: Math.round(realNow() - this.loadStart), starts: this.readStarts.starts, after: this.readStarts.note() })
         this.readStarts = undefined
+        moduleBegins = undefined
         runtime.m = undefined
         // Jobs whose modules did not begin while the file loaded.
         const unbegun = this.waiting.filter((job) => this.open(job))
