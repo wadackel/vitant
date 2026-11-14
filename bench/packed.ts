@@ -7,7 +7,7 @@
 //
 //   node bench/packed.ts
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -39,9 +39,17 @@ fs.cpSync(fixture, project, { recursive: true, filter: (source) => path.basename
 const { devDependencies } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { devDependencies: Record<string, string> }
 npm(['install', '--no-audit', '--no-fund', `vitest@${devDependencies.vitest}`, ...tarballs], project)
 
+// A run that ends with 1 has still written its report, which says why: a file
+// given up on, or no test found. That reason is what the checks below print.
+const exits: string[] = []
 const report = (cwd: string, command: string[]): RunResult => {
   const file = path.join(work, `report-${path.basename(cwd)}.json`)
-  execFileSync(command[0], [...command.slice(1), '--report', file], { cwd, stdio: ['ignore', 'ignore', 'inherit'], shell: process.platform === 'win32' })
+  const run = spawnSync(command[0], [...command.slice(1), '--report', file], { cwd, stdio: ['ignore', 'ignore', 'inherit'], shell: process.platform === 'win32' })
+  if (run.status !== 0) exits.push(`${command.join(' ')} in ${cwd} exited with ${run.status ?? run.signal}`)
+  if (!fs.existsSync(file)) {
+    console.log(`${exits.at(-1) ?? 'a run'} and wrote no report`)
+    process.exit(1)
+  }
   return JSON.parse(fs.readFileSync(file, 'utf8')) as RunResult
 }
 const installed = report(project, ['npx', 'vitant'])
@@ -53,7 +61,12 @@ const expected = new Map(sources.mutants.map((mutant) => [key(mutant), mutant.st
 // A mutant that fails a test and loops is Killed in one run and Timeout in another.
 const detected = (status: string | undefined) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 const wrong = installed.mutants.filter((mutant) => detected(expected.get(key(mutant))) !== detected(mutant.status))
-const problems = wrong.map((mutant) => `${key(mutant)}: ${expected.get(key(mutant))} from the sources, ${mutant.status} installed`)
+const problems = [...exits, ...wrong.map((mutant) => `${key(mutant)}: ${expected.get(key(mutant))} from the sources, ${mutant.status} installed`)]
+for (const [name, run] of [['installed', installed], ['from the sources', sources]] as const) {
+  if (run.abandonedFiles.length > 0 && run === sources) problems.push(`${name}: gave up on ${run.abandonedFiles.join(', ')}`)
+  if (run.tests === 0) problems.push(`${name}: no test was found`)
+  if (run.changedFiles.length > 0) problems.push(`${name}: tests changed ${run.changedFiles.join(', ')}`)
+}
 if (installed.mutants.length !== sources.mutants.length) problems.push(`${installed.mutants.length} mutants installed, ${sources.mutants.length} from the sources`)
 if (installed.abandonedFiles.length > 0) problems.push(`gave up on ${installed.abandonedFiles.join(', ')}`)
 const copies = installed.wholeRuns['copied before load'] + installed.wholeRuns['copied while loading'] + installed.wholeRuns['copied after load'] + installed.wholeRuns['copied before a test']
