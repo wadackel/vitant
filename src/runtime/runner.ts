@@ -4,6 +4,7 @@
 // resolves.
 
 import { AsyncLocalStorage, createHook } from 'node:async_hooks'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
@@ -11,6 +12,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import v8 from 'node:v8'
 import { constants, PerformanceObserver } from 'node:perf_hooks'
+import vm from 'node:vm'
 import { Worker } from 'node:worker_threads'
 import {
   createRuntime,
@@ -231,6 +233,50 @@ const sessionDir = process.env.VITANT_SESSION
 if (!sessionDir) throw new Error('VITANT_SESSION is not set')
 const paths = sessionPaths(sessionDir)
 let config: SessionConfig = JSON.parse(fs.readFileSync(paths.config, 'utf8'))
+
+/**
+ * Keeps V8's compiled code for each module Vitest evaluates in the session,
+ * and hands it back when the same source is evaluated again, as every
+ * template of every round evaluates the file it loads. Only what Vitest's
+ * module runner evaluates, which wraps each module in the same
+ * `'use strict';async (` function, every version from 3.0 on; anything else
+ * passes through. V8 checks the cache against the source and its own flags
+ * and compiles afresh on a mismatch; the flags are in the key all the same,
+ * since round one's workers run with other flags than those copied. The
+ * functions are the ones taken before the project could replace them: a
+ * file system a test put in place of `fs` is never written to.
+ */
+function cacheCompiledCode(): void {
+  const dir = path.join(sessionDir!, 'compiled')
+  const read = fs.readFileSync
+  const write = fs.writeFileSync
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+  } catch {
+    return
+  }
+  const flags = createHash('sha1').update(JSON.stringify([process.execArgv, process.env.NODE_OPTIONS ?? ''])).digest('hex').slice(0, 12)
+  const evaluate = vm.runInThisContext
+  vm.runInThisContext = function runInThisContext(this: unknown, code: string, options?: vm.RunningScriptOptions | string) {
+    if (typeof code !== 'string' || !code.startsWith("'use strict';async (") || typeof options !== 'object' || options === null || 'cachedData' in options) {
+      return evaluate.apply(this, arguments as unknown as Parameters<typeof evaluate>)
+    }
+    const key = path.join(dir, `${flags}.${createHash('sha1').update(code).update('\0').update(String(options.filename)).digest('hex')}`)
+    let cachedData: Buffer | undefined
+    try {
+      cachedData = read(key)
+    } catch {}
+    const script = new vm.Script(code, { ...options, cachedData })
+    if (cachedData === undefined || script.cachedDataRejected) {
+      try {
+        write(key, script.createCachedData(), { flag: 'wx' })
+      } catch {}
+    }
+    return script.runInThisContext(options)
+  }
+  syncBuiltinESMExports()
+}
+cacheCompiledCode()
 
 const siteMutants = new Uint32Array(
   new Uint8Array(fs.readFileSync(paths.sites)).buffer,
