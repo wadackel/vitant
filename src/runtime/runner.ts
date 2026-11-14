@@ -1222,6 +1222,46 @@ function activeResources(): Map<string, number> {
   return counts
 }
 
+// Diagnostic only: which code started each request still under way, and where each new descriptor points.
+const diagnosing = process.env.VITANT_HELD_DIAG !== '0'
+const pendingRequests = new Map<number, string>()
+const reported = new Set<string>()
+if (diagnosing)
+  createHook({
+    init(id, type) {
+      if (type === 'PROMISE' || type === 'Timeout' || type === 'Immediate' || type === 'TickObject' || type === 'Microtask') return
+      const limit = Error.stackTraceLimit
+      Error.stackTraceLimit = 16
+      const stack = (new Error().stack ?? '').split('\n').slice(2).map((line) => line.trim()).filter((line) => !line.includes('node:internal/async_hooks')).join(' | ')
+      Error.stackTraceLimit = limit
+      pendingRequests.set(id, `${type} ${stack}`)
+    },
+    after(id) {
+      pendingRequests.delete(id)
+    },
+    destroy(id) {
+      pendingRequests.delete(id)
+    },
+  }).enable()
+function diagnosis(before: Set<string> | undefined) {
+  if (!diagnosing) return undefined
+  const descriptors: string[] = []
+  for (const fd of openDescriptors() ?? []) {
+    if (before?.has(fd)) continue
+    let target = '?'
+    try {
+      target = fs.readlinkSync(`/proc/self/fd/${fd}`)
+    } catch {}
+    descriptors.push(`${fd}->${target}`)
+  }
+  const pending = [...pendingRequests.values()]
+  const fresh = pending.filter((stack) => !reported.has(stack))
+  for (const stack of fresh) reported.add(stack)
+  const kinds: Record<string, number> = {}
+  for (const stack of pending) kinds[stack.split(' ')[0]] = (kinds[stack.split(' ')[0]] ?? 0) + 1
+  return { kinds, fresh: fresh.slice(0, 30), descriptors: descriptors.slice(0, 30) }
+}
+
 /** What the worker holds open before any test file is loaded, the watchdog's thread included. */
 let workerResources = activeResources()
 
@@ -1780,7 +1820,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           emit({ type: 'walk', file: this.wholeFile, why })
           this.walking = new Map()
         } else {
-          for (const job of jobs) emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why, held })
+          const diag = why === 'held' || why === 'descriptors' || why === 'calls' ? diagnosis(this.openBeforeLoad) : undefined
+          for (const job of jobs) emit({ type: 'walk', file: this.wholeFile, mutant: job.mutant, why, held, diag })
         }
         return false
       }
@@ -1837,7 +1878,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
               : undefined
       if (why) {
         // The jobs are left for the next round, which makes them before the file loads.
-        if (!this.unpaused) emit({ type: 'loading', file: this.wholeFile, why, held: why === 'held' ? [...held] : undefined })
+        if (!this.unpaused) emit({ type: 'loading', file: this.wholeFile, why, held: why === 'held' ? [...held] : undefined, diag: why === 'ran' ? undefined : diagnosis(this.openBeforeLoad) })
         this.unpaused = true
         return
       }
@@ -1943,7 +1984,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         timerHook.disable()
         const putOff = new Set(frozen.map(([timer]) => timer))
         const shares = !settled || loadTimers.some((timer) => !timer._destroyed && !putOff.has(timer))
-        if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()] })
+        if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], diag: diagnosis(this.openBeforeLoad) })
         // Nor can they be made from here then, and their next round makes them before the file loads.
         if (shares && unbegun.length > 0 && !this.unpaused) emit({ type: 'loading', file: this.wholeFile, why: 'unbegun' })
         // No copy is made of a process that holds something open: a test that was to have its one run in one has had its turn.
