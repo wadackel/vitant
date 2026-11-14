@@ -104,7 +104,9 @@ if (!(confirm === Infinity || (Number.isInteger(confirm) && confirm >= 1))) {
   process.exit(2)
 }
 
-const root = fs.realpathSync(path.resolve(values.root))
+// Native, so that a Windows path with a short name in it (`RUNNER~1`) comes
+// out as the long one Vitest gives its test files under.
+const root = fs.realpathSync.native(path.resolve(values.root))
 const result = await run({
   root,
   // A diff already names the files, so by default any of them may be mutated.
