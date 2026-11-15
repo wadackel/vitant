@@ -2085,13 +2085,13 @@ function writeSession(
   const spy = () => pathToFileURL(createRequire(vitestPackage).resolve('@vitest/spy')).href
   const imports =
     major >= 5
-      ? `import { TestRunner as Base, vi } from 'vitest'\nconst getFn = Base.getTestFn\nconst mocks = undefined`
+      ? `import { TestRunner as Base, vi } from 'vitest'\nconst getFn = Base.getTestFn\nconst getHooks = Base.getSuiteHooks\nconst mocks = undefined`
       : `import { vi } from 'vitest'\nimport { VitestTestRunner as Base } from 'vitest/runners'\n` +
-        `import { getFn } from 'vitest/suite'\nimport * as spy from ${JSON.stringify(spy())}\nconst mocks = spy.mocks`
+        `import { getFn, getHooks } from 'vitest/suite'\nimport * as spy from ${JSON.stringify(spy())}\nconst mocks = spy.mocks`
   fs.writeFileSync(
     paths.runner,
     `${imports}\nimport { withMutationTesting } from ${JSON.stringify(runtime)}\n` +
-      `export default withMutationTesting(Base, { major: ${major}, vi, getFn, mocks })\n`,
+      `export default withMutationTesting(Base, { major: ${major}, vi, getFn, getHooks, mocks })\n`,
   )
   return config
 }
