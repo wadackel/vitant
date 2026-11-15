@@ -39,10 +39,18 @@ interface TaskLike {
   repeats?: number
   retry?: unknown
   tasks?: TaskLike[]
+  suite?: SuiteLike
   file: { filepath: string }
   meta: Record<string, unknown>
   result?: { state: string; errors?: unknown[] }
   context: { skip: (note?: string) => never }
+}
+
+/** A suite or a file, as far as finding the suites whose hooks a test runs goes. */
+interface SuiteLike {
+  suite?: SuiteLike
+  file?: SuiteLike
+  filepath?: string
 }
 
 interface TryOptions {
@@ -62,6 +70,8 @@ export interface VitestBindings {
   major: number
   vi: MockControls
   getFn: (test: TaskLike) => (() => unknown) | undefined
+  /** The hooks a suite or a file declares, by kind. */
+  getHooks: (suite: SuiteLike) => { afterEach?: unknown[] } | undefined
   /** Vitest's registry of every mock ever created, where it is a plain Set (before Vitest 5). */
   mocks?: Set<object>
 }
@@ -2105,17 +2115,45 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     async onBeforeRunSuite(suite: TaskLike): Promise<void> {
+      this.releaseAfterEach()
       this.finishActive()
       this.clockOn()
       await super.onBeforeRunSuite?.(suite)
     }
 
     async onAfterRunSuite(suite: TaskLike): Promise<void> {
+      this.releaseAfterEach()
       this.clockOn()
       await super.onAfterRunSuite?.(suite)
     }
 
+    /** The `afterEach` hooks put aside for the try that ends a test's loop, see `holdAfterEach`. */
+    private heldAfterEach: { hooks: unknown[]; held: unknown[] }[] = []
+
+    /**
+     * A test's tries end with one more that skips itself before its
+     * `beforeEach`, since Vitest reads how many there are before the first.
+     * From Vitest 3.2 on that try still runs `afterEach`, which then undoes
+     * what no `beforeEach` did: a temporary directory of `tmp` removed a
+     * second time never says it is done, and each test of renovate's
+     * `execute-post-upgrade-commands.spec.ts` waited out the ten seconds its
+     * hook may take. So the hooks are put aside for that try.
+     */
+    private holdAfterEach(test: TaskLike): void {
+      // Up the chain as Vitest goes, to the file, whose own `suite` is unset.
+      for (let suite: SuiteLike | undefined = test.suite ?? test.file; suite; suite = suite.filepath === undefined ? suite.suite ?? suite.file : undefined) {
+        const hooks = vitest.getHooks(suite)?.afterEach
+        if (hooks?.length) this.heldAfterEach.push({ hooks, held: hooks.splice(0) })
+      }
+    }
+
+    /** Puts back what `holdAfterEach` put aside, before any other test or suite can run its hooks. */
+    private releaseAfterEach(): void {
+      for (const { hooks, held } of this.heldAfterEach.splice(0)) hooks.push(...held)
+    }
+
     async onBeforeRunTask(test: TaskLike): Promise<void> {
+      this.releaseAfterEach()
       await super.onBeforeRunTask?.(test)
       if (this.walking) {
         const jobs = this.walking.get(test.id)
@@ -2268,6 +2306,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             if (hosted && !cloned) return this.giveWay()
             process.kill(process.pid, 'SIGKILL')
           }
+          this.holdAfterEach(test)
           test.context.skip()
         }
       }

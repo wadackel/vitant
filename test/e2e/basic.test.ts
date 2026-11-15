@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { runBasic } from '../helpers/basic.ts'
 import { createE2E } from '../helpers/e2e.ts'
@@ -12,6 +13,8 @@ const { fixture, tool, reportPath } = owner
 let result: RunResult
 /** What that run and its workers wrote. */
 let output = ''
+/** What each worker of that run said of the tests it drove. */
+let tests: { file: string; name: string; baseline?: string }[] = []
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -24,6 +27,11 @@ function statusOf(file: string, line: number, replacement: string): string {
 
 beforeAll(() => {
   ({ result, output } = runBasic(owner))
+  // Read now: the other runs of the fixture below replace them.
+  const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
+  tests = fs.readdirSync(records)
+    .flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n').filter((line) => line.includes('"type":"test"')))
+    .map((line) => JSON.parse(line))
 }, 180_000)
 
 describe('running the fixture project', () => {
@@ -120,6 +128,16 @@ describe('running the fixture project', () => {
   it('judges code that only afterEach reaches, where the next test is what fails', () => {
     expect(statusOf('src/pool.ts', 9, 'false')).toBe('Killed')
     expect(statusOf('src/pool.ts', 13, 'true')).toBe('Killed')
+  })
+
+  it('runs afterEach only after a beforeEach while tests try mutants', () => {
+    // Each test of the file holds what its `beforeEach` took and `afterEach`
+    // gives back; one `afterEach` too many after the first test's tries left
+    // the second holding nothing, and it failed with no mutant on.
+    const lease = tests.filter((test) => test.file.endsWith('test/lease.test.ts'))
+    expect(lease.map((test) => test.name)).toContain('charges for the hours of the lease')
+    expect(lease.filter((test) => test.baseline === 'fail').map((test) => test.name)).toEqual([])
+    expect(statusOf('src/lease.ts', 2, 'hours / 3')).toBe('Killed')
   })
 
   it('judges code that only a hook after the last test reaches', () => {
