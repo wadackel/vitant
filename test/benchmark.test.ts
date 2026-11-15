@@ -4,6 +4,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { assertStrykerRestored, prepareStrykerSandbox } from '../bench/sandbox.ts'
+import { type Target, targetEnv, targets, vitestArgs } from '../bench/targets.ts'
 
 let root: string
 beforeEach(() => {
@@ -65,4 +66,17 @@ it('marks Stryker timings as incomparable when covered survivors ran no tests', 
   } finally {
     fs.rmSync(directory, { recursive: true, force: true })
   }
+})
+
+it('gives a target its config, projects and filters on the command line', () => {
+  const target: Target = { ...targets.ufo, config: 'config/unit.config.ts', projects: ['unit'], filters: ['sqlite.test.ts'] }
+  expect(vitestArgs(target)).toEqual(['--config', 'config/unit.config.ts', '--project', 'unit', 'sqlite.test.ts'])
+  expect(vitestArgs(targets.ufo)).toEqual([])
+})
+
+it("sets and removes a target's variables over the environment it is given", () => {
+  expect(targetEnv({ env: { TZ: 'UTC', CI: null } }, { CI: 'true', PATH: '/bin', TZ: 'Asia/Tokyo' })).toEqual({ PATH: '/bin', TZ: 'UTC' })
+  const base = { CI: 'true', PATH: '/bin' }
+  expect(targetEnv(targets.ufo, base)).toEqual(base)
+  expect(targetEnv(targets.ufo, base)).not.toBe(base)
 })

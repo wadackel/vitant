@@ -26,12 +26,43 @@ export interface Target {
   projects?: string[]
   /** Test file filters, as Vitest takes them, for the same reason. */
   filters?: string[]
+  /** The Vitest config file, relative to the project, where the suite is not run with the one Vitest finds by itself. */
+  config?: string
+  /**
+   * Variables to set, or with null to remove, for the install, both tools and
+   * every run of ground truth, which otherwise sets `CI`: a project's config
+   * or tests can depend on them, as one that reports differently under `CI`.
+   * Without `CI` Vitest writes snapshots it has not seen and passes, where
+   * this tool fails: such a target takes `--update=none` in `truthArgs`
+   * (Vitest 4 and later; Vitest 3 takes any value of it for `all`).
+   */
+  env?: Record<string, string | null>
+  /**
+   * Vitest arguments for ground truth alone: what the project's config turns
+   * on that both tools turn off and that fails the suite by itself, as a
+   * coverage threshold or a type check.
+   */
+  truthArgs?: string[]
   scopes: Record<string, Scope>
 }
 
-/** What a target adds to a Vitest command line. */
+/** What a target adds to a Vitest command line, and to this tool's, which takes the same. */
 export function vitestArgs(target: Target): string[] {
-  return [...(target.projects ?? []).flatMap((project) => ['--project', project]), ...(target.filters ?? [])]
+  return [
+    ...(target.config ? ['--config', target.config] : []),
+    ...(target.projects ?? []).flatMap((project) => ['--project', project]),
+    ...(target.filters ?? []),
+  ]
+}
+
+/** `base` with the target's variables set and removed. */
+export function targetEnv(target: Pick<Target, 'env'>, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env = { ...base }
+  for (const [name, value] of Object.entries(target.env ?? {})) {
+    if (value === null) delete env[name]
+    else env[name] = value
+  }
+  return env
 }
 
 const stryker = '@stryker-mutator/core@10.0.0 @stryker-mutator/vitest-runner@10.0.0'

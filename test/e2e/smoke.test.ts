@@ -120,3 +120,49 @@ describe('mocks a test file clears between its tests, on Vitest 3.2', () => {
     ])
   }, 180_000)
 })
+
+// Vitest 3 resolves the path itself and later versions as a module first, both against the root.
+describe.each(['vitest3', 'vitest'])('a config named with --config, on %s', (version) => {
+  const project = path.join(owner.directory, `config-${version}`)
+  beforeAll(() => {
+    for (const dir of ['src', 'spec', 'config', 'node_modules']) fs.mkdirSync(path.join(project, dir), { recursive: true })
+    fs.symlinkSync(path.join(root, 'node_modules', version), path.join(project, 'node_modules/vitest'), 'junction')
+    fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
+    // Under the name Vitest looks for: a run that takes it finds no test file.
+    fs.writeFileSync(path.join(project, 'vitest.config.mjs'), "export default { test: { include: ['test/**/*.test.ts'] } }\n")
+    fs.writeFileSync(path.join(project, 'config/unit.config.mjs'), "export default { test: { include: ['spec/**/*.check.ts'] } }\n")
+    fs.writeFileSync(path.join(project, 'src/sign.ts'), 'export function positive(value: number): boolean {\n  return value > 0\n}\n')
+    fs.writeFileSync(path.join(project, 'spec/sign.check.ts'), `import { expect, it } from 'vitest'
+import { positive } from '../src/sign.ts'
+it('tells positive numbers', () => {
+  expect(positive(2)).toBe(true)
+  expect(positive(-2)).toBe(false)
+})
+`)
+  })
+
+  it('runs the suite that config gives, and none without it', () => {
+    const report = reportPath(`config-${version}`)
+    const cli = tool(['--root', project, '--config', 'config/unit.config.mjs', '--report', report])
+    expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+    const run = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+    expect(run.vitestVersion).toMatch(version === 'vitest3' ? /^3\./ : /^5\./)
+    expect(run.tests).toBe(1)
+    expect(run.mutants.map((mutant) => `${mutant.replacement} ${mutant.status}`).sort()).toEqual([
+      'false Killed',
+      'true Killed',
+      'value <= 0 Killed',
+      'value >= 0 Survived',
+      '{} Killed',
+    ])
+    const plain = tool(['--root', project, '--report', reportPath(`config-${version}-default`)])
+    expect(plain.status).toBe(1)
+    expect(plain.stdout).toContain('no test ran')
+  }, 120_000)
+
+  it('stops on a config that is not there', () => {
+    const cli = tool(['--root', project, '--config', 'config/missing.mjs'])
+    expect(cli.status).toBe(2)
+    expect(cli.stderr).toContain(`--config: no file ${path.join(fs.realpathSync.native(project), 'config/missing.mjs')}`)
+  })
+})

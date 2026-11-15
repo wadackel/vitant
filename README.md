@@ -77,6 +77,7 @@ Shares are of whole files, so a file with most of the mutants makes its share th
 | Option | Default | Effect |
 |---|---|---|
 | `--root <dir>` | the current directory | The project, where its Vitest config is. |
+| `--config <file>` | the one Vitest finds in the root, `vitest.config.ts` and the like | The Vitest config file, a path relative to the root, for a suite that runs as `vitest --config <file>`. |
 | `--mutate <glob>` | the sources under `src` | Files to mutate. Repeatable. |
 | `--exclude <glob>` | | Files not to mutate. Repeatable. |
 | `--changed <ref>` | | Only mutants whose code lies entirely on lines changed since the git ref. |

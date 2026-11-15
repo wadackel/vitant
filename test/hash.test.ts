@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { hashFile } from '../src/cache.ts'
+import { fingerprint, hashFile } from '../src/cache.ts'
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-hash-'))
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }))
@@ -51,5 +51,21 @@ export function count<T extends string>(items: T[] /* all */): number {
   it('takes the bytes of a file that does not parse, and of any other file', () => {
     expect(hash('export const = ;')).not.toBe(hash('export const  = ;'))
     expect(hash('a: 1\n', 'json')).not.toBe(hash('a:  1\n', 'json'))
+  })
+})
+
+describe('the fingerprint of a run', () => {
+  // The default names are found in the root; a config named by `--config` can be anywhere and called anything.
+  it('changes with a named config, which the root alone does not show', () => {
+    const roots = ['include: ["a"]', 'include: ["b"]'].map((test, i) => {
+      const project = path.join(dir, `root${i}`)
+      fs.mkdirSync(path.join(project, 'config'), { recursive: true })
+      fs.writeFileSync(path.join(project, 'config/unit.config.ts'), `export default { test: { ${test} } }\n`)
+      return project
+    })
+    const [one, other] = roots.map((project) => fingerprint(project, '5.0.3', [4], path.join(project, 'config/unit.config.ts')))
+    expect(one).not.toBe(other)
+    expect(fingerprint(roots[0], '5.0.3', [4])).toBe(fingerprint(roots[1], '5.0.3', [4]))
+    expect(fingerprint(roots[0], '5.0.3', [4])).not.toBe(one)
   })
 })

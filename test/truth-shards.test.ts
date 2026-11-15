@@ -51,11 +51,18 @@ describe('truth shard command boundary', () => {
     ['--shard', '1/4', '--sample', '1'],
     ['--shard', '1/4', '--related'],
     ['--shard', '1/4', '--vitest=one.test.ts'],
+    ['--shard', '1/4', '--target', 'ufo'],
   ])('rejects invalid or partial-suite options before running the tool: %j', (...args) => {
     const result = spawnSync(process.execPath, [path.join(import.meta.dirname, '../bench/truth.ts'), 'make',
       '--root', 'nonexistent-truth-fixture', '--out', 'unused-truth-output.json', ...args], { encoding: 'utf8' })
     expect(result.status).not.toBe(0)
     expect(result.stderr).toMatch(/Shard must|--shard requires/)
     expect(result.stderr).not.toContain('the tool exited')
+  })
+
+  it('rejects a target bench/targets.ts does not have before running the tool', () => {
+    const result = spawnSync(process.execPath, [path.join(import.meta.dirname, '../bench/truth.ts'), 'make', '--target', 'nonexistent-target'], { encoding: 'utf8' })
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('no target nonexistent-target in bench/targets.ts')
   })
 })

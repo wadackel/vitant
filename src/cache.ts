@@ -129,7 +129,8 @@ export function hashFile(file: string): string {
 }
 
 /** Everything outside the test files' own imports that a verdict depends on. */
-export function fingerprint(root: string, vitestVersion: string, limits: unknown): string {
+export function fingerprint(root: string, vitestVersion: string, limits: unknown, config?: string): string {
+  const named = config ? [`config ${relative(root, config)}:${hashFile(config)}`] : []
   const shared = fs
     .readdirSync(root)
     .filter((name) =>
@@ -138,7 +139,7 @@ export function fingerprint(root: string, vitestVersion: string, limits: unknown
     )
     .sort()
     .map((name) => `${name}:${hashFile(path.join(root, name))}`)
-  return JSON.stringify([FORMAT, process.versions.node.split('.')[0], process.platform, process.arch, vitestVersion, limits, shared])
+  return JSON.stringify([FORMAT, process.versions.node.split('.')[0], process.platform, process.arch, vitestVersion, limits, [...named, ...shared]])
 }
 
 /**
