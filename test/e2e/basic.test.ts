@@ -385,3 +385,31 @@ describe('with --fast', () => {
     expect(cli.stdout).toMatch(/--fast: \d+ mutant\(s\) failed a test with its file to itself/)
   }, 180_000)
 })
+
+describe('in shares', () => {
+  it('gives every mutant of two shares merged the verdict of one run of all of them', () => {
+    const reports = [1, 2].map((index) => {
+      const report = reportPath(`shard-${index}`)
+      const cli = tool(['--root', fixture('basic'), '--shard', `${index}/2`, '--report', report])
+      expect(cli.status, cli.stderr).toBe(0)
+      return report
+    })
+    const shares: RunResult[] = reports.map((report) => JSON.parse(fs.readFileSync(report, 'utf8')))
+    const files = shares.map((share) => new Set(share.mutants.map((m) => m.file)))
+    expect([...files[0]].filter((file) => files[1].has(file))).toEqual([])
+    expect(shares.every((share) => share.mutants.length > 0)).toBe(true)
+
+    const merged = reportPath('merged')
+    const cli = tool(['merge', '--report', merged, ...reports])
+    expect(cli.status, cli.stderr).toBe(0)
+    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
+    const verdicts = (run: RunResult) =>
+      run.mutants.map((m) => `${m.id} ${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${kind(m.status)}`)
+    expect(verdicts(JSON.parse(fs.readFileSync(merged, 'utf8')))).toEqual(verdicts(result))
+
+    // A share left out would leave its mutants out of the score without a word.
+    const partial = tool(['merge', '--report', reportPath('partial'), reports[0]])
+    expect(partial.status).toBe(2)
+    expect(partial.stderr).toContain('2 shares need each of 1, 2 once')
+  }, 540_000)
+})

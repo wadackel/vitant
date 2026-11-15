@@ -63,6 +63,15 @@ Positional arguments are passed to Vitest as test file filters.
 
 The score never fails the run: there is no threshold option. The exit code is 1 when a test file had to be given up on and its mutants are left pending, when no test ran at all, or when files under version control are not as they were before the run. Bad arguments exit with 2. For a pull request check, `--changed <ref>` keeps the run to the lines changed since that git ref, compared with the working tree, so pass the merge base rather than a branch that has moved on. `--incremental` reuses the last run's results for test files that loaded nothing that changed; the results live in `node_modules/.vitant/`, which a fresh runner starts without, so keep that directory in the CI cache.
 
+A run can be split across jobs. `--shard <i>/<n>` mutates only the i-th of n shares of the files, dealt so that each has about as many mutants, and every machine deals the same sources the same way. `vitant merge` makes one report of the shares' reports, and refuses a share left out, given twice or with another count:
+
+```sh
+npx vitant --shard 1/3 --report shard-1.json   # in each of three jobs, with its own index
+npx vitant merge --report vitant.json --elements vitant.html shard-1.json shard-2.json shard-3.json
+```
+
+Shares are of whole files, so a file with most of the mutants makes its share the largest: ufo's 918 came out as 433, 248 and 237. Each mutant is judged in its share as in a run of all of them; on the fixture project and on ufo, three shares merged gave every mutant the verdict one run of all of them gave. What takes longer is the start of each job and the round that runs every test file a share's files reach. The test files whose runs fail each other are found in each share by itself.
+
 ## Options
 
 | Option | Default | Effect |
@@ -71,6 +80,7 @@ The score never fails the run: there is no threshold option. The exit code is 1 
 | `--mutate <glob>` | the sources under `src` | Files to mutate. Repeatable. |
 | `--exclude <glob>` | | Files not to mutate. Repeatable. |
 | `--changed <ref>` | | Only mutants whose code lies entirely on lines changed since the git ref. |
+| `--shard <i>/<n>` | | Only the i-th of n shares of the files to mutate, with about as many mutants in each; `vitant merge --report <file> [--elements <file>] <reports>...` makes one report of them. |
 | `--project <name>` | every project | The Vitest project to run. Repeatable. |
 | `--report <file>` | | Write every mutant with its status as JSON. |
 | `--elements <file>` | | Write the result for [mutation-testing-elements](https://github.com/stryker-mutator/mutation-testing-elements): a page for a name ending in `.html`, JSON otherwise. |
