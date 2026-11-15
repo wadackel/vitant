@@ -29,6 +29,10 @@ const truthLanes = truthCases.flatMap((test) => Array.from({ length: test.shards
 })))
 // Windows starts processes so slowly that the whole truth command on one runner came within minutes of its 200-minute limit.
 const partitionedTruth = (profile: Profile) => profile === 'full' ? ['win32-x64'] : ['linux-x64-gnu']
+// About six minutes each on macOS arm64. With the packed lane that is five macOS jobs, as many as an account runs at once;
+// e2e files no lane names run in the packed lane, so a new file is never left out.
+const e2eLanes = [['basic.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'], ['boundaries.test.ts', 'cache.test.ts']]
+const e2eSuites = e2eLanes.map((_, i) => `e2e-${i + 1}`)
 const docs = (file: string) => ['README.md', 'CONTRIBUTING.md', 'LICENSE'].includes(file) || /^docs\/.+\.md$/.test(file)
 
 export function profileFor(input: { event: string; paths?: unknown; manual?: unknown }): { profile: Profile; reason: string } {
@@ -57,7 +61,7 @@ export function expectedChecks(profile: Profile): Check[] {
     ...(profile === 'full'
       ? targets.flatMap(({ target }) => ['regression', 'truth'].map((suite) => ({ target, suite })))
         .filter((check) => check.suite !== 'truth' || !partitionedTruth(profile).includes(check.target))
-      : targets.filter((target) => target.representative).flatMap(({ target }) => ['e2e-basic', 'e2e-other', 'packed'].map((suite) => ({ target, suite })))),
+      : targets.filter((target) => target.representative).flatMap(({ target }) => [...e2eSuites, 'packed'].map((suite) => ({ target, suite })))),
     ...partitionedTruth(profile).flatMap((target) => truthLanes.map(({ suite }) => ({ target, suite }))),
   ]
 }
@@ -75,17 +79,14 @@ export function commandsFor(name: string, suite: string): { name: string; args: 
   if (suite === 'quick' && name === 'linux-x64-gnu') return [typecheck, unit]
   if (suite === 'smoke') return [{ name: 'smoke', args: ['test:smoke', '--reporter=json', '--outputFile=build/test-reports/smoke.json'] }]
   if (suite === 'truth') return [{ name: 'truth', args: ['test:truth'] }]
-  if (suite === 'e2e-basic' || suite === 'e2e-other') {
-    const files = suite === 'e2e-basic' ? ['basic.test.ts'] : fs.readdirSync(path.join(root, 'test/e2e'))
-      .filter((file) => file.endsWith('.test.ts') && !['basic.test.ts', 'smoke.test.ts'].includes(file)).sort()
-    if (files.length === 0) throw new Error('No e2e files assigned to this lane')
-    return [{ name: 'e2e', args: ['test:e2e', ...files.map((file) => `test/e2e/${file}`),
-      '--reporter=json', '--outputFile=build/test-reports/e2e.json'] }]
+  const e2e = (files: string[]) => ({ name: 'e2e', args: ['test:e2e', ...files.map((file) => `test/e2e/${file}`),
+    '--reporter=json', '--outputFile=build/test-reports/e2e.json'] })
+  if (e2eSuites.includes(suite)) return [e2e(e2eLanes[e2eSuites.indexOf(suite)])]
+  if (suite === 'packed') {
+    const rest = fs.readdirSync(path.join(root, 'test/e2e'))
+      .filter((file) => file.endsWith('.test.ts') && file !== 'smoke.test.ts' && !e2eLanes.flat().includes(file)).sort()
+    return [...(name === 'linux-x64-gnu' ? [] : [typecheck, unit]), ...(rest.length > 0 ? [e2e(rest)] : []), { name: 'packed', args: ['test:packed'] }]
   }
-  if (suite === 'packed') return [
-    ...(name === 'linux-x64-gnu' ? [] : [typecheck, unit]),
-    { name: 'packed', args: ['test:packed'] },
-  ]
   const truth = truthLanes.find((lane) => lane.suite === suite)
   if (truth) return [{ name: 'truth', args: ['exec', 'node', 'bench/truth.ts', 'make',
     '--root', `fixtures/${truth.root}`, '--jobs', String(truth.jobs), '--shard', truth.shard,
@@ -295,7 +296,7 @@ function gate() {
     rows.push(`| ${target} | ${suite} | ${object(result) ? String(result.status) : 'missing'} | ${times} |`)
   }
   for (const target of targets) {
-    if (!expectedChecks(profile).some((check) => check.target === target.target && ['regression', 'e2e-basic'].includes(check.suite))) {
+    if (!expectedChecks(profile).some((check) => check.target === target.target && ['regression', 'packed'].includes(check.suite))) {
       rows.push(`| ${target.target} | unit/e2e/packed | not selected (${profile}) | |`)
     }
   }

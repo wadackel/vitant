@@ -50,8 +50,10 @@ describe('CI profiles', () => {
     expect(checks.filter((c) => c.suite === 'smoke').map((c) => c.target)).toEqual(targets.map((t) => t.target))
     for (const target of ['darwin-arm64', 'linux-x64-gnu']) {
       expect(checks.filter((c) => c.target === target && !['quick', 'smoke'].includes(c.suite) && !c.suite.startsWith('truth-'))
-        .map((c) => c.suite)).toEqual(['e2e-basic', 'e2e-other', 'packed'])
+        .map((c) => c.suite)).toEqual(['e2e-1', 'e2e-2', 'e2e-3', 'e2e-4', 'packed'])
     }
+    // Five macOS jobs run at once on the account; a sixth would wait for one of them.
+    expect(checks.filter((c) => targets.find((t) => t.target === c.target)!.runner.startsWith('macos') && c.suite !== 'smoke')).toHaveLength(5)
     expect(checks.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
       ...['basic-default', 'basic-static'].flatMap((name) => [1, 2, 3, 4].map((shard) => ['linux-x64-gnu', `truth-${name}-${shard}`])),
       ...['stuck', 'clash', 'walk'].map((name) => ['linux-x64-gnu', `truth-${name}-1`]),
@@ -69,9 +71,11 @@ describe('CI profiles', () => {
   it('retains all e2e files, packed, units and typechecking across the PR lanes', () => {
     expect(commandsFor('linux-x64-gnu', 'quick').map((c) => c.name)).toEqual(['typecheck', 'unit'])
     for (const target of ['linux-x64-gnu', 'darwin-arm64']) {
-      const commands = ['e2e-basic', 'e2e-other', 'packed'].flatMap((suite) => commandsFor(target, suite))
-      expect(commandsFor(target, 'e2e-basic')[0].args.slice(0, 2)).toEqual(['test:e2e', 'test/e2e/basic.test.ts'])
+      const commands = ['e2e-1', 'e2e-2', 'e2e-3', 'e2e-4', 'packed'].flatMap((suite) => commandsFor(target, suite))
+      expect(commandsFor(target, 'e2e-1')[0].args.slice(0, 2)).toEqual(['test:e2e', 'test/e2e/basic.test.ts'])
+      expect(commandsFor(target, 'packed').map((c) => c.name)).toEqual([...(target === 'linux-x64-gnu' ? [] : ['typecheck', 'unit']), 'e2e', 'packed'])
       const files = commands.flatMap((command) => command.args.filter((arg) => arg.startsWith('test/e2e/')))
+      expect(new Set(files).size).toBe(files.length)
       const inventory = fs.readdirSync(path.join(import.meta.dirname, 'e2e')).filter((file) => file.endsWith('.test.ts') && file !== 'smoke.test.ts').map((file) => `test/e2e/${file}`)
       expect(files.sort()).toEqual(inventory.sort())
       expect(commands.filter((c) => c.name === 'packed')).toHaveLength(1)
