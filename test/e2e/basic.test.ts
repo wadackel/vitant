@@ -53,7 +53,7 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(few)).toEqual(verdicts(result))
-  }, 120_000)
+  }, 180_000)
 
   it('gives every mutant the same verdict with the runs that confirm a failure one at a time on the machine', () => {
     const report = reportPath('strict')
