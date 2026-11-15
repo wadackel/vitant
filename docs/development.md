@@ -10,7 +10,8 @@ The short commands answer whether an edit is ready for a larger check. The full 
 | `pnpm test:unit` | Instrumentation, bindings, verdicts, process locks and harness unit tests |
 | `pnpm test:smoke` | Native supervision, copied runs, clocks and Vitest 3 mocks |
 | `pnpm test:e2e test/e2e/cache.test.ts` | Incremental and transformed-module caches |
-| `pnpm test:e2e test/e2e/basic.test.ts` | Basic verdicts and worker-count, strict, no-clone, static, confirm and led comparisons |
+| `pnpm test:e2e test/e2e/basic.test.ts` | Basic verdicts and worker-count and strict comparisons |
+| `pnpm test:e2e test/e2e/basic-modes.test.ts test/e2e/basic-options.test.ts` | No-clone and static comparisons; confirm, led, fast and shard comparisons |
 | `pnpm test:e2e test/e2e/boundaries.test.ts` | Limits, hangs, conflicting runs, changed files and typechecking boundaries |
 | `pnpm test` | All unit, smoke and e2e tests |
 | `pnpm test:truth` | Every eligible mutant in basic/default, basic/static, stuck, clash and walk, written into the source and judged by the suite |
@@ -40,9 +41,9 @@ The seven environments are macOS arm64/x64, Linux x64/arm64 with glibc/musl, and
 
 The quick Linux job supplies its same-source typecheck/unit result once. Build/smoke jobs compile each addon and upload it with source, workflow-run, platform and content identities. Detail jobs download only from that workflow run and verify the manifest before using the binary.
 
-Standard detail runs in independent jobs and checkouts, with up to twenty jobs in flight:
+Standard detail runs in independent jobs and checkouts, with up to twenty jobs in flight. A code PR takes about ten minutes, most of it the longest e2e lane on macOS:
 
-- On Linux and macOS, basic e2e, all other e2e files, and packed checks have separate lanes. macOS units and typechecking run beside the packed check.
+- On Linux and macOS, the e2e files are spread over four lanes of about six minutes each on macOS, and the packed check has a fifth; five is as many macOS jobs as the account runs at once. Each of the three basic files makes the fixture's run with no options again, which its comparisons need. e2e files that no lane names, and on macOS the units and typechecking, run in the packed lane.
 - On Linux, basic/default and basic/static truth each have four mutant partitions. Stuck, clash and walk each have one lane. Every partition runs the whole target suite for every assigned mutant, with the existing calibration and serial disagreement retries. The target suite itself is never sharded or sampled.
 - Each truth partition records its complete eligible mutant set and the identities it actually checked. The gate requires every partition exactly once, identical mutant sets across partitions of a case, and the exact assigned identities without omissions or duplicates. Reports from another source or workflow run cannot fill a missing partition.
 

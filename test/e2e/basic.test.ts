@@ -1,6 +1,6 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { runBasic } from '../helpers/basic.ts'
 import { createE2E } from '../helpers/e2e.ts'
 import { addonTarget } from '../../src/platform.ts'
 import type { MutantResult, RunResult } from '../../src/run.ts'
@@ -22,14 +22,8 @@ function statusOf(file: string, line: number, replacement: string): string {
   return matches[0].status
 }
 
-// The runs here get three minutes each: a hosted runner with an Intel
-// processor has taken more than one over a run that takes ten seconds elsewhere.
 beforeAll(() => {
-  const report = reportPath('basic')
-  const cli = tool(['--root', fixture('basic'), '--report', report])
-  expect(cli.status, cli.stderr).toBe(0)
-  result = JSON.parse(fs.readFileSync(report, 'utf8'))
-  output = cli.stdout + cli.stderr
+  ({ result, output } = runBasic(owner))
 }, 180_000)
 
 describe('running the fixture project', () => {
@@ -63,18 +57,6 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(strict)).toEqual(verdicts(result))
-  }, 180_000)
-
-  it('gives every mutant the same verdict with a worker started per whole-file run', () => {
-    const report = reportPath('no-clone')
-    const cli = tool(['--root', fixture('basic'), '--no-clone', '--report', report])
-    expect(cli.status, cli.stderr).toBe(0)
-    const plain: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    const verdicts = (run: RunResult) =>
-      run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
-    expect(verdicts(plain)).toEqual(verdicts(result))
-    expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load'] + plain.wholeRuns['copied before a test']).toBe(0)
-    expect(plain.wholeRuns.started).toBeGreaterThan(0)
   }, 180_000)
 
   // Without this a build that quietly fell back to starting workers would pass every other test.
@@ -261,155 +243,4 @@ describe('running the fixture project', () => {
     // running the file once shows the mutant breaks it.
     expect(statusOf('src/sequence.ts', 5, 'next -= 1')).toBe('Killed')
   })
-})
-
-describe('with mutants in code that only runs while a module loads run too', () => {
-  it('judges them, and every other mutant as before', () => {
-    const report = reportPath('static')
-    const cli = tool(['--root', fixture('basic'), '--static', '--report', report])
-    expect(cli.status, cli.stderr).toBe(0)
-    const judged: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    expect(judged.counts.Static).toBe(0)
-    // The array is filled while the module loads and no test looks at what it starts as.
-    const loaded = judged.mutants.find((m) => m.file === 'src/math.ts' && m.location.start.line === 1)!
-    expect(['Killed', 'Survived']).toContain(loaded.status)
-    const others = (run: RunResult) =>
-      run.mutants.filter((m) => result.mutants[m.id].status !== 'Static').map((m) => `${m.id} ${m.status}`)
-    expect(others(judged)).toEqual(others(result))
-
-    // Each label is read in one way: by name, through a function, the
-    // namespace, a copy of it, a barrel, the original a mock is made from,
-    // or as the default export; the last only by a `Set.prototype.add` a
-    // test put in place, which the module's check of the built-ins sees. A
-    // file that reads none of what a mutant changes is not run with it.
-    const labels = judged.mutants.filter((m) => m.file === 'src/labels.ts' && m.mutator !== 'BlockStatement' && m.location.start.line !== 10)
-    expect(labels.map((m) => `${m.location.start.line} ${m.status}`)).toEqual([
-      ...[1, 2, 3, 4, 5, 6].map((line) => `${line} Killed`),
-      '7 Survived',
-      '13 Killed',
-      ...['16 Killed', '16 Killed', '16 Killed'],
-    ])
-    const ran = new Map<number, Set<string>>()
-    const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
-    for (const name of fs.readdirSync(records)) {
-      for (const line of fs.readFileSync(path.join(records, name), 'utf8').split('\n')) {
-        if (!line.includes('"type":"whole"')) continue
-        const run = JSON.parse(line) as { mutant: number; file: string }
-        ran.set(run.mutant, (ran.get(run.mutant) ?? new Set()).add(path.basename(run.file)))
-      }
-    }
-    const filesOf = (line: number) => [...(ran.get(labels.find((m) => m.location.start.line === line)!.id) ?? [])].sort()
-    // The test that replaces `Set.prototype.add` imports the module by `import()`, whose result it drops: all of it counts as read.
-    // A mutant detected in one file needs no other, and which comes first differs from run to run.
-    const readers = ['labels.greet.test.ts', 'labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts']
-    expect(filesOf(1).length).toBeGreaterThan(0)
-    expect(readers).toEqual(expect.arrayContaining(filesOf(1)))
-    // One that survives is run with every file that reads it, and with no other.
-    expect(filesOf(7)).toEqual(['labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts'])
-  }, 180_000)
-})
-
-describe('with a limit on the test files a mutant is run against', () => {
-  it('reports a mutant with files left as unconfirmed, and no other verdict differently', () => {
-    const report = reportPath('confirm')
-    const cli = tool(['--root', fixture('basic'), '--confirm', '1', '--report', report])
-    expect(cli.status, cli.stderr).toBe(0)
-    const limited: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    // Only the hook of the farther file fails with `reset` emptied; the nearest file passes.
-    const emptied = limited.mutants.find((m) => m.file === 'src/tally.ts' && m.location.start.line === 17)!
-    expect(result.mutants[emptied.id].status).toBe('Killed')
-    expect(emptied.status).toBe('Unconfirmed')
-    expect(emptied.confirmed).toEqual({ passed: 1, open: 1 })
-    expect(cli.stdout).toContain('Unconfirmed (passed 1 of 2 files) src/tally.ts:17')
-    for (const mutant of limited.mutants) {
-      if (mutant.status !== 'Unconfirmed') expect(`${mutant.id} ${mutant.status}`).toBe(`${mutant.id} ${result.mutants[mutant.id].status}`)
-      else expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
-    }
-    // What the run without the limit said the limit would leave out is an upper bound on what it did.
-    const lost = limited.mutants.filter((m) => m.status === 'Unconfirmed' && result.mutants[m.id].status !== 'Survived').length
-    expect(result.nearest!.detected.slice(1).reduce((sum, count) => sum + count, 0)).toBeGreaterThanOrEqual(lost)
-    expect(limited.nearest).toBeUndefined()
-  }, 180_000)
-})
-
-describe('with leads taken at their word', () => {
-  it('reports a mutant a test failed with as led, and no other verdict differently', () => {
-    const report = reportPath('led')
-    const cli = tool(['--root', fixture('basic'), '--led', '--report', report])
-    expect(cli.status, cli.stderr).toBe(0)
-    const led: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    expect(led.counts.Led).toBeGreaterThan(0)
-    const runs = ({ started, lost, ...copied }: RunResult['wholeRuns']) => started + Object.values(copied).reduce((sum, count) => sum + count, 0)
-    expect(runs(led.wholeRuns)).toBeLessThan(runs(result.wholeRuns))
-    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
-    for (const mutant of led.mutants) {
-      // A failure next to other runs is left at that too, and that mutant is unconfirmed.
-      if (mutant.besideOnly) expect(`${mutant.id} ${mutant.status} ${kind(result.mutants[mutant.id].status)}`).toBe(`${mutant.id} Unconfirmed Killed`)
-      else if (mutant.status !== 'Led') expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${kind(result.mutants[mutant.id].status)}`)
-      else {
-        expect(mutant.led!.tests.length).toBeGreaterThan(0)
-        expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
-      }
-    }
-    expect(cli.stdout).toMatch(/--led: \d+ mutant\(s\) failed a test while trying it/)
-    // A try that ran out of the time Vitest gives the test has no control
-    // run after it to say the test passes without the mutant: no lead.
-    const delayed = led.mutants.find((m) => m.file === 'src/delay.ts' && m.location.start.line === 2 && m.replacement === 'false')!
-    expect(`${delayed.status} ${delayed.besideOnly}`).toBe('Unconfirmed test/delay.test.ts')
-  }, 180_000)
-})
-
-describe('with --fast', () => {
-  it('leads only by tests that failed with their file to themselves, and settles failures next to other runs', () => {
-    const report = reportPath('fast')
-    const cli = tool(['--root', fixture('basic'), '--fast', '--report', report])
-    expect(cli.status, cli.stderr).toBe(0)
-    const fast: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    expect(fast.counts.Led).toBeGreaterThan(0)
-    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
-    for (const mutant of fast.mutants) {
-      expect(mutant.besideOnly).toBeUndefined()
-      const plain = kind(result.mutants[mutant.id].status)
-      if (mutant.status === 'Led') {
-        expect(mutant.led!.sole).toBe(true)
-        expect(['Killed', 'Survived']).toContain(plain)
-      } else if (mutant.status === 'Unconfirmed') expect(['Killed', 'Survived']).toContain(plain)
-      else expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${plain}`)
-    }
-    // The delayed test leads to nothing, so its failure is made again alone as without the option.
-    const delayed = fast.mutants.find((m) => m.file === 'src/delay.ts' && m.location.start.line === 2 && m.replacement === 'false')!
-    expect(kind(delayed.status)).toBe(kind(result.mutants[delayed.id].status))
-    const { Killed, Timeout, Led, Survived, Unconfirmed, NoCoverage } = fast.counts
-    const score = ((Killed + Timeout + Led) / (Killed + Timeout + Led + Survived + Unconfirmed + NoCoverage)) * 100
-    expect(cli.stdout).toContain(`score ${score.toFixed(2)}%`)
-    expect(cli.stdout).toMatch(/--fast: \d+ mutant\(s\) failed a test with its file to itself/)
-  }, 180_000)
-})
-
-describe('in shares', () => {
-  it('gives every mutant of two shares merged the verdict of one run of all of them', () => {
-    const reports = [1, 2].map((index) => {
-      const report = reportPath(`shard-${index}`)
-      const cli = tool(['--root', fixture('basic'), '--shard', `${index}/2`, '--report', report])
-      expect(cli.status, cli.stderr).toBe(0)
-      return report
-    })
-    const shares: RunResult[] = reports.map((report) => JSON.parse(fs.readFileSync(report, 'utf8')))
-    const files = shares.map((share) => new Set(share.mutants.map((m) => m.file)))
-    expect([...files[0]].filter((file) => files[1].has(file))).toEqual([])
-    expect(shares.every((share) => share.mutants.length > 0)).toBe(true)
-
-    const merged = reportPath('merged')
-    const cli = tool(['merge', '--report', merged, ...reports])
-    expect(cli.status, cli.stderr).toBe(0)
-    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
-    const verdicts = (run: RunResult) =>
-      run.mutants.map((m) => `${m.id} ${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${kind(m.status)}`)
-    expect(verdicts(JSON.parse(fs.readFileSync(merged, 'utf8')))).toEqual(verdicts(result))
-
-    // A share left out would leave its mutants out of the score without a word.
-    const partial = tool(['merge', '--report', reportPath('partial'), reports[0]])
-    expect(partial.status).toBe(2)
-    expect(partial.stderr).toContain('2 shares need each of 1, 2 once')
-  }, 540_000)
 })
