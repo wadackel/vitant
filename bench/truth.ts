@@ -1,7 +1,7 @@
 // Ground truth for a report: what the project's own suite does with each
 // mutant written into the source for real.
 //
-//   node bench/truth.ts make --root <project> [--report <report.json>] [--out <truth.json>]
+//   node bench/truth.ts make (--root <project> | --target <name>) [--report <report.json>] [--out <truth.json>]
 //        [--related] [--jobs N] [--sample N] [--timeout seconds] [--statuses Killed,Survived,...]
 //   node bench/truth.ts check --report <report.json> --truth <truth.json>
 //
@@ -12,6 +12,11 @@
 //
 // `--related` runs only the test files that import the mutated file
 // (`vitest related`) in place of the whole suite.
+//
+// `--target` names a benchmark target of bench/targets.ts: the root is its
+// project unless `--root` says otherwise, and its config, projects, filters,
+// variables and arguments for ground truth go into every run of the suite
+// and of the tool, as bench/run.ts gives them to the tool.
 //
 // With `--jobs` above 1 the runs are spread over copies of the project made
 // next to it, which share its `node_modules`. That is only sound for a
@@ -26,6 +31,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { parseSync } from 'oxc-parser'
 import type { MutantResult, RunResult } from '../src/run.ts'
+import { projectDir, targetEnv, targets, vitestArgs } from './targets.ts'
 import { partitionKeys, type Partition } from './truth-shards.ts'
 
 type Suite = 'pass' | 'fail' | 'timeout'
@@ -52,6 +58,7 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     root: { type: 'string' },
+    target: { type: 'string' },
     report: { type: 'string' },
     out: { type: 'string' },
     truth: { type: 'string' },
@@ -69,26 +76,43 @@ const { values, positionals } = parseArgs({
   },
 })
 const [mode] = positionals
-if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root : !values.report || !values.truth)) {
+if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root && !values.target : !values.report || !values.truth)) {
   console.error(
-    'usage: node bench/truth.ts make --root <project> --report <report.json> [--out <truth.json>] [--related] [--jobs N]\n' +
+    'usage: node bench/truth.ts make (--root <project> | --target <name>) --report <report.json> [--out <truth.json>] [--related] [--jobs N]\n' +
       '       node bench/truth.ts check --report <report.json> --truth <truth.json>',
   )
+  process.exit(2)
+}
+const target = values.target === undefined ? undefined : targets[values.target]
+if (values.target !== undefined && !target) {
+  console.error(`no target ${values.target} in bench/targets.ts`)
+  process.exit(2)
+}
+if (target) values.root ??= projectDir(values.target!)
+const targetArgs = target ? vitestArgs(target) : []
+const suiteArgs = [...targetArgs, ...(target?.truthArgs ?? []), ...values.vitest!]
+// `vitest related` takes every name after it for a source file, so filters would widen the suite, not narrow it.
+if (values.related && target?.filters?.length) {
+  console.error(`--related takes no test file filters, and ${values.target} has ${target.filters.join(' ')}`)
   process.exit(2)
 }
 
 if (values.shard) {
   partitionKeys([], values.shard)
-  if (mode !== 'make' || !values.out || values.sample || values.related || values.vitest!.length > 0 || values.statuses !== 'Killed,Timeout,Survived,NoCoverage,Static') {
-    throw new Error('--shard requires make --out with the full suite and default statuses, without --sample, --related or --vitest')
+  if (mode !== 'make' || !values.out || values.sample || values.related || values.vitest!.length > 0 || target || values.statuses !== 'Killed,Timeout,Survived,NoCoverage,Static') {
+    throw new Error('--shard requires make --out with the full suite and default statuses, without --sample, --related, --vitest or --target')
   }
 }
 
 if (!values.report) {
   values.report = path.join(import.meta.dirname, '..', 'build', `${path.basename(values.root!)}.json`)
   const cli = path.join(import.meta.dirname, '..', 'src', 'cli.ts')
-  const run = spawnSync(process.execPath, [cli, '--root', values.root!, '--report', values.report, ...values.vitest!, ...values.tool!], {
+  const root = path.resolve(values.root!)
+  // From the project, as bench/run.ts runs it: configs resolve paths against the working directory.
+  const run = spawnSync(process.execPath, [cli, '--root', root, '--report', path.resolve(values.report), ...targetArgs, ...values.vitest!, ...values.tool!], {
+    cwd: root,
     stdio: 'ignore',
+    env: targetEnv(target ?? {}),
   })
   if (run.status !== 0) {
     console.error(`the tool exited with ${run.status} on ${values.root}`)
@@ -187,7 +211,8 @@ function runSuite(
       cwd: root,
       stdio: 'ignore',
       detached: true,
-      env: { ...process.env, CI: 'true', VITANT_TRUTH_ERRORS: unhandled },
+      // The target's variables come after `CI`, so that a target can remove it.
+      env: { ...targetEnv(target ?? {}, { ...process.env, CI: 'true' }), VITANT_TRUTH_ERRORS: unhandled },
     })
     let timedOut = false
     const timer = setTimeout(() => {
@@ -255,7 +280,7 @@ function copies(root: string, count: number): string[] {
 async function make(): Promise<Truth> {
   const root = fs.realpathSync(values.root!)
   const command = values.related ? 'related' : 'run'
-  const argsFor = (file: string) => [...(values.related ? ['related', '--run', file] : ['run']), ...values.vitest!]
+  const argsFor = (file: string) => [...(values.related ? ['related', '--run', file] : ['run']), ...suiteArgs]
   const wanted = new Set(values.statuses!.split(','))
   const eligible = report.mutants.filter((mutant) => wanted.has(mutant.status))
   const step = values.sample ? Math.max(1, eligible.length / Number(values.sample)) : 1

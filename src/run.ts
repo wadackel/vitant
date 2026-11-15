@@ -195,6 +195,8 @@ export interface RunResult {
 }
 
 export interface RunOptions extends GenerateOptions {
+  /** The Vitest config file, absolute; the one Vitest finds in the root when absent. */
+  config?: string
   /** Passed to Vitest as test file filters. */
   filters: string[]
   /** The Vitest projects to run, by name; all of them when empty. */
@@ -2327,7 +2329,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
 
   // Limits decide what counts as a timeout, so results from other limits do not carry over.
   const limits = [options.timeoutFactor, options.timeoutMs, options.loopFactor, options.loopSlack]
-  const print = fingerprint(options.root, vitestVersion, limits)
+  const print = fingerprint(options.root, vitestVersion, limits, options.config)
   const keys = options.incremental ? mutantKeys(generated, options.root) : []
   const cache = options.incremental ? loadCache(options.root, print) : undefined
   const hints = options.incremental ? hintKeys(generated, options.root) : []
@@ -2483,6 +2485,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     'test',
     {
       root: options.root,
+      ...(options.config ? { config: options.config } : {}),
       ...(options.projects.length > 0 ? { project: options.projects } : {}),
       watch: false,
       runner: paths.runner,

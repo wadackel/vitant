@@ -5,7 +5,7 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { targets, workDir } from './targets.ts'
+import { projectDir, targetEnv, targets, workDir } from './targets.ts'
 
 const name = process.argv[2]
 const target = targets[name]
@@ -15,7 +15,8 @@ if (!target) {
 }
 
 const dir = workDir(name)
-const sh = (command: string) => execSync(command, { cwd: dir, stdio: 'inherit' })
+const env = targetEnv(target)
+const sh = (command: string) => execSync(command, { cwd: dir, stdio: 'inherit', env })
 
 if (!fs.existsSync(path.join(dir, '.git'))) {
   fs.mkdirSync(dir, { recursive: true })
@@ -29,4 +30,10 @@ sh(`git fetch -q --depth 2 origin ${target.commit}`)
 sh('git checkout -q --force FETCH_HEAD')
 for (const command of target.install) sh(command)
 sh(target.installStryker)
+// Here, next to the install that may have been the one to write it, not at the first run of the scope.
+const config = target.config && path.join(projectDir(name), target.config)
+if (config && !fs.existsSync(config)) {
+  console.error(`no config at ${config}`)
+  process.exit(1)
+}
 console.log(`ready: ${dir}`)

@@ -17,6 +17,8 @@ Runs the project's Vitest suite against every mutant of its sources and says
 for each one whether the suite detects it.
 
   --root <dir>            the project, where its Vitest config is (default: the current directory)
+  --config <file>         the Vitest config file, a path relative to the root
+                          (default: the one Vitest finds in the root, vitest.config.ts and the like)
   --mutate <glob>         files to mutate, repeatable (default: the sources under src)
   --exclude <glob>        files not to mutate, repeatable
   --changed <ref>         only mutants on lines changed since the git ref
@@ -96,6 +98,7 @@ const { values, positionals } = (() => {
         help: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
         root: { type: 'string', default: process.cwd() },
+        config: { type: 'string' },
         mutate: { type: 'string', multiple: true },
         exclude: { type: 'string', multiple: true },
         changed: { type: 'string' },
@@ -166,8 +169,14 @@ if (!(confirm === Infinity || (Number.isInteger(confirm) && confirm >= 1))) {
 // Native, so that a Windows path with a short name in it (`RUNNER~1`) comes
 // out as the long one Vitest gives its test files under.
 const root = fs.realpathSync.native(path.resolve(values.root))
+const config = values.config === undefined ? undefined : path.resolve(root, values.config)
+if (config !== undefined && !fs.statSync(config, { throwIfNoEntry: false })?.isFile()) {
+  console.error(`--config: no file ${config}\n\n${usage}`)
+  process.exit(2)
+}
 const result = await run({
   root,
+  config,
   // A diff already names the files, so by default any of them may be mutated.
   include: values.mutate ?? (values.changed ? ['**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'] : defaultInclude),
   exclude: [...defaultExclude, ...(values.exclude ?? [])],

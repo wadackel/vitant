@@ -23,7 +23,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { changedLines } from '../src/changed.ts'
 import { defaultExclude } from '../src/mutate/generate.ts'
-import { projectDir, targets, vitestArgs } from './targets.ts'
+import { projectDir, targetEnv, targets, vitestArgs } from './targets.ts'
 import { assertStrykerRestored, prepareStrykerSandbox } from './sandbox.ts'
 
 const { values, positionals } = parseArgs({
@@ -75,7 +75,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
       timeout: limitMs === undefined ? undefined : limitMs + 120_000,
       killSignal: 'SIGKILL',
       // The log then says what each round was made of.
-      env: { ...process.env, VITANT_DEBUG: '1' },
+      env: { ...targetEnv(targets[targetName]), VITANT_DEBUG: '1' },
     })
     if (watcher?.pid) {
       try {
@@ -146,12 +146,12 @@ let wrong = false
 if (tools.has('stryker')) {
   const config = path.join(dir, `stryker.${scopeName}.json`)
   // StrykerJS has no way to name the Vitest projects to run; it gets a config that holds only those.
-  const { projects } = targets[targetName]
-  const vitestConfig = path.join(dir, 'vitest.stryker.config.mjs')
+  const { projects, config: named } = targets[targetName]
+  const wrapper = path.join(dir, 'vitest.stryker.config.mjs')
   if (projects) {
-    const own = ['ts', 'mts', 'js', 'mjs'].map((ext) => `vitest.config.${ext}`).find((name) => fs.existsSync(path.join(dir, name)))
+    const own = named ?? ['ts', 'mts', 'js', 'mjs'].map((ext) => `vitest.config.${ext}`).find((name) => fs.existsSync(path.join(dir, name)))
     fs.writeFileSync(
-      vitestConfig,
+      wrapper,
       `import base from './${own}'\n` +
         `const config = await (typeof base === 'function' ? base({ mode: 'test', command: 'serve' }) : base)\n` +
         `const names = ${JSON.stringify(projects)}\n` +
@@ -166,7 +166,8 @@ if (tools.has('stryker')) {
         plugins: ['@stryker-mutator/vitest-runner'],
         ...(targets[targetName].strykerIgnore ? { ignorePatterns: targets[targetName].strykerIgnore } : {}),
         ...(targets[targetName].strykerInPlace ? { inPlace: true } : {}),
-        ...(projects ? { vitest: { configFile: vitestConfig } } : {}),
+        // With no wrapper, the target's config as the relative path it is given: StrykerJS resolves it in the sandbox, the copy it mutates.
+        ...(projects || named ? { vitest: { configFile: projects ? wrapper : named } } : {}),
         mutate: strykerMutate(),
         coverageAnalysis: 'perTest',
         // Matches this tool, which does not run mutants that are only
