@@ -56,9 +56,13 @@ describe('CI profiles', () => {
       ...['basic-default', 'basic-static'].flatMap((name) => [1, 2, 3, 4].map((shard) => ['linux-x64-gnu', `truth-${name}-${shard}`])),
       ...['stuck', 'clash', 'walk'].map((name) => ['linux-x64-gnu', `truth-${name}-1`]),
     ])
-    for (const suite of ['regression', 'truth']) {
-      expect(expectedChecks('full').filter((c) => c.suite === suite).map((c) => c.target)).toEqual(targets.map((t) => t.target))
-    }
+    const full = expectedChecks('full')
+    expect(full.filter((c) => c.suite === 'regression').map((c) => c.target)).toEqual(targets.map((t) => t.target))
+    expect(full.filter((c) => c.suite === 'truth').map((c) => c.target)).toEqual(targets.map((t) => t.target).filter((t) => t !== 'win32-x64'))
+    expect(full.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
+      ...['basic-default', 'basic-static'].flatMap((name) => [1, 2, 3, 4].map((shard) => ['win32-x64', `truth-${name}-${shard}`])),
+      ...['stuck', 'clash', 'walk'].map((name) => ['win32-x64', `truth-${name}-1`]),
+    ])
     expect(expectedChecks('docs')).toEqual([])
   })
 
@@ -77,6 +81,8 @@ describe('CI profiles', () => {
       expect(commandsFor(target.target, 'regression').map((c) => c.name)).toEqual(target.target === 'linux-x64-gnu' ? ['e2e', 'packed']
         : target.musl ? ['unit', 'e2e', 'packed'] : ['typecheck', 'unit', 'e2e', 'packed'])
       expect(commandsFor(target.target, 'truth').map((c) => c.name)).toEqual(['truth'])
+      expect(commandsFor(target.target, 'truth-basic-static-2')[0].args).toEqual(['exec', 'node', 'bench/truth.ts', 'make', '--root', 'fixtures/basic',
+        '--jobs', '4', '--shard', '2/4', '--out', 'build/test-reports/truth-basic-static-2-truth.json', '--tool=--static'])
       expect(commandsFor(target.target, 'smoke').map((c) => c.name)).toEqual(['smoke'])
     }
     expect(() => commandsFor('unknown', 'regression')).toThrow()
@@ -113,14 +119,15 @@ describe('required CI results', () => {
     expect(validateResults('docs', identity, results)).not.toEqual([])
   })
 
-  it('rejects successful lanes whose truth partitions omit or repeat mutants', () => {
-    const results = valid('standard')
+  it.each(['standard', 'full'] as const)('rejects successful %s lanes whose truth partitions omit or repeat mutants', (profile) => {
+    const results = valid(profile)
     const at = results.findIndex((row) => row.suite === 'truth-basic-default-1')
     for (const truth of [undefined, { ...results[at].truth, checked: [] },
       { ...results[at].truth, checked: ['a', 'a'] }, { ...results[at].truth, universe: ['different'] }]) {
       const changed = results.map((row, index) => index === at ? { ...row, truth } : row)
-      expect(validateResults('standard', identity, changed)).not.toEqual([])
+      expect(validateResults(profile, identity, changed)).not.toEqual([])
     }
+    expect(validateResults(profile, identity, results.filter((_, index) => index !== at))).not.toEqual([])
   })
 
   it('binds proof indices to their lanes and rejects vacuous fixed-fixture checks', () => {
