@@ -27,6 +27,8 @@ const truthCases = [
 const truthLanes = truthCases.flatMap((test) => Array.from({ length: test.shards }, (_, i) => ({
   ...test, suite: `truth-${test.name}-${i + 1}`, shard: `${i + 1}/${test.shards}`,
 })))
+// Windows starts processes so slowly that the whole truth command on one runner came within minutes of its 200-minute limit.
+const partitionedTruth = (profile: Profile) => profile === 'full' ? ['win32-x64'] : ['linux-x64-gnu']
 const docs = (file: string) => ['README.md', 'CONTRIBUTING.md', 'LICENSE'].includes(file) || /^docs\/.+\.md$/.test(file)
 
 export function profileFor(input: { event: string; paths?: unknown; manual?: unknown }): { profile: Profile; reason: string } {
@@ -54,10 +56,9 @@ export function expectedChecks(profile: Profile): Check[] {
     ...targets.map(({ target }) => ({ target, suite: 'smoke' })),
     ...(profile === 'full'
       ? targets.flatMap(({ target }) => ['regression', 'truth'].map((suite) => ({ target, suite })))
-      : [
-        ...targets.filter((target) => target.representative).flatMap(({ target }) => ['e2e-basic', 'e2e-other', 'packed'].map((suite) => ({ target, suite }))),
-        ...truthLanes.map(({ suite }) => ({ target: 'linux-x64-gnu', suite })),
-      ]),
+        .filter((check) => check.suite !== 'truth' || !partitionedTruth(profile).includes(check.target))
+      : targets.filter((target) => target.representative).flatMap(({ target }) => ['e2e-basic', 'e2e-other', 'packed'].map((suite) => ({ target, suite })))),
+    ...partitionedTruth(profile).flatMap((target) => truthLanes.map(({ suite }) => ({ target, suite }))),
   ]
 }
 
@@ -86,7 +87,7 @@ export function commandsFor(name: string, suite: string): { name: string; args: 
     { name: 'packed', args: ['test:packed'] },
   ]
   const truth = truthLanes.find((lane) => lane.suite === suite)
-  if (truth && name === 'linux-x64-gnu') return [{ name: 'truth', args: ['exec', 'node', 'bench/truth.ts', 'make',
+  if (truth) return [{ name: 'truth', args: ['exec', 'node', 'bench/truth.ts', 'make',
     '--root', `fixtures/${truth.root}`, '--jobs', String(truth.jobs), '--shard', truth.shard,
     '--out', `build/test-reports/${suite}-truth.json`, ...truth.tool] }]
   if (suite === 'regression') return [
@@ -114,17 +115,17 @@ export function validateResults(profile: Profile, identity: Identity, results: u
     if (result.sha !== identity.sha || result.run !== identity.run) errors.push(`Wrong source or workflow run: ${key}`)
   }
   for (const key of expected) if (!seen.has(key)) errors.push(`Missing result: ${key}`)
-  if (profile === 'standard') for (const test of truthCases) {
+  if (profile !== 'docs') for (const target of partitionedTruth(profile)) for (const test of truthCases) {
     const partitions = truthLanes.filter((lane) => lane.name === test.name).map((lane) => {
-      const result = results.find((row) => object(row) && row.target === 'linux-x64-gnu' && row.suite === lane.suite)
+      const result = results.find((row) => object(row) && row.target === target && row.suite === lane.suite)
       const proof = object(result) ? result.truth : undefined
       if (object(proof)) {
-        if (proof.index !== Number(lane.shard.split('/')[0]) || proof.total !== lane.shards) errors.push(`Wrong truth partition for ${lane.suite}`)
-        if (Array.isArray(proof.universe) && proof.universe.length === 0) errors.push(`Empty truth mutant set for ${lane.suite}`)
+        if (proof.index !== Number(lane.shard.split('/')[0]) || proof.total !== lane.shards) errors.push(`Wrong truth partition for ${target}/${lane.suite}`)
+        if (Array.isArray(proof.universe) && proof.universe.length === 0) errors.push(`Empty truth mutant set for ${target}/${lane.suite}`)
       }
       return proof
     })
-    errors.push(...validatePartitions(partitions, test.shards).map((error) => `${test.name}: ${error}`))
+    errors.push(...validatePartitions(partitions, test.shards).map((error) => `${target} ${test.name}: ${error}`))
   }
   return errors
 }
@@ -190,7 +191,8 @@ function plan() {
   const detail = expectedChecks(selection.profile).filter((check) => !['quick', 'smoke'].includes(check.suite))
     .map((check) => ({ ...targetFor(check.target), suite: check.suite }))
   // Queuing Windows truth after the shorter jobs would add their time to its long critical path.
-  detail.sort((a, b) => Number(b.target === 'win32-x64' && b.suite === 'truth') - Number(a.target === 'win32-x64' && a.suite === 'truth')
+  const truth = (check: Check) => check.suite.startsWith('truth')
+  detail.sort((a, b) => Number(b.target === 'win32-x64' && truth(b)) - Number(a.target === 'win32-x64' && truth(a))
     || Number(b.suite === 'truth') - Number(a.suite === 'truth'))
   const output = { ...selection, sha, base: changed.base, head: changed.head, comparison: changed.comparison, diff: changed.diff,
     platforms: JSON.stringify({ include: targets }), detail: JSON.stringify({ include: detail }) }
