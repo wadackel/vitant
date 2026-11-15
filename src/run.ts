@@ -20,7 +20,7 @@ import {
   testKey,
   mutantKeys,
 } from './cache.ts'
-import { type Generated, generate, type GenerateOptions } from './mutate/generate.ts'
+import { type Generated, generate, type GenerateOptions, type Shard } from './mutate/generate.ts'
 import { RUNTIME_GLOBAL } from './mutate/instrument.ts'
 import { placeReads, reexports, type WatchedModule } from './mutate/reads.ts'
 import { addonTarget } from './platform.ts'
@@ -190,6 +190,8 @@ export interface RunResult {
   unplaced: number
   skippedFiles: string[]
   vitestVersion: string
+  /** The share of the sources' files this run mutated, see `--shard`; absent where it mutated them all. */
+  shard?: Shard
 }
 
 export interface RunOptions extends GenerateOptions {
@@ -3300,5 +3302,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
     unplaced: generated.unplaced,
     skippedFiles: generated.skipped,
     vitestVersion,
+    shard: options.shard,
   }
 }

@@ -36,6 +36,32 @@ export interface GenerateOptions {
   exclude: string[]
   /** When set, only these files and 1-based lines get mutants. */
   lines?: ReadonlyMap<string, ReadonlySet<number>>
+  /** When set, only the files of this share of them, see `shareOf`; `index` counts from 1. */
+  shard?: Shard
+}
+
+export interface Shard {
+  index: number
+  count: number
+}
+
+/**
+ * Deals files out to `count` shares with about as many mutants in each: the
+ * one with most mutants first, each to the share with fewest so far. It
+ * depends on nothing but the files and their mutants, so every machine that
+ * runs a share of the same sources deals them the same way. Returns the
+ * share of each file, from 0.
+ */
+export function shareOf(mutantsByFile: ReadonlyMap<string, number>, count: number): Map<string, number> {
+  const totals = new Array<number>(count).fill(0)
+  const shares = new Map<string, number>()
+  const files = [...mutantsByFile].sort(([a, m], [b, n]) => n - m || (a < b ? -1 : a > b ? 1 : 0))
+  for (const [file, mutants] of files) {
+    const share = totals.indexOf(Math.min(...totals))
+    shares.set(file, share)
+    totals[share] += mutants
+  }
+  return shares
 }
 
 export const defaultInclude = ['src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}']
@@ -64,6 +90,12 @@ export function generate(options: GenerateOptions): Generated {
     if (options.lines && !options.lines.get(file)) continue
     if (!fs.statSync(file).isFile()) continue
     sources.set(file, fs.readFileSync(file, 'utf8'))
+  }
+  if (options.shard) {
+    // Counted with the same lines as below, so that a share of a diff is a share of its mutants.
+    const counts = new Map([...sources].map(([file, source]) => [file, instrument(source, file, { siteBase: 0, mutantBase: 0, lines: options.lines?.get(file) })?.mutants.length ?? 0]))
+    const shares = shareOf(counts, options.shard.count)
+    for (const file of sources.keys()) if (shares.get(file) !== options.shard.index - 1) sources.delete(file)
   }
   for (const [file, source] of sources) {
     const lines = options.lines?.get(file)

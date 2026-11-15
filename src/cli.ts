@@ -5,11 +5,13 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { changedLines } from './changed.ts'
 import { elementsPage, toElements } from './elements.ts'
+import { mergeReports } from './merge.ts'
 import { defaultExclude, defaultInclude } from './mutate/generate.ts'
-import { type MutantStatus, run } from './run.ts'
+import { type MutantStatus, type RunResult, run } from './run.ts'
 import { relative } from './session.ts'
 
 const usage = `Usage: vitant [options] [test file filters]
+       vitant merge --report <file> [--elements <file>] [--root <dir>] <report>...
 
 Runs the project's Vitest suite against every mutant of its sources and says
 for each one whether the suite detects it.
@@ -18,6 +20,8 @@ for each one whether the suite detects it.
   --mutate <glob>         files to mutate, repeatable (default: the sources under src)
   --exclude <glob>        files not to mutate, repeatable
   --changed <ref>         only mutants on lines changed since the git ref
+  --shard <i>/<n>         only the i-th of n shares of the files to mutate, dealt so that each has about as
+                          many mutants; \`vitant merge\` makes one report of the n reports
   --project <name>        the Vitest project to run, repeatable
   --report <file>         write the result as JSON
   --elements <file>       write it for mutation-testing-elements: a page for a name ending in .html, JSON otherwise
@@ -39,7 +43,50 @@ for each one whether the suite detects it.
   --help, --version
 
 The exit code is 1 when a test file had to be given up on, and its mutants are left pending,
-when no test ran at all, and when files under version control are not as they were before the run.`
+when no test ran at all, and when files under version control are not as they were before the run.
+For \`merge\`, when any share's run would have exited with 1.`
+
+/** A run whose exit code is 1, see the usage. */
+const unsoundRun = (result: RunResult) =>
+  result.abandonedFiles.length > 0 || (result.tests === 0 && result.mutants.length > 0) || result.changedFiles.length > 0
+
+if (process.argv[2] === 'merge') {
+  const { values: options, positionals: files } = (() => {
+    try {
+      return parseArgs({
+        args: process.argv.slice(3),
+        allowPositionals: true,
+        options: { report: { type: 'string' }, elements: { type: 'string' }, root: { type: 'string', default: process.cwd() } },
+      })
+    } catch (error) {
+      console.error(`${(error as Error).message}\n\n${usage}`)
+      process.exit(2)
+    }
+  })()
+  if (!options.report || files.length === 0) {
+    console.error(`merge takes --report and the reports of the shares\n\n${usage}`)
+    process.exit(2)
+  }
+  let merged: RunResult
+  try {
+    merged = mergeReports(files.map((file) => JSON.parse(fs.readFileSync(path.resolve(file), 'utf8')) as RunResult))
+  } catch (error) {
+    console.error((error as Error).message)
+    process.exit(2)
+  }
+  fs.mkdirSync(path.dirname(path.resolve(options.report)), { recursive: true })
+  fs.writeFileSync(path.resolve(options.report), JSON.stringify(merged, null, 2))
+  if (options.elements) {
+    const { version } = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')) as { version: string }
+    const report = toElements(merged, fs.realpathSync.native(path.resolve(options.root)), version)
+    fs.mkdirSync(path.dirname(path.resolve(options.elements)), { recursive: true })
+    fs.writeFileSync(path.resolve(options.elements), options.elements.endsWith('.html') ? elementsPage(report) : JSON.stringify(report))
+  }
+  const statuses: MutantStatus[] = ['Killed', 'Timeout', 'Survived', 'Unconfirmed', 'Led', 'NoCoverage', 'Static', 'Pending']
+  console.log(`${files.length} shares, ${merged.mutants.length} mutants`)
+  console.log(statuses.map((status) => `${status} ${merged.counts[status]}`).join('  '))
+  process.exit(unsoundRun(merged) ? 1 : 0)
+}
 
 const { values, positionals } = (() => {
   try {
@@ -52,6 +99,7 @@ const { values, positionals } = (() => {
         mutate: { type: 'string', multiple: true },
         exclude: { type: 'string', multiple: true },
         changed: { type: 'string' },
+        shard: { type: 'string' },
         project: { type: 'string', multiple: true },
         'no-related': { type: 'boolean', default: false },
         'timeout-factor': { type: 'string', default: '4' },
@@ -98,6 +146,17 @@ function recycleDefault(): number {
   return Math.max(512, Math.min(1536, Math.floor((os.totalmem() / 1024 / 1024) * 0.5 / workers / 1.5)))
 }
 
+const shard = (() => {
+  if (values.shard === undefined) return undefined
+  const match = /^(\d+)\/(\d+)$/.exec(values.shard)
+  const [index, count] = match ? [Number(match[1]), Number(match[2])] : [0, 0]
+  if (!(count >= 1 && index >= 1 && index <= count)) {
+    console.error(`--shard takes i/n with 1 <= i <= n, as 2/4\n\n${usage}`)
+    process.exit(2)
+  }
+  return { index, count }
+})()
+
 const confirm = values.confirm === undefined ? (values.fast ? 1 : Infinity) : Number(values.confirm)
 if (!(confirm === Infinity || (Number.isInteger(confirm) && confirm >= 1))) {
   console.error(`--confirm takes a whole number of files, 1 or more\n\n${usage}`)
@@ -113,6 +172,7 @@ const result = await run({
   include: values.mutate ?? (values.changed ? ['**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'] : defaultInclude),
   exclude: [...defaultExclude, ...(values.exclude ?? [])],
   lines: values.changed ? changedLines(root, values.changed) : undefined,
+  shard,
   filters: positionals,
   projects: values.project ?? [],
   related: !values['no-related'],
@@ -304,5 +364,4 @@ if (result.tests === 0 && result.mutants.length > 0) console.log('no test ran: c
 // Tests that leave a file of the project changed ran, from then on, in a
 // project no plain run starts from: the verdicts are printed with that
 // said, and are not to pass for a result in a script.
-const unsound = (result.tests === 0 && result.mutants.length > 0) || result.changedFiles.length > 0
-process.exit(result.abandonedFiles.length > 0 || unsound ? 1 : 0)
+process.exit(unsoundRun(result) ? 1 : 0)
