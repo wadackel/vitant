@@ -82,6 +82,31 @@ describe('reusing an earlier run', () => {
   }, 180_000)
 })
 
+describe('reusing a run that gave up on a test file', () => {
+  const copy = path.join(owner.directory, 'restless')
+  const report = path.join(copy, 'report.json')
+  const runCopy = () => {
+    const cli = tool(['--root', copy, '--incremental', '--mutate', 'src/reserve.ts', '--report', report, 'test/reserve.test.ts'], {
+      env: { ...process.env, RESERVE_SERVER_DOWN: '1' },
+    })
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(1)
+    const reused = /(\d+) of \d+ test file\(s\) reused/.exec(cli.stderr)
+    return { reused: Number(reused?.[1]), result: JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult }
+  }
+
+  it('stores nothing of it, so that the next run gives up on the file again', () => {
+    fs.rmSync(copy, { recursive: true, force: true })
+    fs.cpSync(fixture('basic'), copy, { recursive: true, filter: (source) => !source.includes('node_modules') })
+    const first = runCopy()
+    expect(first.result.abandonedFiles.map((file) => path.relative(copy, file))).toEqual(['test/reserve.test.ts'])
+    expect(fs.existsSync(path.join(copy, 'node_modules/.vitant/cache.json'))).toBe(false)
+    const second = runCopy()
+    expect(second.reused).toBe(0)
+    expect(second.result.abandonedFiles.map((file) => path.relative(copy, file))).toEqual(['test/reserve.test.ts'])
+    expect(second.result.counts.Pending).toBe(second.result.mutants.length)
+  }, 180_000)
+})
+
 describe('a project that keeps transformed modules on disk', () => {
   // Inside the repository, so that it resolves the repository's Vitest; the cache stays in the copy.
   const project = path.join(owner.directory, 'cached')

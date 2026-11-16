@@ -3078,6 +3078,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const records = readRecords()
   const state = fs.readFileSync(paths.state)
   const status = inspect(records, generated.mutants.map((mutant) => mutant.site))
+  // A file that fails with no mutant on, nothing else running and no test to
+  // name leaves no way to tell what a mutant does to it. Counted before the
+  // cache is written: a run that stored such a file's results would have the
+  // next `--incremental` run reuse them and give the file up no more.
+  for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const coveredBy = new Uint32Array(generated.mutants.length)
   const killedBy = new Uint32Array(generated.mutants.length)
   const staticSites = new Set<number>()
@@ -3240,8 +3245,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
     for (const at of detectedAt.values()) if (at >= 0) nearest.detected[at]++
     nearest.ms = nearest.ms.map(Math.round)
   }
-  // A file that fails with no mutant on, nothing else running and no test to name leaves no way to tell what a mutant does to it.
-  for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const pending = abandonedFiles.length > 0
   const { detected, doubted: doubtedIn, tests: known, led: ledBy } = status
   const proof = (mutant: number): Evidence[] =>
