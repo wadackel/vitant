@@ -907,13 +907,12 @@ function openDescriptors(): Set<string> | undefined {
   }
 }
 
-/** The threads of this process, or nothing where they cannot be told. */
-function threadIds(): Set<number> | undefined {
-  try {
-    return new Set(cloner!.threads())
-  } catch {
-    return undefined
-  }
+/**
+ * The threads of this process. An addon built before it could list them
+ * fails here rather than leave every run to a copy made before loading.
+ */
+function threadIds(): Set<number> {
+  return new Set(cloner!.threads())
 }
 
 /**
@@ -923,7 +922,7 @@ function threadIds(): Set<number> | undefined {
  * look like a native module's; told apart by their name, they are not: on
  * Linux a thread takes the name of the one that started it.
  */
-async function threadsOnceThePoolRuns(): Promise<Set<number> | undefined> {
+async function threadsOnceThePoolRuns(): Promise<Set<number>> {
   await fs.promises.access(paths.config)
   return threadIds()
 }
@@ -935,8 +934,7 @@ async function threadsOnceThePoolRuns(): Promise<Set<number> | undefined> {
  * an answer that never came, and failed where the suite passes.
  */
 function threadsStarted(before: Set<number> | undefined): boolean {
-  const now = threadIds()
-  return now === undefined || before === undefined || [...now].some((id) => !before.has(id))
+  return before === undefined || [...threadIds()].some((id) => !before.has(id))
 }
 
 /** Resolves once every call has its answer. */
@@ -1699,6 +1697,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // have had it off for that.
       if (!beforeLoad && job.trial === undefined && (job.again ?? [job.site]).some((site) => runtime.h[site] === 1)) {
         emit({ type: 'early', file: this.wholeFile, site: job.site })
+        return false
+      }
+      // So may it have started a thread, the end of a read the file began.
+      if (!beforeLoad && threadsStarted(this.threadsBeforeLoad)) {
+        emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], threads: true })
         return false
       }
       return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')

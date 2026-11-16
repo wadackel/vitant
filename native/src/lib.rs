@@ -259,6 +259,7 @@ fn listed_threads() -> Result<Vec<f64>> {
         let ports = std::slice::from_raw_parts(list, count as usize);
         let mut ids = Vec::with_capacity(ports.len());
         for &port in ports {
+            // A thread that ended since the list was made has no information left.
             let mut info: libc::thread_identifier_info = std::mem::zeroed();
             let mut size = libc::THREAD_IDENTIFIER_INFO_COUNT;
             if libc::thread_info(port, libc::THREAD_IDENTIFIER_INFO as u32, (&raw mut info).cast(), &mut size) == libc::KERN_SUCCESS {
@@ -267,7 +268,6 @@ fn listed_threads() -> Result<Vec<f64>> {
             mach_port_deallocate(task, port);
         }
         libc::vm_deallocate(task, list as libc::vm_address_t, size_of_val(ports) as libc::vm_size_t);
-        // A thread that ended since the list was made has no information left.
         Ok(ids)
     }
 }
