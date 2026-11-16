@@ -234,6 +234,12 @@ describe('running the fixture project', () => {
     expect(statusOf('src/uncaught-loop.ts', 2, 'true')).toBe('Timeout')
   })
 
+  // The loop also fills the memory, so which limit ends a run of it first,
+  // and Timeout or Killed with it, depends on the machine.
+  it('detects a loop whose end from outside leaves callbacks that never let the event loop turn', () => {
+    expect(['Killed', 'Timeout']).toContain(statusOf('src/unwind.ts', 3, 'index++'))
+  })
+
   it('counts an error nothing handles, which fails a run whose tests all pass', () => {
     expect(statusOf('src/notify.ts', 3, 'strict || listeners.length === 0')).toBe('Killed')
   })

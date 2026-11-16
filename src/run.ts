@@ -2072,6 +2072,7 @@ function writeSession(
     cheapMs: options.cheapMs,
     loopFactor: options.loopFactor,
     loopSlack: options.loopSlack,
+    mainPid: process.pid,
   }
   fs.writeFileSync(paths.config, JSON.stringify(config))
   fs.writeFileSync(paths.preload, channelWatch)
