@@ -12,7 +12,7 @@ export type Scope =
 export interface Target {
   repo: string
   commit: string
-  /** Shell commands that install the project's own dependencies. */
+  /** Shell commands that install the project's own dependencies; `$VITANT_BENCH` is this directory, for files kept here. */
   install: string[]
   /** Shell command that adds StrykerJS to the project. */
   installStryker: string
@@ -598,6 +598,56 @@ export const targets: Record<string, Target> = {
           'src/utils/{weakRef,cacheOrigin,tracePropagationTargets,cookie,ratelimit,eventbuilder,prepareEvent,tunnelDefaults,should-ignore-span,featureFlags,tunnelForward,promisebuffer}.ts',
         ],
       },
+    },
+  },
+  lobehub: {
+    repo: 'https://github.com/lobehub/lobehub',
+    commit: '542398c507aad2ab1d66a4c526cee90fdf68aa5b',
+    dir: 'packages/database',
+    install: [
+      // The workspace keeps no lockfile; a reinstall is to resolve what ground truth was made with, kept in lockfiles/.
+      `node --input-type=module -e 'import fs from "node:fs"; fs.writeFileSync("pnpm-workspace.yaml", fs.readFileSync("pnpm-workspace.yaml", "utf8").replace(/^lockfile: false$/m, "lockfile: true"))'`,
+      'cp "$VITANT_BENCH/lockfiles/lobehub-pnpm-lock.yaml" pnpm-lock.yaml',
+      // The lifecycle scripts of the workspace's own packages stop the install, and nothing the tests load needs them.
+      "ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.4.1 install --frozen-lockfile --filter '@lobechat/database...' --filter '@lobechat/observability-otel...' --ignore-scripts",
+    ],
+    installStryker: `cd packages/database && npx -y pnpm@12.4.1 add -D ${stryker}`,
+    // The config aliases `@/database` to `../database/src`, and the server code
+    // the tests load reaches the topic models through it: from a copy of the
+    // package, StrykerJS's sandbox or a `--jobs` copy of ground truth, that is
+    // not the copy's sources. Ground truth is made with `--jobs 1`.
+    strykerInPlace: true,
+    scopes: {
+      topic: { mutate: ['src/models/topic/**/*.ts', 'src/repositories/topic*/**/*.ts'] },
+    },
+  },
+  shopify: {
+    repo: 'https://github.com/Shopify/cli',
+    commit: '77013e78be8867cc6fd5cde3c7d8f19325c11751',
+    dir: 'packages/cli-kit',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@10.11.1 install --frozen-lockfile --filter @shopify/cli-kit...'],
+    installStryker: `cd packages/cli-kit && npx -y pnpm@10.11.1 add -D ${stryker}`,
+    // The package's config imports `../../configurations/vite.config`, which a copy of the package does not have.
+    strykerInPlace: true,
+    env: { SHOPIFY_CLI_ENV: 'development', npm_config_user_agent: 'pnpm/10.11.1' },
+    scopes: {
+      // Modules of `src/public/node` that one or two others import: `fs.ts` and `path.ts` are loaded by most of the 181 test files.
+      node: { mutate: ['src/public/node/{git,dot-env,liquid,json-schema,dev-instance,import-extractor,archiver,github,store-auth-session,upgrade}.ts'] },
+    },
+  },
+  promptfoo: {
+    repo: 'https://github.com/promptfoo/promptfoo',
+    commit: '5fac53eefdd26141a45c52ab77f533a7d30884e3',
+    install: ['HUSKY=0 npm ci --no-audit --no-fund'],
+    installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
+    strykerInPlace: true,
+    // Under `CI` the config stops a run at its first failing test. Where that is a test that fails by itself,
+    // ground truth leaves it out and takes the run for a pass, the tests the mutant fails never having run.
+    truthArgs: ['--bail=0'],
+    scopes: {
+      // The scoring assertions. With `xml.ts` and `sql.ts` beside them, 3,064 mutants: those two add 488 survivors, each a run of up to 159 test files in ground truth.
+      assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory}.ts'] },
     },
   },
 }
