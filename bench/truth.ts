@@ -112,7 +112,7 @@ if (!values.report) {
   const run = spawnSync(process.execPath, [cli, '--root', root, '--report', path.resolve(values.report), ...targetArgs, ...values.vitest!, ...values.tool!], {
     cwd: root,
     stdio: 'ignore',
-    env: targetEnv(target ?? {}),
+    env: targetEnv(target ?? {}, { dir: root }),
   })
   if (run.status !== 0) {
     console.error(`the tool exited with ${run.status} on ${values.root}`)
@@ -212,7 +212,7 @@ function runSuite(
       stdio: 'ignore',
       detached: true,
       // The target's variables come after `CI`, so that a target can remove it.
-      env: { ...targetEnv(target ?? {}, { ...process.env, CI: 'true' }), VITANT_TRUTH_ERRORS: unhandled },
+      env: { ...targetEnv(target ?? {}, { dir: root, base: { ...process.env, CI: 'true' } }), VITANT_TRUTH_ERRORS: unhandled },
     })
     let timedOut = false
     const timer = setTimeout(() => {

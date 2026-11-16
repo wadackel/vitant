@@ -75,8 +75,19 @@ it('gives a target its config, projects and filters on the command line', () => 
 })
 
 it("sets and removes a target's variables over the environment it is given", () => {
-  expect(targetEnv({ env: { TZ: 'UTC', CI: null } }, { CI: 'true', PATH: '/bin', TZ: 'Asia/Tokyo' })).toEqual({ PATH: '/bin', TZ: 'UTC' })
+  expect(targetEnv({ env: { TZ: 'UTC', CI: null } }, { dir: '/p', base: { CI: 'true', PATH: '/bin', TZ: 'Asia/Tokyo' } })).toEqual({ PATH: '/bin', TZ: 'UTC' })
   const base = { CI: 'true', PATH: '/bin' }
-  expect(targetEnv(targets.ufo, base)).toEqual(base)
-  expect(targetEnv(targets.ufo, base)).not.toBe(base)
+  expect(targetEnv(targets.ufo, { dir: '/p', base })).toEqual(base)
+  expect(targetEnv(targets.ufo, { dir: '/p', base })).not.toBe(base)
+})
+
+it("puts the project's node_modules/.bin first on PATH only for a target that asks for it", () => {
+  const base = { PATH: ['/usr/bin', '/bin'].join(path.delimiter) }
+  const bin = path.join('/p', 'node_modules', '.bin')
+  expect(targetEnv({ binOnPath: true }, { dir: '/p', base })).toEqual({ PATH: [bin, '/usr/bin', '/bin'].join(path.delimiter) })
+  expect(targetEnv({ binOnPath: true }, { dir: '/p', base: {} })).toEqual({ PATH: bin })
+  expect(base).toEqual({ PATH: ['/usr/bin', '/bin'].join(path.delimiter) })
+  for (const [name, target] of Object.entries(targets)) {
+    if (!target.binOnPath) expect(targetEnv(target, { dir: '/p', base }).PATH, name).toBe(base.PATH)
+  }
 })

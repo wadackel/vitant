@@ -75,7 +75,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
       timeout: limitMs === undefined ? undefined : limitMs + 120_000,
       killSignal: 'SIGKILL',
       // The log then says what each round was made of.
-      env: { ...targetEnv(targets[targetName]), VITANT_DEBUG: '1' },
+      env: { ...targetEnv(targets[targetName], { dir }), VITANT_DEBUG: '1' },
     })
     if (watcher?.pid) {
       try {
