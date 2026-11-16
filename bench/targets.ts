@@ -633,31 +633,13 @@ export const targets: Record<string, Target> = {
       node: { mutate: ['src/public/node/{git,dot-env,liquid,json-schema,dev-instance,import-extractor,archiver,github,store-auth-session,upgrade}.ts'] },
     },
   },
-  n8n: {
-    repo: 'https://github.com/n8n-io/n8n',
-    commit: '51f8cf624992e5813c31684359d95db5bf378092',
-    dir: 'packages/workflow',
-    install: [
-      'ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.4.2 install --frozen-lockfile',
-      "npx -y pnpm@12.4.2 exec turbo build --filter='n8n-workflow^...'",
-    ],
-    // The package depends on StrykerJS 10.1.1 through the workspace catalog, which refuses another version.
-    installStryker: 'true',
-    // The engine tests run once per engine project, and only the first project's run of a file counts here; the package's own StrykerJS config keeps these two.
-    projects: ['default', 'vm-engine'],
-    env: { TZ: 'UTC' },
-    scopes: {
-      expression: { mutate: ['src/expression.ts', 'src/workflow-data-proxy*.ts', 'src/expressions/**/*.ts'] },
-      proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
-    },
-  },
   promptfoo: {
     repo: 'https://github.com/promptfoo/promptfoo',
     commit: '5fac53eefdd26141a45c52ab77f533a7d30884e3',
     install: ['HUSKY=0 npm ci --no-audit --no-fund'],
     installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
     scopes: {
-      assertions: { mutate: ['src/assertions/*.ts'] },
+      assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory,xml,sql}.ts'] },
     },
   },
 }

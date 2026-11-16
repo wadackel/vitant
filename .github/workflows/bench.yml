@@ -101,6 +101,7 @@ jobs:
             tailwindcss parsers
             sentry utils
             lobehub topic
+            shopify node
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
