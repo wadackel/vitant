@@ -96,6 +96,10 @@ jobs:
             immich utils
             immich services
             roo-code utils
+            koel composables
+            homepage utils
+            tailwindcss parsers
+            sentry utils
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)

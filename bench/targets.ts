@@ -40,7 +40,8 @@ export interface Target {
   /**
    * Vitest arguments for ground truth alone: what the project's config turns
    * on that both tools turn off and that fails the suite by itself, as a
-   * coverage threshold or a type check.
+   * coverage threshold or a type check, or that only slows each run, as
+   * coverage the config turns on.
    */
   truthArgs?: string[]
   scopes: Record<string, Scope>
@@ -513,6 +514,73 @@ export const targets: Record<string, Target> = {
     strykerInPlace: true,
     scopes: {
       lint: { mutate: ['@commitlint/lint/src/lint.ts'] },
+    },
+  },
+  // Vitest 5 through Vite+, jsdom: the front end of a music server, every
+  // test file in a `vmThreads` pool with a memory limit, and composables
+  // that hundreds of component tests reach through the stores.
+  koel: {
+    repo: 'https://github.com/koel/koel',
+    commit: 'c2d0f0861dbc3f4642d7b54fb97445ac63714b0f',
+    install: [
+      'npx -y pnpm@10.32.1 install --frozen-lockfile',
+      // The test data is faker's, unseeded: a mutant that leaves two songs tied
+      // on a sort key orders them by random titles and fails the suite in about
+      // half its runs. Each test file starts from one seed.
+      `node --input-type=module -e 'import fs from "node:fs"; fs.appendFileSync("resources/assets/js/__tests__/setup.ts", "\\nimport { faker } from \\"@faker-js/faker\\"\\nfaker.seed(0)\\n")'`,
+    ],
+    installStryker: `npx -y pnpm@10.32.1 add -D ${stryker}`,
+    scopes: {
+      composables: { mutate: ['resources/assets/js/composables/*.ts'] },
+    },
+  },
+  // Vitest 4, JavaScript and JSX: a dashboard application whose tests
+  // replace `process.env` and reset modules before importing them again.
+  homepage: {
+    repo: 'https://github.com/gethomepage/homepage',
+    commit: 'a04af12df10a521090227632309a88d9d5d61685',
+    install: ['npx -y pnpm@9.15.0 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@9.15.0 add -D -w ${stryker}`,
+    scopes: {
+      // 1,661 of the 4,708 mutants of `src/utils`. The rest, the service
+      // helpers, the MCP server and the highlights above all, adds 981
+      // survivors, each a run of the suite in ground truth.
+      utils: { mutate: ['src/utils/{proxy,kubernetes,docker}/**/*.js', 'src/utils/contexts/*.jsx'] },
+    },
+  },
+  // Vitest 4: a CSS compiler, its tests 1,151 inline snapshots among some
+  // 5,400, through a native CSS parser (lightningcss). The root config is a
+  // workspace of every package; the package has a config of its own.
+  tailwindcss: {
+    repo: 'https://github.com/tailwindlabs/tailwindcss',
+    commit: 'b08bf83a327271dfb7e3cd485fd793da15013f7c',
+    dir: 'packages/tailwindcss',
+    install: ['npx -y pnpm@11.9.0 install --frozen-lockfile'],
+    installStryker: `cd packages/tailwindcss && npx -y pnpm@11.9.0 add -D ${stryker}`,
+    scopes: {
+      parsers: { mutate: ['src/attribute-selector-parser.ts', 'src/selector-parser.ts', 'src/value-parser.ts'] },
+    },
+  },
+  // Vitest 4: the core of an SDK, state shared through globalThis, globals
+  // wrapped, and a transform plugin of the project's that runs first. A type
+  // test needs the package built, and no source in the scope reaches it.
+  sentry: {
+    repo: 'https://github.com/getsentry/sentry-javascript',
+    commit: '14e0d5683730ffd62f123e70e59e9210ed31172d',
+    dir: 'packages/core',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.11.2 install --frozen-lockfile --filter @sentry/core...'],
+    installStryker: `cd packages/core && npx -y pnpm@12.11.2 add -D ${stryker}`,
+    strykerInPlace: true,
+    // The shared config turns coverage on, which only slows each run of ground truth.
+    truthArgs: ['--coverage.enabled=false'],
+    scopes: {
+      // The modules of `src/utils` that four or fewer of the package's own sources import.
+      utils: {
+        mutate: [
+          'src/utils/{anr,flushIfServerless,commitEnv,errorSpanAttribution,weightBasedFlushing,node,debounce,handleCallbackErrors,debug-ids,supports,aggregate-errors,path,node-stack-trace}.ts',
+          'src/utils/{weakRef,cacheOrigin,tracePropagationTargets,cookie,ratelimit,eventbuilder,prepareEvent,tunnelDefaults,should-ignore-span,featureFlags,tunnelForward,promisebuffer}.ts',
+        ],
+      },
     },
   },
 }
