@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { runBasic } from '../helpers/basic.ts'
-import { createE2E } from '../helpers/e2e.ts'
+import { createE2E, root } from '../helpers/e2e.ts'
 import { addonTarget } from '../../src/platform.ts'
 import type { MutantResult, RunResult } from '../../src/run.ts'
 
@@ -109,6 +109,12 @@ describe('running the fixture project', () => {
   it('stops a mutant that loops forever or never settles', () => {
     expect(statusOf('src/math.ts', 12, 'i--')).toBe('Timeout')
     expect(statusOf('src/counter.ts', 13, '() => undefined')).toBe('Timeout')
+  })
+
+  it('leaves a snapshot file as it was when a mutant fails a test before the snapshot', () => {
+    expect(statusOf('src/copies.ts', 2, 'count <= 1')).toBe('Killed')
+    const snap = 'test/__snapshots__/copies.test.ts.snap'
+    expect(fs.readFileSync(path.join(fixture('basic'), snap), 'utf8')).toBe(fs.readFileSync(path.join(root, 'fixtures/basic', snap), 'utf8'))
   })
 
   it('separates code no test reaches from code that only runs at import', () => {

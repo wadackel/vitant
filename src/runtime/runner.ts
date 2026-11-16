@@ -1308,6 +1308,20 @@ function exceeds(now: Map<string, number>, before: Map<string, number>): boolean
   return false
 }
 
+/**
+ * Leaves every snapshot file as the run found it. The main process has
+ * Vitest update no snapshot, and Vitest then still writes a test file's
+ * snapshots back whenever a test left one of them unchecked, in its own
+ * order and format and with no entry changed: a mutant that fails a test
+ * before its snapshot rewrote fast-check's `sparseArray.spec.ts.snap`, and
+ * a run of the same file in another process can read it half written.
+ */
+function keepSnapshotFiles(workerState: unknown): void {
+  const environment = (workerState as { config?: { snapshotOptions?: { snapshotEnvironment?: { saveSnapshotFile?: unknown } } } })
+    .config?.snapshotOptions?.snapshotEnvironment
+  if (environment) environment.saveSnapshotFile = async () => {}
+}
+
 export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: VitestBindings): T {
   const releaseMocks = vitest.mocks instanceof Set ? trackMocksWeakly(vitest.mocks) : undefined
 
@@ -2147,6 +2161,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     async onAfterRunSuite(suite: TaskLike): Promise<void> {
       this.releaseAfterEach()
       this.clockOn()
+      keepSnapshotFiles(this.workerState)
       await super.onAfterRunSuite?.(suite)
     }
 
