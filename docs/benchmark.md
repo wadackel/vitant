@@ -197,11 +197,21 @@ On the machine above, with Node 24.22.2 and six workers, one run each, with anot
 | Target and scope | Mutants | This tool | Against the suite |
 |---|---|---|---|
 | koel `composables` | 2,442 | 922 s | 1,120 checked, every survivor among them: all agree |
-| homepage `utils` | 1,661 | 611 s for all 4,708 mutants of `src/utils` | 718 checked, every survivor among them: all agree |
+| homepage `utils` | 1,661 | 611 s for all 4,708 mutants of `src/utils` | 726 checked, every survivor and every mutant on which StrykerJS differs among them: all agree |
 | tailwindcss `parsers` | 843 | 453 s | 843 checked, the 18 timeouts among them: all agree |
 | sentry `utils` | 2,136 | 273 s, and the same verdicts in 273 s with `CI` set | 883 checked, every survivor among them: all agree |
 
-On four-core Ubuntu 24.04 runners, one run each, StrykerJS and this tool one after the other in a job ([tailwindcss](https://github.com/wadackel/vitant/actions/runs/43770269949), [homepage and sentry](https://github.com/wadackel/vitant/actions/runs/43782028294), [koel](https://github.com/wadackel/vitant/actions/runs/43790526671)), every report of this tool held against the stored ground truth:
+koel's tests build their songs, albums and artists with faker, unseeded. A mutant that leaves two songs tied on a sort key, `'track'` made `""` in `usePlayableList.ts`, then orders them by random titles: the suite failed with it in 6 of 10 runs, with another of the same kind in 4 of 10, and passed 10 of 10 without either. A single run of the suite does not settle such a mutant, and a hosted run reported both as killed where the stored entries, made unseeded, had them pass. The install appends `faker.seed(0)` to the project's setup file, which runs once for each test file, so a file's data is the same in every run of it; seeding before each test instead left 17 tests failing with no mutant, in both of two runs. With the seed both mutants pass in 5 runs of 5.
+
+StrykerJS on sentry stops at once without `inPlace`: its sandbox rewrites `tsconfig.json` through `typescript.parseConfigFileTextToJson`, which TypeScript 7 no longer has, as on date-fns and commitlint. The package's type test (`test/types`) needs the package built and fails without it; no source in the scope reaches it, and the shared config's coverage is switched off for ground truth, where it only slows each run. With `CI` set the config adds a JUnit and a GitHub reporter; ground truth sets `CI` and the hosted runner does, and the verdicts are the same as without it.
+
+homepage's scope is a third of `src/utils`: the service helpers, the MCP server and the highlights add 981 survivors, each a run of the suite in ground truth, against 399 here. The scope's verdicts above are those of the run over all of `src/utils`; the hosted run is of the scope alone.
+
+## On hosted CI runners
+
+### The targets added in November 2026
+
+The targets of [Targets added in November 2026](#targets-added-in-november-2026), measured on 15 and 16 November 2026 on the branch that added them, on four-core Ubuntu 24.04 runners: one run each, StrykerJS and this tool one after the other in a job ([tailwindcss](https://github.com/wadackel/vitant/actions/runs/43770269949), [homepage and sentry](https://github.com/wadackel/vitant/actions/runs/43782028294), [koel](https://github.com/wadackel/vitant/actions/runs/43790526671)), every report of this tool held against the stored ground truth.
 
 | Target and scope | Processor | StrykerJS | This tool | Against the suite |
 |---|---|---|---|---|
@@ -210,17 +220,11 @@ On four-core Ubuntu 24.04 runners, one run each, StrykerJS and this tool one aft
 | tailwindcss `parsers` | EPYC 7763 | 3,494 s, not comparable | 4,485 s | all 843 agree |
 | sentry `utils` | EPYC 9V45 | 392 s | 371 s | all 883 agree |
 
-koel's tests build their songs, albums and artists with faker, unseeded. A mutant that leaves two songs tied on a sort key, `'track'` made `""` in `usePlayableList.ts`, then orders them by random titles: the suite failed with it in 6 of 10 runs, with another of the same kind in 4 of 10, and passed 10 of 10 without either. A single run of the suite does not settle such a mutant, and a hosted run reported both as killed where the stored entries, made unseeded, had them pass. The install appends `faker.seed(0)` to the project's setup file, which runs once for each test file, so a file's data is the same in every run of it; seeding before each test instead left 17 tests failing with no mutant, in both of two runs. With the seed both mutants pass in 5 runs of 5. StrykerJS stops after its first run there, in which a test of `songWaveform.vue` fails that passes in the suite.
+koel: StrykerJS stops after its first run, in which a test of `songWaveform.vue` fails that passes in the suite.
 
-StrykerJS on tailwindcss reports 319 of its 869 mutants as timed out, 66 of which the suite passes with, so its time is not of the same work. This tool is slower there all the same, and on the runner by more than on the machine above: of the time its four processes spent, 6,648 s went to runs of whole files that pass, the 79 survivors and the 95 uncovered mutants each run with every test file that reaches them.
+StrykerJS on tailwindcss reports 319 of its 869 mutants as timed out, 66 of which the suite passes with, so its time is not of the same work. This tool is slower there all the same: of the time its four processes spent, 6,648 s went to runs of whole files that pass, the 79 survivors and the 95 uncovered mutants each run with every test file that reaches them.
 
-homepage is also slower here than with StrykerJS: 3,453 s of its processes' time went to runs of whole files that pass, the 399 survivors each run with every test file that loads the module, up to 228 for `proxy/http.js`. Of the 1,661 mutants both ran, the two agree on all but 10: StrykerJS has 9 survive that this tool reports as killed, all in code that runs while a module loads, and these 9 were not checked against the suite; it kills one that this tool reports as survived and the suite passes with.
-
-StrykerJS on sentry stops at once without `inPlace`: its sandbox rewrites `tsconfig.json` through `typescript.parseConfigFileTextToJson`, which TypeScript 7 no longer has, as on date-fns and commitlint. The package's type test (`test/types`) needs the package built and fails without it; no source in the scope reaches it, and the shared config's coverage is switched off for ground truth, where it only slows each run. With `CI` set the config adds a JUnit and a GitHub reporter; ground truth sets `CI` and the hosted runner does, and the verdicts are the same as without it.
-
-homepage's scope is a third of `src/utils`: the service helpers, the MCP server and the highlights add 981 survivors, each a run of the suite in ground truth, against 399 here. The scope's verdicts above are those of the run over all of `src/utils`; the hosted run is of the scope alone.
-
-## On hosted CI runners
+homepage is also slower here than with StrykerJS: 3,453 s of its processes' time went to runs of whole files that pass, the 399 survivors each run with every test file that loads the module, up to 228 for `proxy/http.js`. Of the 1,661 mutants both ran, the two agree on all but 10, each checked against the suite: StrykerJS has 9 survive, all in code that runs while a module loads, that this tool reports as killed and that fail the suite, and kills one that this tool reports as survived and that the suite passes with.
 
 ### Linux measurements at bc4025c
 

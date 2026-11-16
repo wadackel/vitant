@@ -40,7 +40,8 @@ export interface Target {
   /**
    * Vitest arguments for ground truth alone: what the project's config turns
    * on that both tools turn off and that fails the suite by itself, as a
-   * coverage threshold or a type check.
+   * coverage threshold or a type check, or that only slows each run, as
+   * coverage the config turns on.
    */
   truthArgs?: string[]
   scopes: Record<string, Scope>
@@ -547,7 +548,7 @@ export const targets: Record<string, Target> = {
       utils: { mutate: ['src/utils/{proxy,kubernetes,docker}/**/*.js', 'src/utils/contexts/*.jsx'] },
     },
   },
-  // Vitest 4: a CSS compiler, its tests 1,156 inline snapshots among some
+  // Vitest 4: a CSS compiler, its tests 1,151 inline snapshots among some
   // 5,400, through a native CSS parser (lightningcss). The root config is a
   // workspace of every package; the package has a config of its own.
   tailwindcss: {
