@@ -102,6 +102,7 @@ jobs:
             sentry utils
             lobehub topic
             shopify node
+            promptfoo assertions
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
