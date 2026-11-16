@@ -567,6 +567,8 @@ interface Cloner {
   turned(): void
   /** Waits for a copy that watches itself; the code it ended itself with, -1, or -2 where it was stopped as stuck. */
   host(pid: number, stuckMs: number): number
+  /** The ids of the threads of this process, the calling one included. */
+  threads(): number[]
   Ended: { Done: number; Blocked: number; Memory: number; Lost: number }
   exit(code: number): never
 }
@@ -903,6 +905,38 @@ function openDescriptors(): Set<string> | undefined {
   } catch {
     return undefined
   }
+}
+
+/** The threads of this process, or nothing where they cannot be told. */
+function threadIds(): Set<number> | undefined {
+  try {
+    return new Set(cloner!.threads())
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The threads of this process once libuv's pool has started, which it does
+ * all at once on first use and again in a copy that uses it, by a handler it
+ * registers with `pthread_atfork`. Left to start later, its threads would
+ * look like a native module's; told apart by their name, they are not: on
+ * Linux a thread takes the name of the one that started it.
+ */
+async function threadsOnceThePoolRuns(): Promise<Set<number> | undefined> {
+  await fs.promises.access(paths.config)
+  return threadIds()
+}
+
+/**
+ * Whether a thread has started since `before` that a copy made now would be
+ * without. isolated-vm runs an isolate's asynchronous work on threads of its
+ * own: in n8n every copy made after a hook had set an isolate up waited for
+ * an answer that never came, and failed where the suite passes.
+ */
+function threadsStarted(before: Set<number> | undefined): boolean {
+  const now = threadIds()
+  return now === undefined || before === undefined || [...now].some((id) => !before.has(id))
 }
 
 /** Resolves once every call has its answer. */
@@ -1463,6 +1497,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private template = false
     private heldBeforeLoad = new Map<string, number>()
     private openBeforeLoad: Set<string> | undefined
+    private threadsBeforeLoad: Set<number> | undefined
     /** Jobs to be copied for as their mutants' modules begin their own code, see `copyWhileLoading`. */
     private waiting: WholeJob[] = []
     /** No copy was made while the file loaded, where one was to be. */
@@ -1586,6 +1621,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         if (this.template) {
           this.waiting = jobs.filter((job) => !job.plain && job.loading && this.open(job))
           this.unpaused = false
+          this.threadsBeforeLoad = await threadsOnceThePoolRuns()
           // A copy made while loading is made on the spot, and the count of
           // calls under way that says it may be has to be whole by then.
           if (this.waiting.length > 0) await this.standStill()
@@ -1853,7 +1889,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             ? 'calls'
             : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
               ? 'descriptors'
-              : // A close under way finishes in this process and never in the
+              : threadsStarted(this.threadsBeforeLoad)
+                ? 'threads'
+                : // A close under way finishes in this process and never in the
                 // copy, which keeps the descriptor and is told nothing: in immer
                 // Vitest's reading of a file's snapshots left one under way for
                 // the whole file, in every file that has snapshots.
@@ -1861,10 +1899,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
                 ? 'held'
                 : undefined
       if (why) {
-        // What an earlier test failed or wrote stays for the tests after it;
-        // a call or a file under way, often Vitest's own reading of the
-        // file's snapshots as its suite begins, is over by a later test.
-        const lasting = why === 'failed' || why === 'wrote'
+        // What an earlier test failed or wrote stays for the tests after it,
+        // and so does a thread, as a pool's do; a call or a file under way,
+        // often Vitest's own reading of the file's snapshots as its suite
+        // begins, is over by a later test.
+        const lasting = why === 'failed' || why === 'wrote' || why === 'threads'
         const held = why === 'held' ? [...activeResources()] : undefined
         // For the whole file where it lasts: a run refused here is not made
         // this round, and with each refused in turn, the runs of actual's
@@ -1923,7 +1962,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           ? 'calls'
           : open === undefined || this.openBeforeLoad === undefined || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
             ? 'descriptors'
-            : // A callback queued with `setImmediate` is due at the next turn
+            : threadsStarted(this.threadsBeforeLoad)
+              ? 'threads'
+              : // A callback queued with `setImmediate` is due at the next turn
               // of the loop whatever the clock says, in each copy as in the
               // run of the suite; a timer is put off, below.
               exceeds(new Map([...held].filter(([kind]) => kind !== 'Immediate' && kind !== 'Timeout')), this.heldBeforeLoad)
@@ -2028,16 +2069,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // copies made from here start from.
         freeze()
         // A file, a socket, a child process or a watcher the file left open
-        // while loading would be shared by every copy made from here; such a
-        // file's runs are all made from copies taken before it loads. So is a
-        // timer set since the timers were put off, which is not.
+        // while loading would be shared by every copy made from here, and a
+        // thread it started would be in none; such a file's runs are all made
+        // from copies taken before it loads. So is a timer set since the
+        // timers were put off, which is not.
         const open = openDescriptors()
-        const opened = !open || !this.openBeforeLoad || [...open].some((fd) => !this.openBeforeLoad!.has(fd))
+        const threaded = threadsStarted(this.threadsBeforeLoad)
+        const opened = !open || !this.openBeforeLoad || [...open].some((fd) => !this.openBeforeLoad!.has(fd)) || threaded
         const settled = !opened && (await calm(this.heldBeforeLoad, ['Timeout']))
         timerHook.disable()
         const putOff = new Set(frozen.map(([timer]) => timer))
         const shares = !settled || loadTimers.some((timer) => !timer._destroyed && !putOff.has(timer))
-        if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()] })
+        if (shares) emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], ...(threaded ? { threads: true } : {}) })
         // Nor can they be made from here then, and their next round makes them before the file loads.
         if (shares && unbegun.length > 0 && !this.unpaused) emit({ type: 'loading', file: this.wholeFile, why: 'unbegun' })
         // No copy is made of a process that holds something open: a test that was to have its one run in one has had its turn.

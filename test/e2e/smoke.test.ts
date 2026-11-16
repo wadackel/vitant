@@ -52,7 +52,7 @@ describe('console output on Vitest 5.1', () => {
 })
 
 describe('runs copied after the tests before the first to reach the mutant', () => {
-  it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file or the tests run at once', () => {
+  it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file, a hook started a thread or the tests run at once', () => {
     const walk = fixture('walk')
     const report = reportPath('walk')
     const cli = tool(['--root', walk, '--report', report])
@@ -66,9 +66,11 @@ describe('runs copied after the tests before the first to reach the mutant', () 
       .filter((line) => line.includes('"type":"walk"'))
       .map((line) => JSON.parse(line) as { file: string; why: string })
       .map((record) => `${path.basename(record.file)} ${record.why}`)
-    expect([...new Set(refused)].sort()).toEqual(['inbox.test.ts wrote', 'pair.test.ts concurrent'])
+    expect([...new Set(refused)].sort()).toEqual(['inbox.test.ts wrote', 'pair.test.ts concurrent', 'relay.test.ts threads'])
     // Copied once after the first test, the file it leaves is there for one copy and gone for the next.
     expect(run.mutants.find((mutant) => mutant.replacement === 'n / 2')?.status).toBe('Killed')
+    // Copied after the hook that started the thread, the last hook waits on it in vain and fails the file.
+    expect(run.mutants.find((mutant) => mutant.file === 'src/relay.ts' && mutant.mutator === 'StringLiteral')?.status).toBe('Survived')
   }, 60_000)
 })
 

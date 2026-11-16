@@ -233,6 +233,117 @@ pub fn pid() -> i32 {
     unsafe { libc::getpid() }
 }
 
+/// The kernel's ids of the threads of this process, the calling one included.
+#[napi]
+pub fn threads() -> Result<Vec<f64>> {
+    listed_threads()
+}
+
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn mach_port_deallocate(task: libc::mach_port_t, name: libc::mach_port_t) -> libc::kern_return_t;
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn listed_threads() -> Result<Vec<f64>> {
+    // SAFETY: the kernel fills the list and the structures, which are plain
+    // numbers; each port it hands over and the list itself are given back.
+    unsafe {
+        let task = libc::mach_task_self();
+        let mut list: libc::thread_act_array_t = ptr::null_mut();
+        let mut count: libc::mach_msg_type_number_t = 0;
+        if libc::task_threads(task, &mut list, &mut count) != libc::KERN_SUCCESS {
+            return Err(Error::from_reason("task_threads failed"));
+        }
+        let ports = std::slice::from_raw_parts(list, count as usize);
+        let mut ids = Vec::with_capacity(ports.len());
+        for &port in ports {
+            let mut info: libc::thread_identifier_info = std::mem::zeroed();
+            let mut size = libc::THREAD_IDENTIFIER_INFO_COUNT;
+            if libc::thread_info(port, libc::THREAD_IDENTIFIER_INFO as u32, (&raw mut info).cast(), &mut size) == libc::KERN_SUCCESS {
+                ids.push(info.thread_id as f64);
+            }
+            mach_port_deallocate(task, port);
+        }
+        libc::vm_deallocate(task, list as libc::vm_address_t, size_of_val(ports) as libc::vm_size_t);
+        // A thread that ended since the list was made has no information left.
+        Ok(ids)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn listed_threads() -> Result<Vec<f64>> {
+    let unreadable = |error: std::io::Error| Error::from_reason(format!("/proc/self/task: {error}"));
+    let mut ids = Vec::new();
+    for task in std::fs::read_dir("/proc/self/task").map_err(unreadable)? {
+        if let Some(id) = task.map_err(unreadable)?.file_name().to_str().and_then(|id| id.parse().ok()) {
+            ids.push(id);
+        }
+    }
+    Ok(ids)
+}
+
+/// What `echo` asks the thread `start_echo` starts, plus one, or 0.
+static ASKED: AtomicU64 = AtomicU64::new(0);
+/// What that thread answered, plus one, or 0.
+static ANSWERED: AtomicU64 = AtomicU64::new(0);
+static ECHOING: std::sync::Once = std::sync::Once::new();
+
+/// Starts a thread that hands back what `echo` gives it, as a native module's
+/// own threads do the work it is asked for. For `fixtures/walk`, whose tests
+/// need a thread that a copy made after it started does not have. Both sides
+/// look every millisecond: a thread woken through the kernel would, in such
+/// a copy, end the process on macOS rather than leave the test waiting.
+#[napi]
+pub fn start_echo() {
+    ECHOING.call_once(|| {
+        std::thread::spawn(|| {
+            loop {
+                let asked = ASKED.swap(0, Ordering::AcqRel);
+                if asked != 0 {
+                    ANSWERED.store(asked, Ordering::Release);
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        });
+    });
+}
+
+pub struct Echo {
+    value: u32,
+}
+
+impl Task for Echo {
+    type Output = u32;
+    type JsValue = u32;
+
+    fn compute(&mut self) -> Result<u32> {
+        if !ECHOING.is_completed() {
+            return Err(Error::from_reason("no echo thread was started"));
+        }
+        ANSWERED.store(0, Ordering::Release);
+        ASKED.store(u64::from(self.value) + 1, Ordering::Release);
+        loop {
+            let answered = ANSWERED.swap(0, Ordering::AcqRel);
+            if answered != 0 {
+                return Ok((answered - 1) as u32);
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    fn resolve(&mut self, _: Env, value: u32) -> Result<u32> {
+        Ok(value)
+    }
+}
+
+/// Has the thread `start_echo` started hand `value` back, waiting for it on libuv's pool.
+#[napi]
+pub fn echo(value: u32) -> AsyncTask<Echo> {
+    AsyncTask::new(Echo { value })
+}
+
 /// In a copy: its CPU time so far, how much more it may use before it says
 /// so again, and how long by the clock that stretch must at least last.
 #[napi]

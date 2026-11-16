@@ -482,6 +482,8 @@ interface EarlyRecord {
   type: 'early'
   file: string
   site: number
+  /** For the file as a whole: a thread had started while it loaded, which copies made afterwards would be without. */
+  threads?: boolean
 }
 
 export type SessionRecord = (
