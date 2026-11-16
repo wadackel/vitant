@@ -254,7 +254,7 @@ if (values.fast) {
   )
   const beside = result.mutants.filter((mutant) => mutant.besideOnly).length
   if (beside > 0) {
-    console.log(`--led: ${beside} mutant(s) failed a run of a test file next to other runs and no run made with nothing else running confirmed it; they are unconfirmed and count as survived in the score`)
+    console.log(`--led: ${beside} mutant(s) failed a run of a test file next to other runs, or had it stopped for its memory, and no run made with nothing else running settled it; they are unconfirmed and count as survived in the score`)
   }
 }
 console.log(

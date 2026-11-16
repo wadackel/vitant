@@ -83,7 +83,7 @@ export interface MutantResult {
    * most freely, which without the option settles nothing by itself.
    */
   led?: { tests: string[]; sole: boolean }
-  /** With `--led`, for an unconfirmed mutant: the test file a run failed with it next to other runs, which no run made with nothing else running was made to confirm. */
+  /** With `--led`, for an unconfirmed mutant: the test file a run failed with it next to other runs, or was stopped for its memory in, which no run made with nothing else running was made to settle. */
   besideOnly?: string
   /**
    * For a detected mutant, the runs of whole files that say so and the tests
@@ -1563,7 +1563,10 @@ function planPhase(
     // A run stopped for its memory is made again with the machine's memory
     // to hold, which only a run with nothing else running may have.
     if (!quiet && status.roomy.has(wholeKey(mutant, file))) {
-      quietJobs.push([mutant, file])
+      // With `--led` no such run is made, as below: the mutant is to be left
+      // open, where with nothing found it was reported as survived.
+      if (takeLeads && !fastLeads) besideOnly.set(mutant, file)
+      else quietJobs.push([mutant, file])
       return
     }
     const entry = status.whole.get(wholeKey(mutant, file))
@@ -2072,6 +2075,7 @@ function writeSession(
     cheapMs: options.cheapMs,
     loopFactor: options.loopFactor,
     loopSlack: options.loopSlack,
+    mainPid: process.pid,
   }
   fs.writeFileSync(paths.config, JSON.stringify(config))
   fs.writeFileSync(paths.preload, channelWatch)

@@ -223,6 +223,7 @@ const realSetTimeout = setTimeout
 const realClearTimeout = clearTimeout
 const realSetInterval = setInterval
 const realClearInterval = clearInterval
+const realSetImmediate = setImmediate
 const preciseNow = performance.now.bind(performance)
 const resourceCpuUsage = process.cpuUsage.bind(process)
 const maximum = Math.max
@@ -408,8 +409,17 @@ const resident = new Float64Array(workerData.resident)
 const sleeper = new Int32Array(new SharedArrayBuffer(4))
 const fd = fs.openSync(workerData.statePath, 'r+')
 const cpu = () => { const u = process.cpuUsage(); return (u.user + u.system) / 1000 }
+// A process whose parent is gone is given to another, except on Windows; one
+// gone but not yet reaped still answers a signal.
+const orphaned = () => {
+  if (workerData.child && process.ppid !== workerData.main) return true
+  try { process.kill(workerData.main, 0); return false } catch (error) { return error.code === 'ESRCH' }
+}
 for (;;) {
   Atomics.wait(sleeper, 0, 0, 100)
+  // Vitest's worker ends once its channel to the main process closes, which
+  // it hears of in its event loop; a mutant can have kept that from turning.
+  if (orphaned()) process.kill(process.pid, 'SIGKILL')
   const started = beat[0]
   const stalled = mutant[0]
   // A run of a whole file can also wait for good on what a mutant keeps
@@ -512,6 +522,8 @@ function watch(): void {
       statePath: paths.state,
       resultsPath: path.join(paths.results, `${process.pid}.jsonl`),
       tryingPath: path.join(paths.trying, String(process.pid)),
+      main: config.mainPid,
+      child: process.ppid === config.mainPid,
     },
   }).unref()
 }
@@ -2126,6 +2138,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onBeforeRunSuite(suite: TaskLike): Promise<void> {
       this.releaseAfterEach()
+      await this.turnAfterLeft()
       this.finishActive()
       this.clockOn()
       await super.onBeforeRunSuite?.(suite)
@@ -2164,6 +2177,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
 
     async onBeforeRunTask(test: TaskLike): Promise<void> {
       this.releaseAfterEach()
+      await this.turnAfterLeft()
       await super.onBeforeRunTask?.(test)
       if (this.walking) {
         const jobs = this.walking.get(test.id)
@@ -2252,12 +2266,53 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       run.sliceEnd = Math.min(run.queue.length, run.next + run.planned!.chunk)
     }
 
+    /**
+     * Lets the event loop turn once after a try with a mutant, with the
+     * mutant off and the try's limit still on. Vitest goes from one try to
+     * the next on promises alone, so what the mutant left queued runs on
+     * beside the tries that follow, and when it never lets up the event loop
+     * does not turn again: nothing settles the file, and with no mutant on
+     * nothing would end it. A loop ended from outside after a million turns
+     * had queued a million callbacks, which fast-check's tries ran for hours.
+     */
+    private async letTurn(run: TestRun): Promise<void> {
+      runtime.a = -1
+      heartbeat()
+      // Whether the try was a cold first one stays as the try set it: a stop
+      // here may be the rest of what that try loaded.
+      beatMutant[0] = run.mutant
+      limitStretch(limitMs(run))
+      await new Promise((resolve) => realSetImmediate(resolve))
+      limitStretch(0)
+    }
+
+    /** The try that has just ended, of this test or of any, when it had a mutant on and is not settled, see `letTurn`. */
+    private mutantTry(test?: TaskLike): TestRun | undefined {
+      const run = this.active && (test === undefined || this.active.test === test) ? this.active.run : undefined
+      return run && !run.settled && run.mutant >= 0 && (run.attempt === 'mutant' || run.attempt === 'control') ? run : undefined
+    }
+
+    /**
+     * A test that skips itself in a try leaves Vitest's loop without the
+     * hooks after a test, and what comes next finds its try unsettled.
+     */
+    private async turnAfterLeft(): Promise<void> {
+      const ended = this.mutantTry()
+      if (ended) await this.letTurn(ended)
+    }
+
     // Vitest 3.0 has no hook that fires after `afterEach`, so the start of the
     // next attempt is the one place, across versions, where the previous
     // attempt is known to be over and its result settled.
     onBeforeTryTask(test: TaskLike, options: TryOptions): unknown {
       // Nothing of the trying of mutants: it clears what the tests reached, which the walk adds up.
       if (this.walking) return super.onBeforeTryTask?.(test, options)
+      const ended = !this.whole && options.repeats > 0 ? this.mutantTry(test) : undefined
+      if (ended) return this.letTurn(ended).then(() => this.beforeTry(test, options))
+      return this.beforeTry(test, options)
+    }
+
+    private beforeTry(test: TaskLike, options: TryOptions): unknown {
       if (this.whole) {
         this.clockOn()
         if (this.whole.trial === test.id && this.whole.mutant >= 0) {
@@ -2503,6 +2558,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       if (!this.whole) {
         const driven = this.active?.test === test
+        // A test Vitest leaves after a failed try is not tried again.
+        const ended = this.mutantTry(test)
+        if (ended) await this.letTurn(ended)
         this.finishActive()
         // What the hooks after the last attempt reached is no more static
         // than what those after the first did.
@@ -2714,6 +2772,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         this.wholeTest = undefined
         return super.onAfterRunFiles?.(files)
       }
+      await this.turnAfterLeft()
       this.finishActive()
       if (!this.walked) drainStaticHits()
       const sites: number[] = []
