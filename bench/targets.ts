@@ -521,7 +521,13 @@ export const targets: Record<string, Target> = {
   koel: {
     repo: 'https://github.com/koel/koel',
     commit: 'c2d0f0861dbc3f4642d7b54fb97445ac63714b0f',
-    install: ['npx -y pnpm@10.32.1 install --frozen-lockfile'],
+    install: [
+      'npx -y pnpm@10.32.1 install --frozen-lockfile',
+      // The test data is faker's, unseeded: a mutant that leaves two songs tied
+      // on a sort key orders them by random titles and fails the suite in about
+      // half its runs. Each test file starts from one seed.
+      `node --input-type=module -e 'import fs from "node:fs"; fs.appendFileSync("resources/assets/js/__tests__/setup.ts", "\\nimport { faker } from \\"@faker-js/faker\\"\\nfaker.seed(0)\\n")'`,
+    ],
     installStryker: `npx -y pnpm@10.32.1 add -D ${stryker}`,
     scopes: {
       composables: { mutate: ['resources/assets/js/composables/*.ts'] },
@@ -563,6 +569,7 @@ export const targets: Record<string, Target> = {
     dir: 'packages/core',
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.11.2 install --frozen-lockfile --filter @sentry/core...'],
     installStryker: `cd packages/core && npx -y pnpm@12.11.2 add -D ${stryker}`,
+    strykerInPlace: true,
     // The shared config turns coverage on, which only slows each run of ground truth.
     truthArgs: ['--coverage.enabled=false'],
     scopes: {
