@@ -14,7 +14,7 @@ let result: RunResult
 /** What that run and its workers wrote. */
 let output = ''
 /** What each worker of that run said of the tests it drove. */
-let tests: { file: string; name: string; baseline?: string }[] = []
+let tests: { file: string; name: string; baseline?: string; nonRepeatable?: boolean; needsReplay?: boolean }[] = []
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -138,6 +138,16 @@ describe('running the fixture project', () => {
     expect(lease.map((test) => test.name)).toContain('charges for the hours of the lease')
     expect(lease.filter((test) => test.baseline === 'fail').map((test) => test.name)).toEqual([])
     expect(statusOf('src/lease.ts', 2, 'hours / 3')).toBe('Killed')
+  })
+
+  it('counts the assertions of each try of a test apart', () => {
+    // The test asks the `expect` of its context for one assertion; counted
+    // over its tries, it failed with no mutant on from its second try on.
+    expect(result.nonRepeatableTests).not.toContain('test/tip.test.ts > adds a fifth for the tip')
+    const tip = tests.filter((test) => test.file.endsWith('test/tip.test.ts'))
+    expect(tip.map((test) => test.name)).toContain('adds a fifth for the tip')
+    expect(tip.filter((test) => test.nonRepeatable || test.needsReplay)).toEqual([])
+    expect(statusOf('src/tip.ts', 2, 'amount * 5')).toBe('Killed')
   })
 
   it('judges code that only a hook after the last test reaches', () => {

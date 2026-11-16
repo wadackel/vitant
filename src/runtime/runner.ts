@@ -72,6 +72,8 @@ export interface VitestBindings {
   getFn: (test: TaskLike) => (() => unknown) | undefined
   /** The hooks a suite or a file declares, by kind. */
   getHooks: (suite: SuiteLike) => { afterEach?: unknown[] } | undefined
+  /** The `expect` of the test's context, once the test has made it. */
+  ownExpect: (test: TaskLike) => { setState: (state: object) => void } | undefined
   /** Vitest's registry of every mock ever created, where it is a plain Set (before Vitest 5). */
   mocks?: Set<object>
 }
@@ -1266,6 +1268,14 @@ function newRun(mode: TestRun['mode']): TestRun {
 }
 
 const NEVER_ENDING = 1e9
+/** What Vitest sets on the global `expect` before each try of a test. */
+const UNASSERTED = {
+  assertionCalls: 0,
+  isExpectingAssertions: false,
+  isExpectingAssertionsError: null,
+  expectedAssertionsNumber: null,
+  expectedAssertionsNumberErrorGen: null,
+}
 /** How far back a timed-out attempt is checked for CPU use before it counts as hung. */
 const WINDOW_MS = 1000
 const IDLE_POLL_MS = 100
@@ -2319,6 +2329,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       test.result!.errors = undefined
       if (vitest.major < 5) this.clearMocks()
       const result = super.onBeforeTryTask?.(test, options)
+      // Vitest starts each repeat with the count of assertions of the global
+      // `expect` reset but not that of the test's own, from its context. It
+      // is reached only once the test has made it: asking the context for it
+      // would make it, and Vitest would then check it in place of the global one.
+      vitest.ownExpect(test)?.setState(UNASSERTED)
       run.settled = false
       runtime.n = 0
       runtime.t = false
