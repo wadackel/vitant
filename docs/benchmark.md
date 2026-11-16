@@ -217,13 +217,15 @@ lobehub keeps no lockfile (`lockfile: false`), so a fresh install would resolve 
 
 The Shopify CLI suite reads which package manager started it from `npm_config_user_agent`, and one test expects pnpm, which the package's script gives and a run started as `node` does not: the target sets the variable, with `SHOPIFY_CLI_ENV=development`, which the repository's root config sets and a run inside the package does not get. Without either, five tests fail with no mutant. `fs.ts` and `path.ts` are left out of the scope: each is imported by more than 50 of the package's modules, and most of the 181 test files reach them. In one of six runs of the suite with no mutant, six tests of `analytics.test.ts` failed, which pass by themselves.
 
-promptfoo's config stops a run at its first failing test when `CI` is set. A test of the version route fails now and then by itself, and ground truth leaves such a test out: where it was the first to fail, the run stopped before the tests the mutant fails and was taken for a pass. 26 of 480 entries, made that way, disagreed with this tool, and one of them, put in by hand, failed `trajectory.test.ts` in three runs of three. Ground truth runs with `--bail=0`. PROMPTFOO_SHUFFLE
+promptfoo's config stops a run at its first failing test when `CI` is set. A test of the version route fails now and then by itself, and ground truth leaves such a test out: where it was the first to fail, the run stopped before the tests the mutant fails and was taken for a pass. 26 of 480 entries, made that way, disagreed with this tool, and one of them, put in by hand, failed `trajectory.test.ts` in three runs of three. Ground truth runs with `--bail=0`.
+
+promptfoo runs its tests in an order shuffled with no fixed seed, and the stored entries were made that way. Ground truth for 20 of its survivors and 20 of its killed mutants, spread over the scope, was made three more times, each in a new order: every run gave what is stored for all 40.
 
 ## On hosted CI runners
 
 ### The targets added in November 2026
 
-The targets of [Targets added in November 2026](#targets-added-in-november-2026), measured on 15 and 16 November 2026 on the branch that added them, on four-core Ubuntu 24.04 runners: one run each, StrykerJS and this tool one after the other in a job ([tailwindcss](https://github.com/wadackel/vitant/actions/runs/43770269949), [homepage and sentry](https://github.com/wadackel/vitant/actions/runs/43782028294), [koel](https://github.com/wadackel/vitant/actions/runs/43790526671)), every report of this tool held against the stored ground truth.
+The targets of [Targets added in November 2026](#targets-added-in-november-2026), measured on 15 and 16 November 2026 on the branch that added them, on four-core Ubuntu 24.04 runners: one run each, StrykerJS and this tool one after the other in a job ([tailwindcss](https://github.com/wadackel/vitant/actions/runs/43770269949), [homepage and sentry](https://github.com/wadackel/vitant/actions/runs/43782028294), [koel](https://github.com/wadackel/vitant/actions/runs/43790526671); on 16 and 17 November, [lobehub](https://github.com/wadackel/vitant/actions/runs/43851817912), [Shopify CLI](https://github.com/wadackel/vitant/actions/runs/43874404546), [promptfoo](https://github.com/wadackel/vitant/actions/runs/43916487826)), every report of this tool held against the stored ground truth.
 
 | Target and scope | Processor | StrykerJS | This tool | Against the suite |
 |---|---|---|---|---|
@@ -231,8 +233,15 @@ The targets of [Targets added in November 2026](#targets-added-in-november-2026)
 | homepage `utils` | EPYC 7763 | 824 s | 1,359 s | all 718 then stored agree |
 | tailwindcss `parsers` | EPYC 7763 | 3,494 s, not comparable | 4,485 s | all 843 agree |
 | sentry `utils` | EPYC 9V45 | 392 s | 371 s | all 883 agree |
+| lobehub `topic` | Xeon 8370C | 2,746 s, not comparable | 4,056 s | all 502 agree |
+| Shopify CLI `node` | Xeon 8573C | does not start | 256 s | all 718 agree |
+PROMPTFOO_CI_ROW
 
 A run of this tool alone on each scope at [52211e2](https://github.com/wadackel/vitant/commit/52211e2e70ef006c997d7ad362e8aa1fd68cf137), on top of [#34](https://github.com/wadackel/vitant/pull/34) ([run](https://github.com/wadackel/vitant/actions/runs/43796297923)), agreed with every stored entry, homepage's 726 among them: koel 2,400 s on an EPYC 7763, homepage 853 s on an EPYC 9V45, tailwindcss 1,481 s and sentry 379 s on a Xeon 6975P-C. Between processors a time differs as much as between the tools, so only times from one job compare.
+
+lobehub: StrykerJS kills none of its 1,540 mutants, so its time is not of the same work: 1,188 of them this tool reports as killed, and 193 of those it reports as survived are among the stored entries with which the suite fails or times out.
+
+Shopify CLI: with `CI` set the config's reporter is `basic`, which Vitest 4 no longer has, and StrykerJS stops as it starts; this tool and ground truth name reporters of their own. An earlier run, before StrykerJS was run in place, stopped where its copy of the package could not import `../../configurations/vite.config` ([run](https://github.com/wadackel/vitant/actions/runs/43869015872), where this tool took 234 s on a Xeon 6975P-C and agreed with all 718).
 
 koel: StrykerJS stops after its first run, in which a test of `songWaveform.vue` fails that passes in the suite.
 
