@@ -15,7 +15,7 @@ if (!target) {
 }
 
 const dir = workDir(name)
-const env = targetEnv(target, { dir: projectDir(name) })
+const env = { ...targetEnv(target, { dir: projectDir(name) }), VITANT_BENCH: import.meta.dirname }
 const sh = (command: string) => execSync(command, { cwd: dir, stdio: 'inherit', env })
 
 if (!fs.existsSync(path.join(dir, '.git'))) {
