@@ -910,8 +910,8 @@ function openDescriptors(): Set<string> | undefined {
 }
 
 /**
- * The threads of this process. An addon built before it could list them
- * fails here rather than leave every run to a copy made before loading.
+ * The threads of this process. Where the kernel will not list them the
+ * worker fails, rather than leave every run to a copy made before loading.
  */
 function threadIds(): Set<number> {
   return new Set(cloner!.threads())
@@ -1624,6 +1624,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           this.waiting = jobs.filter((job) => !job.plain && job.loading && this.open(job))
           this.unpaused = false
           this.threadsBeforeLoad = await threadsOnceThePoolRuns()
+          this.threaded = false
           // A copy made while loading is made on the spot, and the count of
           // calls under way that says it may be has to be whole by then.
           if (this.waiting.length > 0) await this.standStill()
