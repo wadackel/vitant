@@ -567,8 +567,8 @@ interface Cloner {
   turned(): void
   /** Waits for a copy that watches itself; the code it ended itself with, -1, or -2 where it was stopped as stuck. */
   host(pid: number, stuckMs: number): number
-  /** The ids of the threads of this process, the calling one included. */
-  threads(): number[]
+  /** The threads of this process, the calling one included, each by a name no later thread has. */
+  threads(): string[]
   Ended: { Done: number; Blocked: number; Memory: number; Lost: number }
   exit(code: number): never
 }
@@ -913,7 +913,7 @@ function openDescriptors(): Set<string> | undefined {
  * The threads of this process. Where the kernel will not list them the
  * worker fails, rather than leave every run to a copy made before loading.
  */
-function threadIds(): Set<number> {
+function threadIds(): Set<string> {
   return new Set(cloner!.threads())
 }
 
@@ -924,7 +924,7 @@ function threadIds(): Set<number> {
  * look like a native module's; told apart by their name, they are not: on
  * Linux a thread takes the name of the one that started it.
  */
-async function threadsOnceThePoolRuns(): Promise<Set<number>> {
+async function threadsOnceThePoolRuns(): Promise<Set<string>> {
   await fs.promises.access(paths.config)
   return threadIds()
 }
@@ -935,7 +935,7 @@ async function threadsOnceThePoolRuns(): Promise<Set<number>> {
  * own: in n8n every copy made after a hook had set an isolate up waited for
  * an answer that never came, and failed where the suite passes.
  */
-function threadsStarted(before: Set<number> | undefined): boolean {
+function threadsStarted(before: Set<string> | undefined): boolean {
   return before === undefined || [...threadIds()].some((id) => !before.has(id))
 }
 
@@ -1497,7 +1497,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private template = false
     private heldBeforeLoad = new Map<string, number>()
     private openBeforeLoad: Set<string> | undefined
-    private threadsBeforeLoad: Set<number> | undefined
+    private threadsBeforeLoad: Set<string> | undefined
     /** Jobs to be copied for as their mutants' modules begin their own code, see `copyWhileLoading`. */
     private waiting: WholeJob[] = []
     /** No copy was made while the file loaded, where one was to be. */

@@ -233,9 +233,13 @@ pub fn pid() -> i32 {
     unsafe { libc::getpid() }
 }
 
-/// The kernel's ids of the threads of this process, the calling one included.
+/// The threads of this process, the calling one included, each named by
+/// something no later thread of the process is named by: on macOS the
+/// kernel's id of it, which is never given out again, and on Linux its id
+/// with the time it started, since Linux gives an ended thread's id to a new
+/// one as it does a process id.
 #[napi]
-pub fn threads() -> Result<Vec<f64>> {
+pub fn threads() -> Result<Vec<String>> {
     listed_threads()
 }
 
@@ -246,7 +250,7 @@ unsafe extern "C" {
 
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
-fn listed_threads() -> Result<Vec<f64>> {
+fn listed_threads() -> Result<Vec<String>> {
     // SAFETY: the kernel fills the list and the structures, which are plain
     // numbers; each port it hands over and the list itself are given back.
     unsafe {
@@ -263,7 +267,7 @@ fn listed_threads() -> Result<Vec<f64>> {
             let mut info: libc::thread_identifier_info = std::mem::zeroed();
             let mut size = libc::THREAD_IDENTIFIER_INFO_COUNT;
             if libc::thread_info(port, libc::THREAD_IDENTIFIER_INFO as u32, (&raw mut info).cast(), &mut size) == libc::KERN_SUCCESS {
-                ids.push(info.thread_id as f64);
+                ids.push(info.thread_id.to_string());
             }
             mach_port_deallocate(task, port);
         }
@@ -273,13 +277,18 @@ fn listed_threads() -> Result<Vec<f64>> {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn listed_threads() -> Result<Vec<f64>> {
+fn listed_threads() -> Result<Vec<String>> {
     let unreadable = |error: std::io::Error| Error::from_reason(format!("/proc/self/task: {error}"));
     let mut ids = Vec::new();
     for task in std::fs::read_dir("/proc/self/task").map_err(unreadable)? {
-        if let Some(id) = task.map_err(unreadable)?.file_name().to_str().and_then(|id| id.parse().ok()) {
-            ids.push(id);
-        }
+        let task = task.map_err(unreadable)?;
+        let Some(id) = task.file_name().to_str().map(str::to_owned) else { continue };
+        // A thread that ended since the directory was read has no stat left.
+        let Ok(stat) = std::fs::read_to_string(task.path().join("stat")) else { continue };
+        // The name, in parentheses, may hold spaces; the fields are counted
+        // from its end, the start time being the 22nd.
+        let Some(started) = stat.rsplit_once(')').and_then(|(_, rest)| rest.split_ascii_whitespace().nth(19)) else { continue };
+        ids.push(format!("{id}:{started}"));
     }
     Ok(ids)
 }
@@ -291,8 +300,9 @@ static ANSWERED: AtomicU64 = AtomicU64::new(0);
 static ECHOING: std::sync::Once = std::sync::Once::new();
 
 /// Starts a thread that hands back what `echo` gives it, as a native module's
-/// own threads do the work it is asked for. For `fixtures/walk`, whose tests
-/// need a thread that a copy made after it started does not have. Both sides
+/// own threads do the work it is asked for. For `fixtures/walk` alone, whose
+/// tests need a thread that a copy made after it started does not have;
+/// nothing in `src/` calls it. Both sides
 /// look every millisecond: a thread woken through the kernel would, in such
 /// a copy, end the process on macOS rather than leave the test waiting.
 #[napi]
@@ -310,6 +320,7 @@ pub fn start_echo() {
     });
 }
 
+/// The work `echo` hands libuv's pool. For `fixtures/walk` alone, as `start_echo` is; nothing in `src/` uses either.
 pub struct Echo {
     value: u32,
 }
@@ -338,7 +349,8 @@ impl Task for Echo {
     }
 }
 
-/// Has the thread `start_echo` started hand `value` back, waiting for it on libuv's pool.
+/// Has the thread `start_echo` started hand `value` back, waiting for it on
+/// libuv's pool. For `fixtures/walk` alone; nothing in `src/` calls it.
 #[napi]
 pub fn echo(value: u32) -> AsyncTask<Echo> {
     AsyncTask::new(Echo { value })

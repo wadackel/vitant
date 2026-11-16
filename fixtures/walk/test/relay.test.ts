@@ -9,6 +9,7 @@ import { checked } from '../src/relay'
 // n8n's setup has isolated-vm start an isolate and dispose of it. A copy
 // made after the first hook has no such thread, and its last hook would
 // wait for good, failing the file with every test passing.
+/** The addon's `startEcho` and `echo`, which exist for this fixture alone. */
 interface Echo {
   startEcho(): void
   echo(value: number): Promise<number>
