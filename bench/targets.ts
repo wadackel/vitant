@@ -38,6 +38,15 @@ export interface Target {
    */
   env?: Record<string, string | null>
   /**
+   * Put the project's own `node_modules/.bin` first on PATH for the install,
+   * both tools and every run of ground truth, as a package script does: for a
+   * suite that starts a tool by its name, which neither tool nor Vitest
+   * started directly would otherwise find. Unlike a package script it adds
+   * none of the directories above the project, a workspace root among them.
+   * `env` cannot do it, its values being fixed strings.
+   */
+  binOnPath?: boolean
+  /**
    * Vitest arguments for ground truth alone: what the project's config turns
    * on that both tools turn off and that fails the suite by itself, as a
    * coverage threshold or a type check, or that only slows each run, as
@@ -56,12 +65,20 @@ export function vitestArgs(target: Target): string[] {
   ]
 }
 
-/** `base` with the target's variables set and removed. */
-export function targetEnv(target: Pick<Target, 'env'>, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+/** `base` with the target's variables set and removed, and with `node_modules/.bin` of the project in `dir` first on PATH where the target asks for it. */
+export function targetEnv(
+  target: Pick<Target, 'env' | 'binOnPath'>,
+  { dir, base = process.env }: { dir: string; base?: NodeJS.ProcessEnv },
+): NodeJS.ProcessEnv {
   const env = { ...base }
   for (const [name, value] of Object.entries(target.env ?? {})) {
     if (value === null) delete env[name]
     else env[name] = value
+  }
+  if (target.binOnPath) {
+    // A copy of Windows' environment keeps the case PATH was set with, often `Path`: reading `env.PATH` there finds nothing and drops the PATH the process had.
+    const name = (process.platform === 'win32' && Object.keys(env).find((key) => key.toUpperCase() === 'PATH')) || 'PATH'
+    env[name] = [path.join(dir, 'node_modules', '.bin'), env[name]].filter(Boolean).join(path.delimiter)
   }
   return env
 }
