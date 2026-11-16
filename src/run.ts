@@ -1549,6 +1549,12 @@ function planPhase(
     const index = first.get(siteOf[mutant])
     return index !== undefined && index > 0 ? order[index] : undefined
   }
+  // A file that fails with no mutant on, nothing else running and no test to
+  // name counts none of its failures, so a run there never gives the verdict
+  // that would take the file off the list: in mikro-orm one such file had
+  // the same six runs of half a minute planned round after round, and the
+  // run never ended. The file is reported as given up on instead.
+  const unjudged = (mutant: number, file: string) => !status.restless.has(file) && !wholeVerdict(status.whole.get(wholeKey(mutant, file)))
   const wholeJob = (mutant: number, file: string, confirm: boolean, quiet = false) => {
     // Only while the lead is all there is: a mutant whose runs of a file failed
     // without settling anything is pending again, and the run that settles it
@@ -1758,9 +1764,9 @@ function planPhase(
       // A file in which a test stopped answering with the mutant is a lead like a
       // failure there, and no planner path but this one would run it.
       const within = new Set([...ranked.slice(0, confirmFiles), ...(status.blocked.get(mutant) ?? [])])
-      const open = ranked.filter((file) => within.has(file) && !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
+      const open = ranked.filter((file) => within.has(file) && unjudged(mutant, file))
       if (open.length === 0 && ranked.length > within.size) {
-        const left = ranked.filter((file) => !within.has(file) && !wholeVerdict(status.whole.get(wholeKey(mutant, file)))).length
+        const left = ranked.filter((file) => !within.has(file) && unjudged(mutant, file)).length
         if (left > 0) unconfirmed.set(mutant, { passed: targets.size - left, open: left })
       }
       // A file the mutant has failed in comes before any other: what settles
@@ -1788,7 +1794,7 @@ function planPhase(
   // one file can settle it, with another tried if that run passes.
   for (const [mutant, files] of status.suspects) {
     if (status.detected.has(mutant)) continue
-    const open = [...files].filter((file) => !wholeVerdict(status.whole.get(wholeKey(mutant, file))))
+    const open = [...files].filter((file) => unjudged(mutant, file))
     if (open.length === 0) continue
     const alternativeFiles = new Set([...(status.witnesses.get(mutant) ?? [])]
       .filter((id) => status.alternatives.get(mutant)?.has(id))
@@ -3072,6 +3078,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const records = readRecords()
   const state = fs.readFileSync(paths.state)
   const status = inspect(records, generated.mutants.map((mutant) => mutant.site))
+  // A file that fails with no mutant on, nothing else running and no test to
+  // name leaves no way to tell what a mutant does to it. Counted before the
+  // cache is written: a run that stored such a file's results would have the
+  // next `--incremental` run reuse them and give the file up no more.
+  for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const coveredBy = new Uint32Array(generated.mutants.length)
   const killedBy = new Uint32Array(generated.mutants.length)
   const staticSites = new Set<number>()
@@ -3234,8 +3245,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
     for (const at of detectedAt.values()) if (at >= 0) nearest.detected[at]++
     nearest.ms = nearest.ms.map(Math.round)
   }
-  // A file that fails with no mutant on, nothing else running and no test to name leaves no way to tell what a mutant does to it.
-  for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
   const pending = abandonedFiles.length > 0
   const { detected, doubted: doubtedIn, tests: known, led: ledBy } = status
   const proof = (mutant: number): Evidence[] =>
