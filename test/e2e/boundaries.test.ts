@@ -118,6 +118,25 @@ describe('test files whose runs do not stand each other, or that fail now and th
   }, 120_000)
 })
 
+describe('a test file that fails outside its tests with no mutant on', () => {
+  it('is given up on, and the run ends', () => {
+    const report = reportPath('restless')
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/reserve.ts', '--report', report, 'test/reserve.test.ts'], {
+      env: { ...process.env, RESERVE_SERVER_DOWN: '1' },
+      timeout: 110_000,
+    })
+    expect(cli.error, 'the run did not end in time').toBeUndefined()
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(1)
+    expect(cli.stdout).toContain('gave up on 1 test file(s)')
+    const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(result.abandonedFiles.map((file) => path.relative(fixture('basic'), file))).toEqual(['test/reserve.test.ts'])
+    expect(result.counts.Pending).toBe(result.mutants.length)
+    // Runs planned again and again in the file give up too, at the cap of 200
+    // rounds: here in a minute, on mikro-orm in some ten hours.
+    expect(result.rounds).toBeLessThan(20)
+  }, 120_000)
+})
+
 describe('a run in which no test runs', () => {
   it('says so and fails, where every mutant would read as not covered', () => {
     const cli = tool(['--root', fixture('basic'), '--mutate', 'src/math.ts', 'no-such-test-file'])

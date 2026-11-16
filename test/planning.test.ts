@@ -101,3 +101,36 @@ describe('bounded alternative witnesses', () => {
     expect(result.plan.quiet).toBe(true)
   })
 })
+
+describe('files that fail with no mutant on and no test to name', () => {
+  const restless = '/project/restless.test.ts'
+  const other = '/project/other.test.ts'
+  const failure = (at: number, more: object = {}) =>
+    ({ type: 'whole', file: restless, mutant: 0, verdict: 'failed', tests: [], by: 'copied after load', at, ...more }) as SessionRecord
+  const records: SessionRecord[] = [
+    ...[restless, other].map((file) => ({ type: 'file', file, tests: [file], staticSites: [], complete: true, at: 0 }) as SessionRecord),
+    probe(restless),
+    probe(other),
+    // Both tests tried the mutant and passed with it.
+    probe(restless, restless, { mode: 'planned', survived: [0], attempts: 1 }),
+    probe(other, other, { mode: 'planned', survived: [0], attempts: 1 }),
+    failure(2),
+    failure(3, { alone: true }),
+    failure(4, { alone: true, quiet: true }),
+    { type: 'calm', file: restless, verdict: 'failed', tests: [], at: 5 } as SessionRecord,
+  ]
+  const plan = (more: SessionRecord[] = []) => planRound(inspect([...records, ...more]), new Uint8Array([0]), [restless, other], new Map(), [0], [0])
+
+  it('plans no more runs there, whose failures count for nothing, and goes on to the other files', () => {
+    expect([...inspect(records).restless]).toEqual([restless])
+    const next = plan().plan
+    expect(next.whole[restless]).toBeUndefined()
+    expect(next.whole[other]?.map((job) => job.mutant)).toEqual([0])
+  })
+
+  it('leaves the round empty once the other files have passed, so that the run ends', () => {
+    const { plan: next, workByFile } = plan([{ type: 'whole', file: other, mutant: 0, verdict: 'passed', by: 'copied after load', at: 6 } as SessionRecord])
+    expect(next.whole).toEqual({})
+    expect(workByFile.size).toBe(0)
+  })
+})
