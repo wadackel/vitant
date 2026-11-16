@@ -94,3 +94,27 @@ it.each(versions)('keeps the hooks and assertions of each try to that try with %
     .filter((record) => record.type === 'test')
   expect(records.filter((record) => record.baseline === 'fail' || record.nonRepeatable || record.needsReplay)).toEqual([])
 }, 180_000)
+
+// Inline: the main process sets every project to update no snapshot.
+// Before Vitest 3.2 there is no `projects`, and the tool puts no mutant into
+// a project declared under `workspace`: there the root project is the one.
+it.each(versions)('leaves a snapshot file of an inline project, or before Vitest 3.2 of the root one, as it was, with %s', (version, vitestPath) => {
+  const project = path.join(owner.directory, `snapshot-${version}`)
+  const snap = 'test/__snapshots__/copies.test.ts.snap'
+  const [major, minor] = (JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version as string).split('.').map(Number)
+  const inline = major > 3 || minor >= 2 ? "projects: [{ extends: true, test: { name: 'inline' } }]" : ''
+  fs.mkdirSync(path.join(project, 'src'), { recursive: true })
+  fs.mkdirSync(path.join(project, 'test/__snapshots__'), { recursive: true })
+  fs.mkdirSync(path.join(project, 'node_modules'))
+  fs.symlinkSync(vitestPath, path.join(project, 'node_modules/vitest'), 'junction')
+  fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
+  fs.writeFileSync(path.join(project, 'vitest.config.ts'), `import { defineConfig } from 'vitest/config'\n\nexport default defineConfig({ test: { ${inline} } })\n`)
+  for (const file of ['src/copies.ts', 'test/copies.test.ts', snap]) fs.copyFileSync(path.join(root, 'fixtures/basic', file), path.join(project, file))
+  const report = owner.reportPath(`snapshot-${version}`)
+  const cli = owner.tool(['--root', project, '--mutate', 'src/copies.ts', '--report', report], { timeout: 100_000 })
+  expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+  const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+  expect(result.vitestVersion).toBe(JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version)
+  expect(result.mutants.find((mutant) => mutant.replacement === 'count <= 1')?.status).toBe('Killed')
+  expect(fs.readFileSync(path.join(project, snap), 'utf8')).toBe(fs.readFileSync(path.join(root, 'fixtures/basic', snap), 'utf8'))
+}, 120_000)

@@ -213,13 +213,15 @@ const covered = detected + counts.Survived + counts.Unconfirmed + (values.fast ?
 const percent = (part: number, whole: number) =>
   whole === 0 ? 'n/a' : `${((part / whole) * 100).toFixed(2)}%`
 
+const some = (names: string[]) => (names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', '))
+
 for (const mutant of result.mutants) {
   if (mutant.status !== 'Survived' && mutant.status !== 'Unconfirmed') continue
   const { line, column } = mutant.location.start
   const why = [
     ...(mutant.confirmed ? [`passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files`] : []),
     ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that reach it fail by themselves and were left out`] : []),
-    ...(mutant.wavered ? [`${mutant.wavered.length} test(s) that reach it failed in one run of their file and not in another`] : []),
+    ...(mutant.wavered ? [`failed in one run of their file and not in another: ${some(mutant.wavered)}`] : []),
     ...(mutant.doubted ? [`failed only in ${mutant.doubted.join(', ')}, which fails by chance`] : []),
   ]
   const label = mutant.status === 'Unconfirmed' ? `Unconfirmed (${why.join('; ')})` : 'Survived'
@@ -331,6 +333,7 @@ if (quietRuns > 0) {
 }
 if (result.exclusiveFiles.length > 0) {
   console.log(`${result.exclusiveFiles.length} test file(s) were run one at a time: their runs failed each other`)
+  for (const file of result.exclusiveFiles.slice(0, 10)) console.log(`  ${file}`)
 }
 if (result.unsureFiles.length > 0) {
   console.log(`${result.unsureFiles.length} test file(s) were run with every mutant: what their tests reach could not be measured apart from mutants`)
