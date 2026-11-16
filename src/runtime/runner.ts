@@ -631,6 +631,8 @@ function standClocks(): void {
   process.hrtime = hrtime
   process.uptime = () => nativeUptime() - stood / 1000
 }
+// An addon built before it could list threads would leave every check of them to fail in a test.
+if (cloner && typeof cloner.threads !== 'function') throw new Error(`${process.env.VITANT_FORK} cannot list threads: build it again with pnpm build:native`)
 if (cloner) standClocks()
 
 /** Calls that change the file system somewhere outside this tool's session, since the worker started, see `countWrites`. */
@@ -1500,6 +1502,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private waiting: WholeJob[] = []
     /** No copy was made while the file loaded, where one was to be. */
     private unpaused = false
+    /** A thread had started by the time a copy was to be made once the file had loaded. */
+    private threaded = false
     /** Vitest gave up on a test part-way, and with it on the rest of its suite. */
     private dropped = false
     /** A copy of this process runs the file; this one imports nothing of it. */
@@ -1702,6 +1706,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // So may it have started a thread, the end of a read the file began.
       if (!beforeLoad && threadsStarted(this.threadsBeforeLoad)) {
         emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], threads: true })
+        // A test that was to have its one run in such a copy has had its turn, as where the file shares what it holds.
+        if (job.trial !== undefined) untold(job, this.wholeFile!)
+        this.threaded = true
         return false
       }
       return this.copy(job, beforeLoad ? 'copied before load' : 'copied after load')
@@ -2119,6 +2126,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             this.begin(job, false)
             return super.onCollected?.(files)
           }
+          // The jobs left are as open as before, for the next round, which makes them before the file loads.
+          if (this.threaded) break
           copied = true
         }
         thaw()
