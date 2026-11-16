@@ -181,6 +181,43 @@ node bench/setup.ts commitlint
 node bench/run.ts commitlint lint
 ```
 
+## Targets added in November 2026
+
+Each adds a shape the targets above do not have. Their commits, installation commands and scopes are pinned in `bench/targets.ts`, and each scope is in the hosted benchmark workflow.
+
+| Target and scope | Vitest | Tests | Sources mutated |
+|---|---|---|---|
+| [koel](https://github.com/koel/koel) `composables` | 5.0.5, through Vite+ | jsdom, 378 files of a Vue application in a `vmThreads` pool with a memory limit; the composables are reached by 390 files, components among them | `resources/assets/js/composables/*.ts` |
+| [homepage](https://github.com/gethomepage/homepage) `utils` | 4.1.10 | node, 574 files in a `threads` pool, JavaScript and JSX; tests replace `process.env` and reset modules before importing them again | `src/utils/{proxy,kubernetes,docker}/**/*.js` and `src/utils/contexts/*.jsx` |
+| [tailwindcss](https://github.com/tailwindlabs/tailwindcss) `parsers` | 4.1.10 | node, 45 files in `packages/tailwindcss`, 1,151 inline snapshots among some 5,400 tests, a native CSS parser (lightningcss) | `src/{attribute-selector-parser,selector-parser,value-parser}.ts` |
+| [sentry-javascript](https://github.com/getsentry/sentry-javascript) `packages/core`, scope `utils` | 4.1.12 | node, 166 files; state shared through `globalThis`, wrapped globals, a transform plugin of the project's that runs first, coverage turned on by the shared config | the 25 modules of `src/utils` that four or fewer of the package's sources import |
+
+On the machine above, with Node 24.22.2, six workers but for koel's first run, and another benchmark beside each run (load averages of 15 to 60 on its 12 cores), so the times are of the work and not of the tool's best. The check against the suite is of every mutant reported as survived, uncovered or timed out, and of 250 of the killed ones spread evenly over the rest; for tailwindcss, of all of them.
+
+| Target and scope | Mutants | This tool | Against the suite | StrykerJS |
+|---|---|---|---|---|
+| koel `composables` | 2,442 | 922 s | KOEL_TRUTH | does not start: a test of `songWaveform.vue` fails in its first run |
+| homepage `utils` | 1,661 | 611 s for all 4,708 mutants of `src/utils` | 718 checked, every survivor among them: all agree | HOMEPAGE_STRYKER |
+| tailwindcss `parsers` | 843 | 453 s | 843 checked: all agree, the 18 timeouts among them | see below |
+| sentry `utils` | 2,136 | 273 s, the same verdicts with `CI` set | 883 checked, every survivor among them: all agree | SENTRY_STRYKER |
+
+On a four-core Ubuntu 24.04 runner ([run](https://github.com/wadackel/vitant/actions/runs/43770269949) CI_RUNS), one run each, StrykerJS and this tool one after the other in a job, every report of this tool held against the stored ground truth:
+
+| Target and scope | Processor | StrykerJS | This tool | Against the suite |
+|---|---|---|---|---|
+| koel `composables` | KOEL_CI |
+| homepage `utils` | HOMEPAGE_CI |
+| tailwindcss `parsers` | EPYC 7763 | 3,494 s, not comparable | 4,485 s | all 843 agree |
+| sentry `utils` | SENTRY_CI |
+
+koel's tests build their songs, albums and artists with faker, unseeded. A mutant that leaves two songs tied on a sort key, `'track'` made `""` in `usePlayableList.ts`, then orders them by random titles: the suite failed with it in 6 of 10 runs, and with another of the same kind in 4 of 10, and passed 10 of 10 without either. One run of each is no ground truth, and a hosted run reported both as killed where the stored entry had passed. The install appends `faker.seed(0)` to the project's setup file, which runs once for each test file, so a file's data is the same in every run of it; a seed before each test instead failed 17 tests that make data in one test and look it up in another. With the seed both mutants pass the suite in 5 runs of 5.
+
+StrykerJS on tailwindcss reports 319 of its 869 mutants as timed out, 66 of which the suite passes with: on a four-core runner a run of the snapshot-heavy files outlasts its limit, so its time is not of the same work. This tool is slower there all the same, and on the runner by more than on the machine above: of the time its four processes spent, 6,648 s went to runs of whole files that pass, the 79 survivors and the uncovered mutants each run with every test file that reaches them, `utilities.test.ts` among them.
+
+StrykerJS on sentry stops at once without `inPlace`: its sandbox rewrites `tsconfig.json` through `typescript.parseConfigFileTextToJson`, which TypeScript 7 no longer has, as on date-fns and commitlint. The package's type test (`test/types`) needs the package built and fails without it; no source in the scope reaches it, and the shared config's coverage is switched off for ground truth, where it only slows each run. With `CI` set the config adds a JUnit and a GitHub reporter; ground truth sets `CI` and the hosted runner does, and the verdicts are the same as without it.
+
+homepage's scope is a third of `src/utils`: the service helpers, the MCP server and the highlights add 981 survivors, each a run of the suite in ground truth, against 399 here. The scope's verdicts above are those of the run over all of `src/utils`; the hosted run is of the scope alone.
+
 ## On hosted CI runners
 
 ### Linux measurements at bc4025c
