@@ -627,6 +627,8 @@ export const targets: Record<string, Target> = {
     dir: 'packages/cli-kit',
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@10.11.1 install --frozen-lockfile --filter @shopify/cli-kit...'],
     installStryker: `cd packages/cli-kit && npx -y pnpm@10.11.1 add -D ${stryker}`,
+    // The package's config imports `../../configurations/vite.config`, which a copy of the package does not have.
+    strykerInPlace: true,
     env: { SHOPIFY_CLI_ENV: 'development', npm_config_user_agent: 'pnpm/10.11.1' },
     scopes: {
       // Modules of `src/public/node` that one or two others import: `fs.ts` and `path.ts` are loaded by most of the 181 test files.
@@ -639,7 +641,8 @@ export const targets: Record<string, Target> = {
     install: ['HUSKY=0 npm ci --no-audit --no-fund'],
     installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
     scopes: {
-      assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory,xml,sql}.ts'] },
+      // The scoring assertions. With `xml.ts` and `sql.ts` beside them, 3,064 mutants: those two add 488 survivors, each a run of up to 159 test files in ground truth.
+      assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory}.ts'] },
     },
   },
 }
