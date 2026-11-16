@@ -2091,7 +2091,10 @@ function writeSession(
   fs.writeFileSync(
     paths.runner,
     `${imports}\nimport { withMutationTesting } from ${JSON.stringify(runtime)}\n` +
-      `export default withMutationTesting(Base, { major: ${major}, vi, getFn, getHooks, mocks })\n`,
+      // `_local` is what Vitest itself reads, from 3.0 to 5.1, to check the
+      // test's own `expect` in place of the global one.
+      'const ownExpect = (test) => (test.context._local ? test.context.expect : undefined)\n' +
+      `export default withMutationTesting(Base, { major: ${major}, vi, getFn, getHooks, ownExpect, mocks })\n`,
   )
   return config
 }

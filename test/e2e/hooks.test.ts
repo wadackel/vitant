@@ -60,3 +60,37 @@ ${hooks}
     expect(records.filter((record) => record.type === 'hookObserver').length).toBeGreaterThan(0)
   }
 }, 180_000)
+
+// Before Vitest 5 the hooks put aside for the try that ends a test's loop
+// come from `vitest/suite`, from 5 on from the runner; the context's
+// `expect` has the same state in each.
+it.each(versions)('keeps the hooks and assertions of each try to that try with %s', (version, vitestPath) => {
+  const project = path.join(owner.directory, `tries-${version}`)
+  fs.mkdirSync(path.join(project, 'src'), { recursive: true })
+  fs.mkdirSync(path.join(project, 'test'))
+  fs.mkdirSync(path.join(project, 'node_modules'))
+  fs.symlinkSync(vitestPath, path.join(project, 'node_modules/vitest'), 'junction')
+  fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
+  fs.writeFileSync(path.join(project, 'vitest.config.mjs'), 'export default {}')
+  for (const name of ['lease', 'tip']) {
+    fs.copyFileSync(path.join(root, `fixtures/basic/src/${name}.ts`), path.join(project, `src/${name}.ts`))
+    fs.copyFileSync(path.join(root, `fixtures/basic/test/${name}.test.ts`), path.join(project, `test/${name}.test.ts`))
+  }
+  const report = owner.reportPath(`tries-${version}`)
+  const cli = owner.tool(['--root', project, '--report', report])
+  expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+  const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+  expect(result.vitestVersion).toBe(JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version)
+  expect(result.failedBaselines).toEqual([])
+  expect(result.nonRepeatableTests).toEqual([])
+  expect(result.mutants.map((mutant) => `${mutant.file}:${mutant.location.start.line} ${mutant.replacement} ${mutant.status}`).sort()).toEqual([
+    'src/lease.ts:1 {} Killed',
+    'src/lease.ts:2 hours / 3 Killed',
+    'src/tip.ts:1 {} Killed',
+    'src/tip.ts:2 amount * 5 Killed',
+  ])
+  const records = fs.readdirSync(path.join(project, 'node_modules/.vitant/session/results'))
+    .flatMap((file) => fs.readFileSync(path.join(project, 'node_modules/.vitant/session/results', file), 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)))
+    .filter((record) => record.type === 'test')
+  expect(records.filter((record) => record.baseline === 'fail' || record.nonRepeatable || record.needsReplay)).toEqual([])
+}, 180_000)
