@@ -73,6 +73,7 @@ describe('test files whose runs do not stand each other, or that fail now and th
   it('runs a file one process at a time once its runs have failed each other, and blames no mutant for it', () => {
     plain = runClash('clash')
     expect(plain.exclusiveFiles, JSON.stringify({ failedBaselines: plain.failedBaselines, flaky: plain.flakyTests, counts: plain.counts, rounds: plain.rounds, wholeRuns: plain.wholeRuns })).toEqual(['test/slot.test.ts'])
+    expect(fs.readFileSync(reportPath('clash').replace(/\.json$/, '.log'), 'utf8')).toContain('1 test file(s) were run one at a time: their runs failed each other\n  test/slot.test.ts\n')
     // The test that takes the slot reaches none of the code; whatever it fails says nothing of a mutant.
     const blamed = plain.mutants.filter((mutant) => mutant.evidence?.some((entry) => entry.kind !== 'lead' && entry.test === 'has the slot to itself'))
     expect(blamed.map((mutant) => mutant.replacement)).toEqual([])
@@ -112,6 +113,7 @@ describe('test files whose runs do not stand each other, or that fail now and th
     expect(plain.mutants.find((mutant) => mutant.id === halved.id)!.status).toBe('Killed')
     expect(halved.status).toBe('Unconfirmed')
     expect(halved.wavered).toEqual(['test/lever.test.ts > pulls the lever'])
+    expect(fs.readFileSync(reportPath('clash-lever').replace(/\.json$/, '.log'), 'utf8')).toContain('failed in one run of their file and not in another: test/lever.test.ts > pulls the lever')
     expect(verdicts(run).filter((line) => !line.includes('turns / 2'))).toEqual(verdicts(plain).filter((line) => !line.includes('turns / 2')))
   }, 120_000)
 })

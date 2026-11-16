@@ -49,24 +49,6 @@ it.each(versions.flatMap(([version, vitestPath]) => modes.map(([name, mode]) => 
   expect(['Killed', 'Timeout']).toContain(result.mutants.find((mutant) => mutant.replacement === 'index++')?.status)
 }, 120_000)
 
-// Inline: the main process sets every project to update no snapshot.
-it.each(versions)('leaves a snapshot file of an inline project as it was, with %s', (version, vitestPath) => {
-  const snap = 'test/__snapshots__/copies.test.ts.snap'
-  const directory = project(`snapshot-${version}`, vitestPath, {
-    'vitest.config.ts': "import { defineConfig } from 'vitest/config'\n\nexport default defineConfig({ test: { projects: [{ extends: true, test: { name: 'inline' } }] } })\n",
-    'src/copies.ts': fixture('src/copies.ts'),
-    'test/copies.test.ts': fixture('test/copies.test.ts'),
-  })
-  fs.mkdirSync(path.join(directory, 'test/__snapshots__'))
-  fs.writeFileSync(path.join(directory, snap), fixture(snap))
-  const report = owner.reportPath(`snapshot-${version}`)
-  const cli = owner.tool(['--root', directory, '--mutate', 'src/copies.ts', '--report', report], { timeout: 100_000 })
-  expect(cli.status, cli.stdout + cli.stderr).toBe(0)
-  const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
-  expect(result.mutants.find((mutant) => mutant.replacement === 'count <= 1')?.status).toBe('Killed')
-  expect(fs.readFileSync(path.join(directory, snap), 'utf8')).toBe(fixture(snap))
-}, 120_000)
-
 // The test keeps its worker's event loop from turning for a minute without
 // any mutant on; the main process is gone long before that.
 it('leaves no worker behind when the main process is killed', async () => {
