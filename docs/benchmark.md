@@ -216,9 +216,11 @@ The targets of [Targets added in November 2026](#targets-added-in-november-2026)
 | Target and scope | Processor | StrykerJS | This tool | Against the suite |
 |---|---|---|---|---|
 | koel `composables` | Xeon 6975P-C | does not start | 1,561 s | all 1,120 agree |
-| homepage `utils` | EPYC 7763 | 824 s | 1,359 s | all 718 agree |
+| homepage `utils` | EPYC 7763 | 824 s | 1,359 s | all 718 then stored agree |
 | tailwindcss `parsers` | EPYC 7763 | 3,494 s, not comparable | 4,485 s | all 843 agree |
 | sentry `utils` | EPYC 9V45 | 392 s | 371 s | all 883 agree |
+
+A run of this tool alone on each scope at [52211e2](https://github.com/wadackel/vitant/commit/52211e2e70ef006c997d7ad362e8aa1fd68cf137), on top of [#34](https://github.com/wadackel/vitant/pull/34) ([run](https://github.com/wadackel/vitant/actions/runs/43796297923)), agreed with every stored entry, homepage's 726 among them: koel 2,400 s on an EPYC 7763, homepage 853 s on an EPYC 9V45, tailwindcss 1,481 s and sentry 379 s on a Xeon 6975P-C. Between processors a time differs as much as between the tools, so only times from one job compare.
 
 koel: StrykerJS stops after its first run, in which a test of `songWaveform.vue` fails that passes in the suite.
 
