@@ -691,10 +691,11 @@ export const targets: Record<string, Target> = {
     installStryker: `HUSKY=0 npx -y pnpm@12.18.0 add -D -w ${stryker}`,
     // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
     strykerInPlace: true,
+    // As the project's `test:unit:core` script runs the package's tests.
     projects: ['@freelensapp/core'],
     env: { TZ: 'UTC' },
-    // From a `--jobs` copy of ground truth most of the 303 test files that
-    // reach a module of the scope fail as they load (10 tests run, against
+    // From a `--jobs` copy of ground truth, most of the 303 test files that
+    // reach one module of the scope fail as they load (10 tests run, against
     // 2,882 in the checkout). Ground truth is made with `--jobs 1`.
     scopes: {
       // The modules of `src/common/utils` that are not injectables or their registration. Every test that builds
