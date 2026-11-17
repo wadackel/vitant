@@ -133,7 +133,14 @@ export interface RunResult {
    * which is where type tests run, or a browser, where this runner is not. A mutant reported as survived survived
    * the rest of the suite, and these might have detected it.
    */
-  leftOut: { projects: Record<string, number>; typeTests: number; browserTests: number; typeCheck?: boolean }
+  leftOut: {
+    projects: Record<string, number>
+    typeTests: number
+    browserTests: number
+    typeCheck?: boolean
+    /** Before Vitest 4, the pools whose `execArgv` the workers were not given, the config giving its projects' pools different lists: see `poolArgv`. */
+    poolArgv?: string[]
+  }
   /**
    * The runs made with nothing else running, by how they went. One that
    * passed is a mutant that had failed its file twice in a row and would
@@ -2273,6 +2280,59 @@ export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<num
   return { work: count, marked }
 }
 
+/**
+ * Before Vitest 4, the arguments the suite's workers get from the config:
+ * each pool takes those the root's `poolOptions` give it, whatever a project
+ * gives, and a project runs in the pool it names or, where it names none, in
+ * `forks`, or in the root's pool where it extends the root. The tool runs
+ * every project in one pool of forks, which takes one list: where projects run
+ * in pools given different lists, the first project's is kept and `others`
+ * names the pools whose lists are not. Only the projects the tool runs count:
+ * those written inline (one given by a path is left out, see `instrumented`
+ * below) that `names` selects as Vitest's `--project` does, and not in a
+ * browser. One that extends a file and names no pool runs in the pool that
+ * file names, which is not read here: it is named in `others` by its file.
+ * The pools `poolMatchGlobs` sends files to count with the rest, since the
+ * tool runs those files in its forks too.
+ */
+export function poolArgv(test: Record<string, unknown>, names: readonly string[] = []): { argv: string[]; others: string[] } {
+  type Inline = { extends?: unknown; test?: { pool?: unknown; name?: unknown; browser?: { enabled?: unknown }; poolMatchGlobs?: unknown } }
+  const rootPool = typeof test.pool === 'string' ? test.pool : 'forks'
+  // As Vitest 3.2's `wildcardPatternToRegExp`.
+  const selects = (pattern: string, name: string) => {
+    const negated = pattern.startsWith('!')
+    const body = `${(negated ? pattern.slice(1) : pattern).split('*').map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`
+    return new RegExp(`^${negated ? `(?!${body})` : body}`, 'i').test(name)
+  }
+  // One that extends the root takes the root's name and browser where it gives none; one with no name is named by its place.
+  const root = test as NonNullable<Inline['test']>
+  const nameOf = (project: Inline, index: number) => {
+    const name = project.test?.name ?? (project.extends === true ? root.name : undefined) ?? index
+    return typeof name === 'object' && name !== null ? String((name as { label?: unknown }).label ?? '') : String(name)
+  }
+  const inBrowser = (project: Inline) => (project.test?.browser?.enabled ?? (project.extends === true ? root.browser?.enabled : undefined)) === true
+  const inline = (Array.isArray(test.projects) ? test.projects : [])
+    .filter((project): project is Inline => typeof project === 'object' && project !== null)
+    .filter((project, index) => names.length === 0 || names.some((pattern) => selects(pattern, nameOf(project, index))))
+    .filter((project) => !inBrowser(project))
+  const unknown = inline.filter((project) => typeof project.test?.pool !== 'string' && typeof project.extends === 'string')
+  const pools = (inline.length === 0 ? [{ test: { pool: rootPool } } as Inline] : inline.filter((project) => !unknown.includes(project))).map((project) => {
+    if (typeof project.test?.pool === 'string') return project.test.pool
+    return project.extends === true ? rootPool : 'forks'
+  })
+  const globPools = (config: Inline['test']) => (Array.isArray(config?.poolMatchGlobs) ? config.poolMatchGlobs : [])
+    .map((entry: unknown) => (Array.isArray(entry) ? entry[1] : undefined))
+    .filter((pool): pool is string => typeof pool === 'string')
+  const globbed = inline.length === 0
+    ? globPools(root)
+    : inline.flatMap((project) => [...globPools(project.test), ...(project.extends === true ? globPools(root) : [])])
+  const options = (test.poolOptions ?? {}) as Record<string, { execArgv?: string[] } | undefined>
+  const argvOf = (pool: string) => options[pool]?.execArgv ?? []
+  const argv = pools.length > 0 ? argvOf(pools[0]) : []
+  const others = [...new Set([...pools, ...globbed])].filter((pool) => JSON.stringify(argvOf(pool)) !== JSON.stringify(argv))
+  return { argv, others: [...others, ...new Set(unknown.map((project) => `the pool of ${String(project.extends)}`))] }
+}
+
 export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
@@ -2339,6 +2399,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // environment and the dependencies again; where files are small that is
   // most of what a run costs.
   process.env.NODE_COMPILE_CACHE ??= path.join(options.root, 'node_modules/.vitant/compile-cache')
+  let rootArgv: ReturnType<typeof poolArgv> | undefined
   const instrumentPlugin = {
     name: 'vitant:instrument',
     enforce: 'pre' as const,
@@ -2362,9 +2423,17 @@ export async function run(options: RunOptions): Promise<RunResult> {
           return uncached({ ...test, execArgv: [`--require=${hookObserver}`, ...own, ...workerArgv] })
         }
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
-        const own = pools.forks?.execArgv ?? []
-        const forks = { ...pools.forks, isolate: true, execArgv: [`--require=${hookObserver}`, ...own, ...workerArgv] }
-        return { ...test, poolOptions: { ...pools, forks } }
+        const forks = { ...pools.forks, isolate: true, execArgv: [`--require=${hookObserver}`, ...rootArgv!.argv, ...workerArgv] }
+        // A file `poolMatchGlobs` sends to another pool would run there,
+        // outside the forks that copies need and that the observer is given
+        // to, and the tool gave up on it.
+        return { ...test, poolOptions: { ...pools, forks }, ...(test.poolMatchGlobs ? { poolMatchGlobs: undefined } : {}) }
+      }
+      // The root's config comes first, before the servers of its projects
+      // call this with theirs, and only its `poolOptions` reach a pool.
+      if (major < 4 && rootArgv === undefined) {
+        rootArgv = poolArgv(config.test ?? {}, options.projects)
+        if (rootArgv.others.length > 0) leftOut.poolArgv = rootArgv.others
       }
       for (const project of config.test?.projects ?? []) {
         if (typeof project !== 'object' || project === null) continue

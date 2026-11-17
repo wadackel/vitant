@@ -321,6 +321,9 @@ const leftOut = Object.entries(result.leftOut.projects)
 if (result.leftOut.typeCheck) {
   console.log('the project has Vitest check types along with its tests, which is not done here: a mutant that only breaks types fails its suite and is reported as survived')
 }
+if (result.leftOut.poolArgv) {
+  console.log(`the workers were given the arguments the config gives the pool of its first project and not those it gives ${result.leftOut.poolArgv.join(', ')}: before Vitest 4 every project gets one list, and a test that needs another may fail here with no mutant on`)
+}
 if (leftOut.length > 0 || result.leftOut.typeTests > 0 || result.leftOut.browserTests > 0) {
   console.log('not the whole suite: a mutant reported as survived was not run with')
   for (const [project, files] of leftOut) console.log(`  ${files} test file(s) of project ${project}, which the mutants could not be put into`)
