@@ -95,7 +95,7 @@ Shares are of whole files, so a file with most of the mutants makes its share th
 | `--no-clone` | | Start a worker for every whole-file run instead of copying one. |
 | `--max-workers <n>` | the number of processors | Workers at once. More than that and tests that wait on the clock fail on a machine that is behind; a third more gave wrong verdicts on hosted CI runners. |
 | `--recycle-heap-mb <n>` | a third of the machine's memory divided by the workers, between 512 and 1,536 | A worker hands over once its live heap passes this, or its resident size passes 1.5 times this. Lower uses less memory and costs more restarts. |
-| `--memory-mb <n>` | what the machine has available, less a sixteenth of its memory | The most the processes that run test files may be expected to hold together. A process waits for room before it starts on a file, going by what the file's processes were seen to hold, and is never left out for want of it. Where workers are not copied (`--no-clone`, Windows) nothing waits. |
+| `--memory-mb <n>` | what the machine has available, less a sixteenth of its memory | The most the processes that run test files may be expected to hold together. From the second round on, a process waits for room before it starts on a file, going by what the file's processes were seen to hold; it is a forecast, not a hard limit, and a process goes anyway where nothing else could give memory back, so none is left out. Where workers are not copied (`--no-clone`, Windows) nothing waits. |
 | `--timeout-factor <n>` | 4 | A test may take this many times what it took unmutated. |
 | `--timeout-ms <n>` | 3000 | And this much on top, in milliseconds. |
 | `--help` | | Print the usage. |
