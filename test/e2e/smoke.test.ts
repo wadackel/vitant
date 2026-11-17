@@ -172,7 +172,7 @@ it('tells positive numbers', () => {
 // A young generation of another size decides whether a collection lands
 // inside a span of work at all: with 64 MB semi-spaces a mutant of n8n's,
 // which crashes V8 in a collection under isolated-vm in every run of the
-// suite, passed. See docs/design.md item 12.
+// suite, passed. See "What a worker is given" in docs/design.md.
 describe.each(['vitest3', 'vitest'])('the V8 arguments of copied workers, on %s', (version) => {
   const project = path.join(owner.directory, `argv-${version}`)
   const records = path.join(project, 'argv')
