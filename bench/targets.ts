@@ -650,26 +650,13 @@ export const targets: Record<string, Target> = {
       assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory}.ts'] },
     },
   },
-  headlamp: {
-    repo: 'https://github.com/kubernetes-sigs/headlamp',
-    commit: '696a4cdccaf365f20fd6cc1fd33d647772fcd20f',
-    dir: 'frontend',
-    install: ['cd frontend && HUSKY=0 npm ci --no-audit --no-fund', 'cd frontend && node make-env.js'],
-    installStryker: `cd frontend && HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
-    // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
-    // a file in node_modules, which is the original's, outside the copy: two
-    // of the 143 test files that reach a module of the scope fail as they
-    // load. Ground truth is made with `--jobs 1`.
-    scopes: {
-      // `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself. Each module of it is reached by some 140 test files, components among them.
-      api: { mutate: ['src/lib/k8s/api/v2/{multiplexer,hooks,webSocket,fetch,KubeList,nodeSummaryApi,retry,KubeObjectEndpoint,makeUrl}.ts'] },
-    },
-  },
   comfyui: {
     repo: 'https://github.com/Comfy-Org/ComfyUI_frontend',
     commit: '3633e2613c24a74d58f8183ceef3b470a7801878',
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@11.28.10 install --frozen-lockfile'],
     installStryker: `HUSKY=0 npx -y pnpm@11.28.10 add -D -w ${stryker}`,
+    // From StrykerJS's sandbox a test's mock of a workspace package resolves to the checkout's, and is not found.
+    strykerInPlace: true,
     // From a `--jobs` copy of ground truth, `vitest related` on one store runs
     // 1,965 test files, 60 tests failing, where in the checkout it runs 6; and
     // a test's `pnpm exec` has pnpm install the workspace in the copy,
