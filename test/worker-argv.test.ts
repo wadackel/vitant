@@ -39,6 +39,14 @@ it('counts only the projects the tool runs', () => {
   expect(poolArgv({ ...extending, browser: { enabled: true } })).toEqual({ argv: ['--no-deprecation'], others: [] })
 })
 
+it('counts the pools `poolMatchGlobs` sends files to, the root\'s only where it is the project or is extended', () => {
+  const globs = [['**/quiet.test.ts', 'threads']]
+  expect(poolArgv({ poolOptions, poolMatchGlobs: globs })).toEqual({ argv: ['--expose-gc'], others: ['threads'] })
+  expect(poolArgv({ poolOptions, projects: [{ test: { poolMatchGlobs: globs } }] })).toEqual({ argv: ['--expose-gc'], others: ['threads'] })
+  expect(poolArgv({ poolOptions, poolMatchGlobs: globs, projects: [{ test: {} }] })).toEqual({ argv: ['--expose-gc'], others: [] })
+  expect(poolArgv({ poolOptions, poolMatchGlobs: globs, projects: [{ extends: true, test: {} }] })).toEqual({ argv: ['--expose-gc'], others: ['threads'] })
+})
+
 it('names a project that extends a file and names no pool, whose pool that file gives', () => {
   const projects = [{ extends: './vite.config.ts', test: { name: 'unit' } }, { test: { name: 'node', pool: 'threads' } }]
   expect(poolArgv({ poolOptions, projects })).toEqual({ argv: ['--no-deprecation'], others: ['the pool of ./vite.config.ts'] })

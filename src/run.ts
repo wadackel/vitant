@@ -133,7 +133,14 @@ export interface RunResult {
    * which is where type tests run, or a browser, where this runner is not. A mutant reported as survived survived
    * the rest of the suite, and these might have detected it.
    */
-  leftOut: { projects: Record<string, number>; typeTests: number; browserTests: number; typeCheck?: boolean }
+  leftOut: {
+    projects: Record<string, number>
+    typeTests: number
+    browserTests: number
+    typeCheck?: boolean
+    /** Before Vitest 4, the pools whose `execArgv` the workers were not given, the config giving its projects' pools different lists: see `poolArgv`. */
+    poolArgv?: string[]
+  }
   /**
    * The runs made with nothing else running, by how they went. One that
    * passed is a mutant that had failed its file twice in a row and would
@@ -2285,9 +2292,11 @@ export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<num
  * below) that `names` selects as Vitest's `--project` does, and not in a
  * browser. One that extends a file and names no pool runs in the pool that
  * file names, which is not read here: it is named in `others` by its file.
+ * The pools `poolMatchGlobs` sends files to count with the rest, since the
+ * tool runs those files in its forks too.
  */
 export function poolArgv(test: Record<string, unknown>, names: readonly string[] = []): { argv: string[]; others: string[] } {
-  type Inline = { extends?: unknown; test?: { pool?: unknown; name?: unknown; browser?: { enabled?: unknown } } }
+  type Inline = { extends?: unknown; test?: { pool?: unknown; name?: unknown; browser?: { enabled?: unknown }; poolMatchGlobs?: unknown } }
   const rootPool = typeof test.pool === 'string' ? test.pool : 'forks'
   // As Vitest 3.2's `wildcardPatternToRegExp`.
   const selects = (pattern: string, name: string) => {
@@ -2311,10 +2320,16 @@ export function poolArgv(test: Record<string, unknown>, names: readonly string[]
     if (typeof project.test?.pool === 'string') return project.test.pool
     return project.extends === true ? rootPool : 'forks'
   })
+  const globPools = (config: Inline['test']) => (Array.isArray(config?.poolMatchGlobs) ? config.poolMatchGlobs : [])
+    .map((entry: unknown) => (Array.isArray(entry) ? entry[1] : undefined))
+    .filter((pool): pool is string => typeof pool === 'string')
+  const globbed = inline.length === 0
+    ? globPools(root)
+    : inline.flatMap((project) => [...globPools(project.test), ...(project.extends === true ? globPools(root) : [])])
   const options = (test.poolOptions ?? {}) as Record<string, { execArgv?: string[] } | undefined>
   const argvOf = (pool: string) => options[pool]?.execArgv ?? []
   const argv = pools.length > 0 ? argvOf(pools[0]) : []
-  const others = [...new Set(pools)].filter((pool) => JSON.stringify(argvOf(pool)) !== JSON.stringify(argv))
+  const others = [...new Set([...pools, ...globbed])].filter((pool) => JSON.stringify(argvOf(pool)) !== JSON.stringify(argv))
   return { argv, others: [...others, ...new Set(unknown.map((project) => `the pool of ${String(project.extends)}`))] }
 }
 
@@ -2409,13 +2424,16 @@ export async function run(options: RunOptions): Promise<RunResult> {
         }
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
         const forks = { ...pools.forks, isolate: true, execArgv: [`--require=${hookObserver}`, ...rootArgv!.argv, ...workerArgv] }
-        return { ...test, poolOptions: { ...pools, forks } }
+        // A file `poolMatchGlobs` sends to another pool would run there,
+        // outside the forks that copies need and that the observer is given
+        // to, and the tool gave up on it.
+        return { ...test, poolOptions: { ...pools, forks }, ...(test.poolMatchGlobs ? { poolMatchGlobs: undefined } : {}) }
       }
       // The root's config comes first, before the servers of its projects
       // call this with theirs, and only its `poolOptions` reach a pool.
       if (major < 4 && rootArgv === undefined) {
         rootArgv = poolArgv(config.test ?? {}, options.projects)
-        if (rootArgv.others.length > 0) options.log(`the workers get the arguments the config gives the pool of its first project, not those it gives ${rootArgv.others.join(', ')}: before Vitest 4 one list is given to every project`)
+        if (rootArgv.others.length > 0) leftOut.poolArgv = rootArgv.others
       }
       for (const project of config.test?.projects ?? []) {
         if (typeof project !== 'object' || project === null) continue

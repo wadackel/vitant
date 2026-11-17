@@ -69,6 +69,7 @@ export function mergeReports(reports: RunResult[]): RunResult {
       typeTests: Math.max(...reports.map((report) => report.leftOut.typeTests)),
       browserTests: Math.max(...reports.map((report) => report.leftOut.browserTests)),
       ...(reports.some((report) => report.leftOut.typeCheck) ? { typeCheck: true } : {}),
+      ...(reports.some((report) => report.leftOut.poolArgv) ? { poolArgv: union(reports.map((report) => report.leftOut.poolArgv ?? [])) } : {}),
     },
     quietRuns: {
       failed: sum(reports.map((report) => report.quietRuns.failed)),
