@@ -53,6 +53,13 @@ export interface Target {
    * coverage the config turns on.
    */
   truthArgs?: string[]
+  /**
+   * Minutes after which `bench/run.ts` ends a run of this tool as one that
+   * hangs, where they are more than its `--limit`: for a scope whose run
+   * takes most of the workflow's limit on the fastest runners, so that one
+   * on a runner half as fast is still let finish.
+   */
+  limit?: number
   scopes: Record<string, Scope>
 }
 
@@ -694,6 +701,8 @@ export const targets: Record<string, Target> = {
     // As the project's `test:unit:core` script runs the package's tests.
     projects: ['@freelensapp/core'],
     env: { TZ: 'UTC' },
+    // The scope's run took 7,412 to 7,824 s on a Xeon 6975P-C against the workflow's 150 minutes; within the job's six hours.
+    limit: 300,
     // From a `--jobs` copy of ground truth, most of the 303 test files that
     // reach one module of the scope fail as they load (10 tests run, against
     // 2,882 in the checkout). Ground truth is made with `--jobs 1`.
