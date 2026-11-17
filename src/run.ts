@@ -1906,22 +1906,6 @@ let workers = 1
 // going to be copied must not leave work to any.
 const workerArgv: string[] = []
 
-/**
- * V8 settings for the workers that are copied: a young generation large
- * enough that a copy's short run seldom collects, and none of the idle-time
- * collections that only return memory. A copy that collects writes to pages
- * it shares with its worker, and each such page is copied for it. Only when
- * collections happen changes, as it does between any two runs of the suite;
- * the project's own setting of any of them stays.
- */
-export const heapFlags = ['--min-semi-space-size=64', '--max-semi-space-size=64', '--no-memory-reducer']
-const flagName = (argument: string) => argument.split('=')[0].replace(/^--(no-)?/, '').replaceAll('_', '-')
-/** `ours` without the flags `own`, or `NODE_OPTIONS`, already sets. */
-export function yieldingTo(own: string[], ours: string[]): string[] {
-  const set = new Set([...own, ...(process.env.NODE_OPTIONS ?? '').split(/\s+/)].filter(Boolean).map(flagName))
-  return ours.filter((argument) => !heapFlags.includes(argument) || !set.has(flagName(argument)))
-}
-
 /** Runs files in the order given; Vitest's default reorders them by size and past duration. */
 class PlannedOrder {
   async sort<T>(files: T[]): Promise<T[]> {
@@ -2375,11 +2359,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const withArgv = (test: Record<string, unknown> = {}): Record<string, unknown> => {
         if (major >= 4) {
           const own = (test.execArgv as string[] | undefined) ?? []
-          return uncached({ ...test, execArgv: [`--require=${hookObserver}`, ...own, ...yieldingTo(own, workerArgv)] })
+          return uncached({ ...test, execArgv: [`--require=${hookObserver}`, ...own, ...workerArgv] })
         }
         const pools = (test.poolOptions ?? {}) as { forks?: { execArgv?: string[] } }
         const own = pools.forks?.execArgv ?? []
-        const forks = { ...pools.forks, isolate: true, execArgv: [`--require=${hookObserver}`, ...own, ...yieldingTo(own, workerArgv)] }
+        const forks = { ...pools.forks, isolate: true, execArgv: [`--require=${hookObserver}`, ...own, ...workerArgv] }
         return { ...test, poolOptions: { ...pools, forks } }
       }
       for (const project of config.test?.projects ?? []) {
@@ -2474,7 +2458,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   workers = options.maxWorkers
   workerArgv.length = 0
   if (addon) {
-    workerArgv.push('--single-threaded', `--require=${paths.preload}`, ...heapFlags)
+    workerArgv.push('--single-threaded', `--require=${paths.preload}`)
     process.env.VITANT_FORK = addon
     // macOS ends a copy in which a class of its own frameworks is set up
     // for the first time, lest another thread was at that when the copy was
@@ -2650,7 +2634,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
             for (const project of new Set(part.map((spec) => spec.project))) {
               const config = project.config as { execArgv?: string[]; isolate?: boolean }
               const own = (config.execArgv ?? []).filter((argument) => !workerArgv.includes(argument))
-              config.execArgv = copying ? [...own, ...yieldingTo(own, workerArgv)] : own
+              config.execArgv = copying ? [...own, ...workerArgv] : own
               // A worker that hands each file to a copy stays as it started;
               // any other has to be started for its file.
               config.isolate = !hands || reusesEnded
