@@ -701,7 +701,7 @@ export const targets: Record<string, Target> = {
     // As the project's `test:unit:core` script runs the package's tests.
     projects: ['@freelensapp/core'],
     env: { TZ: 'UTC' },
-    // The scope's run took 7,412 to 7,824 s on a Xeon 6975P-C against the workflow's 150 minutes; within the job's six hours.
+    // The scope's run took 7,412 to 7,824 s on a Xeon 6975P-C against the workflow's 150 minutes. A job of this tool alone stays within its six hours.
     limit: 300,
     // From a `--jobs` copy of ground truth, most of the 303 test files that
     // reach one module of the scope fail as they load (10 tests run, against
