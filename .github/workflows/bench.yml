@@ -103,6 +103,9 @@ jobs:
             lobehub topic
             shopify node
             promptfoo assertions
+            headlamp api
+            comfyui stores
+            freelens utils
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)

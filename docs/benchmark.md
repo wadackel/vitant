@@ -221,6 +221,8 @@ promptfoo's config stops a run at its first failing test when `CI` is set. A tes
 
 promptfoo runs its tests in an order shuffled with no fixed seed, and the stored entries were made that way. Ground truth for 20 of its survivors and 20 of its killed mutants, spread over the scope, was made three more times, each in a new order: every run gave what is stored for all 40.
 
+On the machine that made promptfoo's entries, 25 tests of `test/providers/agentWorkspace.test.ts` and `agentWorkspace.appServer.test.ts` fail with no mutant, in each of two runs of the whole suite: git there has `core.fsmonitor` on, and the copy of a test repository the tests make stops at the monitor's socket in its `.git`. Neither file reaches a module of the scope, so ground truth, which runs the test files that do (`--related`), and this tool left them out; ground truth made again for this scope does the same wherever it runs, and a run of the whole suite on such a machine fails without a mutant.
+
 ## On hosted CI runners
 
 ### The targets added in November 2026
