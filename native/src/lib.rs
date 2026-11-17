@@ -110,23 +110,51 @@ fn uninterrupted(mut call: impl FnMut() -> libc::c_int) -> libc::c_int {
     }
 }
 
+/// What a copy is to find room for in the machine's memory before it is
+/// made, beside the other copies made with one.
+#[napi(object)]
+pub struct Room {
+    /// What the copy is expected to come to hold that no other process shares, in bytes.
+    pub need: f64,
+    /// What is to be left to the rest of the machine, in bytes.
+    pub spare: f64,
+    /// The most the copies made with a room may hold together, in bytes; 0 for no such limit.
+    pub ceiling: f64,
+    /// The file that lists those copies, and the processes waiting to make one.
+    pub registry: String,
+}
+
 /// Copies this process. Returns 0 in the copy, whose event loop is rebuilt,
 /// and the copy's process id in the process that was copied.
 ///
 /// `lock` is a file descriptor to hold a lock on for the time of the call: the
 /// kernel makes copies one at a time, and processes that all try at once
-/// spend their time waiting on one another inside it.
+/// spend their time waiting on one another inside it. With a `room`, the
+/// copy is made once the machine has that room for it, see `find_room`.
 #[napi]
-pub fn fork(lock: i32) -> Result<i32> {
+pub fn fork(lock: i32, room: Option<Room>) -> Result<i32> {
     let shared = beat()?;
     // Mapped before the copy is made, so that the two share it.
     alive()?;
     // No copy exists that could be writing: the one before was waited for.
     shared.clear();
-    // SAFETY: plain system calls on a descriptor the caller owns.
-    unsafe { uninterrupted(|| libc::flock(lock, libc::LOCK_EX)) };
+    let room = room.filter(|room| room.need > 0.0);
+    let mut listed = match &room {
+        Some(room) => find_room(lock, room)?,
+        None => {
+            // SAFETY: plain system calls on a descriptor the caller owns.
+            unsafe { uninterrupted(|| libc::flock(lock, libc::LOCK_EX)) };
+            Vec::new()
+        }
+    };
     #[cfg(target_os = "linux")]
     if let Err(error) = inherit_everything() {
+        if let Some(room) = &room {
+            // SAFETY: plain system call.
+            let me = unsafe { libc::getpid() };
+            listed.retain(|entry| entry.pid != me || !entry.waiting);
+            write_registry(&room.registry, &listed);
+        }
         // SAFETY: as above.
         unsafe { libc::flock(lock, libc::LOCK_UN) };
         return Err(error);
@@ -153,12 +181,187 @@ pub fn fork(lock: i32) -> Result<i32> {
         }
         // Read before the next call replaces it.
         let failure = (pid < 0).then(|| os_error("fork"));
+        if let Some(room) = &room {
+            let me = libc::getpid();
+            listed.retain(|entry| entry.pid != me || !entry.waiting);
+            if pid > 0 {
+                listed.push(Entry { pid, started: started(pid).unwrap_or(0), need: room.need, waiting: false });
+            }
+            write_registry(&room.registry, &listed);
+        }
         libc::flock(lock, libc::LOCK_UN);
         match failure {
             Some(error) => Err(error),
             None => Ok(pid),
         }
     }
+}
+
+/// Waits until the machine has room for this process to go on to hold
+/// `room.need` that no other process shares, as it does before it runs a
+/// test file itself, and lists it among the processes that hold such room.
+#[napi]
+pub fn room(lock: i32, room: Room) -> Result<()> {
+    if room.need <= 0.0 {
+        return Ok(());
+    }
+    let mut listed = find_room(lock, &room)?;
+    // SAFETY: plain system call.
+    let me = unsafe { libc::getpid() };
+    listed.retain(|entry| entry.pid != me);
+    listed.push(Entry { pid: me, started: started(me).unwrap_or(0), need: room.need, waiting: false });
+    write_registry(&room.registry, &listed);
+    // SAFETY: plain system call on a descriptor the caller owns.
+    unsafe { libc::flock(lock, libc::LOCK_UN) };
+    Ok(())
+}
+
+/// A line of the registry: a process that holds room, or one waiting for it.
+struct Entry {
+    pid: i32,
+    /// When the process started, see `started`: the system hands an ended process's id to a new one.
+    started: u64,
+    need: f64,
+    waiting: bool,
+}
+
+fn read_registry(path: &str) -> Vec<Entry> {
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    text.lines()
+        .filter_map(|line| {
+            let mut fields = line.split_ascii_whitespace();
+            let pid = fields.next()?.parse().ok()?;
+            let started = fields.next()?.parse().ok()?;
+            let need = fields.next()?.parse().ok()?;
+            let waiting = fields.next()? == "waiting";
+            Some(Entry { pid, started, need, waiting })
+        })
+        // A process that is gone has given its memory back.
+        .filter(|entry| started(entry.pid) == Some(entry.started))
+        .collect()
+}
+
+fn write_registry(path: &str, entries: &[Entry]) {
+    let text: String = entries
+        .iter()
+        .map(|entry| format!("{} {} {} {}\n", entry.pid, entry.started, entry.need, if entry.waiting { "waiting" } else { "running" }))
+        .collect();
+    // Under the lock, which every writer holds: no one reads it half written.
+    let _ = std::fs::write(path, text);
+}
+
+/// Takes the lock once the machine has room for a process that is to hold
+/// `room.need`, and returns the registry as it then stands. Room is what the
+/// machine has available, less what the processes that hold room are still
+/// expected to take on top of what they hold, less what the processes that
+/// began to wait earlier need, and with `room.spare` left over. A process
+/// goes whatever the room where nobody waits ahead and every other that
+/// holds room waits as well: then none of them would give memory back.
+/// The lock is not held while waiting, so that copies that need no room are
+/// made meanwhile, and the wait counts as a turn of the event loop for
+/// `host`, which would otherwise take a process waiting this way for one stuck.
+fn find_room(lock: i32, room: &Room) -> Result<Vec<Entry>> {
+    // SAFETY: plain system call.
+    let me = unsafe { libc::getpid() };
+    let mut registered = false;
+    let lock_registry = || {
+        // SAFETY: plain system calls on a descriptor the caller owns.
+        unsafe { uninterrupted(|| libc::flock(lock, libc::LOCK_EX)) };
+        let mut listed = read_registry(&room.registry);
+        // A process that waits for room, for itself or a copy, takes on
+        // nothing more meanwhile, and one that makes copies has them hold
+        // what it would have gone on to: what it was to take on is not kept
+        // from the others.
+        for entry in listed.iter_mut().filter(|entry| entry.pid == me && !entry.waiting) {
+            entry.need = 0.0;
+        }
+        listed
+    };
+    let unlock = || {
+        // SAFETY: as above.
+        unsafe { libc::flock(lock, libc::LOCK_UN) };
+    };
+    loop {
+        let listed = lock_registry();
+        if has_room(&listed, me, room, None) {
+            return Ok(listed);
+        }
+        // What the others hold is read without the lock: reading it walks
+        // their memory, tens of milliseconds for gigabytes, and every copy
+        // of the machine is made under the lock.
+        let others: Vec<i32> = listed.iter().filter(|entry| !entry.waiting && entry.pid != me).map(|entry| entry.pid).collect();
+        unlock();
+        let held: Vec<(i32, f64)> = others.into_iter().map(|pid| (pid, held_bytes(pid).unwrap_or(0.0))).collect();
+        let mut listed = lock_registry();
+        if has_room(&listed, me, room, Some(&held)) {
+            return Ok(listed);
+        }
+        if !registered {
+            listed.push(Entry { pid: me, started: started(me).unwrap_or(0), need: room.need, waiting: true });
+            registered = true;
+        }
+        write_registry(&room.registry, &listed);
+        unlock();
+        alive()?.turns.fetch_add(1, Ordering::Relaxed);
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Whether `room` fits, see `find_room`. Without `held`, what each process
+/// that holds room is still to take is taken to be all it was to hold, which
+/// settles most cases without reading what they hold; a process missing
+/// from `held` began after it was read and holds next to nothing yet.
+fn has_room(listed: &[Entry], me: i32, room: &Room, held: Option<&[(i32, f64)]>) -> bool {
+    let ahead: Vec<&Entry> = listed.iter().take_while(|entry| entry.pid != me || !entry.waiting).filter(|entry| entry.waiting).collect();
+    // Of this process, what it holds is in what is available, and while it
+    // waits it takes on nothing more.
+    let running: Vec<&Entry> = listed.iter().filter(|entry| !entry.waiting && entry.pid != me).collect();
+    // Those that wait give nothing back by waiting: where every other
+    // process that holds room waits too, the first in line goes.
+    let waits = |pid: i32| listed.iter().any(|entry| entry.waiting && entry.pid == pid);
+    if ahead.is_empty() && running.iter().all(|entry| waits(entry.pid)) {
+        return true;
+    }
+    let Some(available) = available_bytes() else { return true };
+    let wanted = room.need + ahead.iter().map(|entry| entry.need).sum::<f64>();
+    let fits = |coming: f64, holding: f64| {
+        let free = available - room.spare;
+        let free = if room.ceiling > 0.0 { free.min(room.ceiling - holding) } else { free };
+        free - coming >= wanted
+    };
+    let Some(held) = held else {
+        return room.ceiling == 0.0 && fits(running.iter().map(|entry| entry.need).sum(), 0.0);
+    };
+    let held_by = |pid: i32| held.iter().find(|(known, _)| *known == pid).map_or(0.0, |(_, bytes)| *bytes);
+    let coming = running.iter().map(|entry| (entry.need - held_by(entry.pid)).max(0.0)).sum();
+    fits(coming, running.iter().map(|entry| held_by(entry.pid)).sum())
+}
+
+/// When a process started, in the system's own units; none once it is gone.
+#[cfg(target_os = "macos")]
+fn started(pid: i32) -> Option<u64> {
+    // SAFETY: the kernel fills the structure, which is plain numbers.
+    unsafe {
+        let mut info: libc::proc_bsdinfo = std::mem::zeroed();
+        let size = size_of::<libc::proc_bsdinfo>() as libc::c_int;
+        if libc::proc_pidinfo(pid, libc::PROC_PIDTBSDINFO, 0, (&raw mut info).cast(), size) != size {
+            return None;
+        }
+        Some(info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn started(pid: i32) -> Option<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    // The name, in parentheses, may hold spaces; the start time is the 22nd field.
+    let (_, rest) = stat.rsplit_once(')')?;
+    // A process that has ended and not been waited for holds nothing any more.
+    let mut fields = rest.split_ascii_whitespace();
+    if fields.next()? == "Z" {
+        return None;
+    }
+    fields.nth(18)?.parse().ok()
 }
 
 /// The process this one is a copy of.
@@ -394,6 +597,16 @@ pub enum Ended {
     Lost,
 }
 
+/// The most the copy `supervise` last waited for was seen to hold that no
+/// other process shares, in bytes, see `held_bytes`.
+static PEAK: AtomicU64 = AtomicU64::new(0);
+
+/// See `PEAK`.
+#[napi]
+pub fn held_peak() -> f64 {
+    f64::from_bits(PEAK.load(Ordering::Relaxed))
+}
+
 /// Waits for a copy to end, without running this process's event loop: a
 /// message on a channel both share has to reach the copy. The copy has no
 /// thread to watch it, so the watching is done here.
@@ -412,7 +625,10 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
     // stretch since reads as shorter than it is, and is ended later.
     let mut beat_seen = started;
     let mut checked = started;
-    loop {
+    let mut peak = 0.0f64;
+    let mut weighed = started;
+    let mut weigh_every = Duration::ZERO;
+    let ended = loop {
         let mut status = 0;
         // SAFETY: plain system call on a child of this process.
         let ended = unsafe { uninterrupted(|| libc::waitpid(pid, &mut status, libc::WNOHANG)) };
@@ -420,20 +636,29 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
             // Either the copy, or an error saying it is no child of this
             // process any more; it wrote its verdict or it did not.
             let wrote = shared.done.load(Ordering::Relaxed) == 1;
-            return Ok(if ended == pid && wrote { Ended::Done } else { Ended::Lost });
+            break if ended == pid && wrote { Ended::Done } else { Ended::Lost };
         }
         std::thread::sleep(Duration::from_millis(2));
         if checked.elapsed() < Duration::from_millis(20) {
             continue;
         }
         checked = Instant::now();
+        // Reading it walks the copy's memory, a matter of milliseconds for
+        // gigabytes: it is read seldom enough to cost a twentieth of the time.
+        if weighed.elapsed() >= weigh_every {
+            weighed = Instant::now();
+            if let Some(held) = held_bytes(pid) {
+                peak = peak.max(held);
+            }
+            weigh_every = (weighed.elapsed() * 20).max(Duration::from_millis(100));
+        }
         // A copy can take a gigabyte a second, and as many copies as there
         // are workers do so at once when mutants next to each other in the
         // source all do: the limits on time come after the machine is out
         // of memory.
         if resident_limit > 0.0 && resident_bytes(pid).is_some_and(|held| held > resident_limit) {
             stop(pid);
-            return Ok(Ended::Memory);
+            break Ended::Memory;
         }
         // Without its CPU time the copy cannot be judged here; it ends itself by the clock.
         let Some(cpu) = cpu_ms(pid) else { continue };
@@ -447,7 +672,7 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
         let lasted = floor == 0.0 || beat_seen.elapsed().as_secs_f64() * 1000.0 > floor;
         if limit > 0.0 && cpu - at_beat > limit && lasted {
             stop(pid);
-            return Ok(Ended::Blocked);
+            break Ended::Blocked;
         }
         if count != beats || cpu - beat_cpu > stuck_ms / 20.0 {
             beats = count;
@@ -455,9 +680,11 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
             beat_cpu = cpu;
         } else if beat_at.elapsed().as_secs_f64() * 1000.0 > stuck_ms {
             stop(pid);
-            return Ok(Ended::Lost);
+            break Ended::Lost;
         }
-    }
+    };
+    PEAK.store(peak.to_bits(), Ordering::Relaxed);
+    Ok(ended)
 }
 
 /// In a copy that runs a test file as a worker would, or one it made: its
@@ -579,6 +806,59 @@ fn resident_bytes(pid: i32) -> Option<f64> {
     // SAFETY: plain system call.
     let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as f64;
     Some(pages * page)
+}
+
+/// Memory a process holds that no other process shares, in bytes: what
+/// the machine has to find for it. A copy shares with the process it was
+/// copied from every page neither has written to since, which its resident
+/// size counts in full.
+#[cfg(target_os = "macos")]
+fn held_bytes(pid: i32) -> Option<f64> {
+    // SAFETY: the kernel fills the structure, which is plain numbers.
+    unsafe {
+        let mut usage: libc::rusage_info_v2 = std::mem::zeroed();
+        if libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, (&raw mut usage).cast()) != 0 {
+            return None;
+        }
+        Some(usage.ri_phys_footprint as f64)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn held_bytes(pid: i32) -> Option<f64> {
+    let rollup = std::fs::read_to_string(format!("/proc/{pid}/smaps_rollup")).ok()?;
+    let mut kilobytes = 0.0;
+    for line in rollup.lines() {
+        if let Some(rest) = line.strip_prefix("Private_Clean:").or_else(|| line.strip_prefix("Private_Dirty:")) {
+            kilobytes += rest.trim().trim_end_matches("kB").trim().parse::<f64>().ok()?;
+        }
+    }
+    Some(kilobytes * 1024.0)
+}
+
+/// Memory the machine can give processes without taking it from others,
+/// in bytes: what Linux says is available, and on macOS the free and the
+/// inactive pages.
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn available_bytes() -> Option<f64> {
+    // SAFETY: the kernel fills the structure, which is plain numbers.
+    unsafe {
+        let mut stats: libc::vm_statistics64 = std::mem::zeroed();
+        let mut count = libc::HOST_VM_INFO64_COUNT;
+        if libc::host_statistics64(libc::mach_host_self(), libc::HOST_VM_INFO64, (&raw mut stats).cast(), &mut count) != libc::KERN_SUCCESS {
+            return None;
+        }
+        let page = libc::sysconf(libc::_SC_PAGESIZE) as f64;
+        Some((f64::from(stats.free_count) + f64::from(stats.inactive_count)) * page)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn available_bytes() -> Option<f64> {
+    let info = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let line = info.lines().find_map(|line| line.strip_prefix("MemAvailable:"))?;
+    Some(line.trim().trim_end_matches("kB").trim().parse::<f64>().ok()? * 1024.0)
 }
 
 /// CPU time a process has used, in milliseconds.

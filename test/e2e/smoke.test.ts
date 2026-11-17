@@ -206,3 +206,45 @@ it('doubles small values', () => {
     expect(argvs.flat().filter((argument) => /semi[-_]space|memory[-_]reducer/.test(argument))).toEqual([])
   }, 120_000)
 })
+
+describe('whole-file runs that each hold memory no other process shares', () => {
+  // The most runs in copies under way at once, from when each began and ended, and the waits for room.
+  const seen = (results: string) => {
+    const records = fs
+      .readdirSync(results)
+      .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { type: string; by?: string; at: number; ms?: number })
+    const edges = records
+      .filter((record) => record.type === 'whole' && record.by?.startsWith('copied') && record.ms !== undefined)
+      .flatMap((record): [number, number][] => [[record.at - record.ms!, 1], [record.at, -1]])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+    let now = 0
+    let most = 0
+    for (const [, step] of edges) most = Math.max(most, (now += step))
+    return { most, waits: records.filter((record) => record.type === 'room').length }
+  }
+  const statuses = (run: RunResult) => run.mutants.map((mutant) => `${mutant.location.start.line}:${mutant.location.start.column} ${mutant.replacement} ${mutant.status}`)
+
+  it.skipIf(!addonTarget())('wait for room in the memory they may hold together, and come to the same verdicts', () => {
+    const project = fixture('memory')
+    const results = path.join(project, 'node_modules/.vitant/session/results')
+    const freeReport = reportPath('memory-free')
+    const free = tool(['--root', project, '--report', freeReport, '--max-workers', '4'])
+    expect(free.status, free.stdout.slice(-2000)).toBe(0)
+    // The three files' runs meet where nothing holds them back.
+    expect(seen(results).most).toBeGreaterThan(1)
+    // Each run holds 160 MB and more besides: 300 MB together leaves room for one.
+    const heldReport = reportPath('memory-held')
+    const held = tool(['--root', project, '--report', heldReport, '--max-workers', '4', '--memory-mb', '300'])
+    expect(held.status, held.stdout.slice(-2000)).toBe(0)
+    const limited = seen(results)
+    expect(limited.most).toBe(1)
+    expect(limited.waits).toBeGreaterThan(0)
+    const before = JSON.parse(fs.readFileSync(freeReport, 'utf8')) as RunResult
+    const after = JSON.parse(fs.readFileSync(heldReport, 'utf8')) as RunResult
+    expect(after.counts.Pending).toBe(0)
+    expect(statuses(after)).toEqual(statuses(before))
+    expect(after.wholeRuns).toEqual(before.wholeRuns)
+  }, 120_000)
+})
