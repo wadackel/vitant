@@ -168,3 +168,41 @@ it('tells positive numbers', () => {
     expect(cli.stderr).toContain(`--config: no file ${path.join(fs.realpathSync.native(project), 'config/missing.mjs')}`)
   })
 })
+
+// A young generation of another size decides whether a collection lands
+// inside a span of work at all: with 64 MB semi-spaces a mutant of n8n's,
+// which crashes V8 in a collection under isolated-vm in every run of the
+// suite, passed. See docs/design.md item 12.
+describe.each(['vitest3', 'vitest'])('the V8 arguments of copied workers, on %s', (version) => {
+  const project = path.join(owner.directory, `argv-${version}`)
+  const records = path.join(project, 'argv')
+  beforeAll(() => {
+    for (const dir of ['src', 'test', 'argv', 'node_modules']) fs.mkdirSync(path.join(project, dir), { recursive: true })
+    fs.symlinkSync(path.join(root, 'node_modules', version), path.join(project, 'node_modules/vitest'), 'junction')
+    fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
+    fs.writeFileSync(path.join(project, 'vitest.config.mjs'), "export default { test: { include: ['test/**/*.test.ts'] } }\n")
+    fs.writeFileSync(path.join(project, 'src/capped.ts'), 'export function capped(value: number): number {\n  if (value > 100) return 100\n  return value * 2\n}\n')
+    fs.writeFileSync(path.join(project, 'test/capped.test.ts'), `import fs from 'node:fs'
+import path from 'node:path'
+import { expect, it } from 'vitest'
+import { capped } from '../src/capped.ts'
+it('doubles small values', () => {
+  fs.writeFileSync(path.join(process.env.ARGV_RECORDS!, process.pid + '.json'), JSON.stringify(process.execArgv))
+  expect(capped(2)).toBe(4)
+})
+`)
+  })
+
+  it.skipIf(!addonTarget())('carry no heap setting of the tool\'s own', () => {
+    const report = reportPath(`argv-${version}`)
+    const cli = tool(['--root', project, '--report', report], { env: { ...process.env, ARGV_RECORDS: records } })
+    expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+    const run = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+    expect(run.vitestVersion).toMatch(version === 'vitest3' ? /^3\./ : /^5\./)
+    const copied = Object.entries(run.wholeRuns).filter(([kind]) => kind.startsWith('copied')).reduce((sum, [, count]) => sum + count, 0)
+    expect(copied).toBeGreaterThan(0)
+    const argvs = fs.readdirSync(records).map((name) => JSON.parse(fs.readFileSync(path.join(records, name), 'utf8')) as string[])
+    expect(argvs.some((argv) => argv.includes('--single-threaded'))).toBe(true)
+    expect(argvs.flat().filter((argument) => /semi[-_]space|memory[-_]reducer/.test(argument))).toEqual([])
+  }, 120_000)
+})
