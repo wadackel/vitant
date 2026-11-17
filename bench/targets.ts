@@ -682,6 +682,8 @@ export const targets: Record<string, Target> = {
       'cd packages/core && node node_modules/electron/install.js',
     ],
     installStryker: `HUSKY=0 npx -y pnpm@12.18.0 add -D -w ${stryker}`,
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
+    strykerInPlace: true,
     projects: ['@freelensapp/core'],
     env: { TZ: 'UTC' },
     // From a `--jobs` copy of ground truth most of the 303 test files that
