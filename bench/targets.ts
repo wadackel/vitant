@@ -650,6 +650,9 @@ export const targets: Record<string, Target> = {
       assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory}.ts'] },
     },
   },
+  // Vitest 5, happy-dom: the front end of a node-graph editor, three inline
+  // projects with test tags under `strictTags`, a setup that stops real
+  // network requests, and two retries of a failing test under `CI`.
   comfyui: {
     repo: 'https://github.com/Comfy-Org/ComfyUI_frontend',
     commit: '3633e2613c24a74d58f8183ceef3b470a7801878',
@@ -662,6 +665,7 @@ export const targets: Record<string, Target> = {
     // a test's `pnpm exec` has pnpm install the workspace in the copy,
     // relinking the shared node_modules there. Ground truth is made with `--jobs 1`.
     scopes: {
+      // The 13 stores that the fewest test files import, directly or not: `src/lib/litegraph/src/utils` is loaded by nearly all 2,550.
       stores: {
         mutate: [
           'src/stores/{bootstrapStore,aboutPanelStore,actionBarButtonStore,serverConfigStore,topbarBadgeStore,helpCenterStore,userStore}.ts',
@@ -670,6 +674,9 @@ export const targets: Record<string, Target> = {
       },
     },
   },
+  // Vitest 5, jsdom: an application built on dependency injection, through a
+  // plugin of the project's for standard decorators, in projects the config
+  // makes as it loads, with snapshots.
   freelens: {
     repo: 'https://github.com/freelensapp/freelens',
     commit: '2547f555b8286f515f443d6f29580597093365ae',
