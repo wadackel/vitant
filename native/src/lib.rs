@@ -808,20 +808,67 @@ fn resident_bytes(pid: i32) -> Option<f64> {
     Some(pages * page)
 }
 
+/// One region of a process's memory, as `proc_pidinfo` describes it
+/// (`struct proc_regioninfo` of `<sys/proc_info.h>`).
+#[cfg(target_os = "macos")]
+#[repr(C)]
+#[derive(Default)]
+struct RegionInfo {
+    protection: u32,
+    max_protection: u32,
+    inheritance: u32,
+    flags: u32,
+    offset: u64,
+    behavior: u32,
+    user_wired_count: u32,
+    user_tag: u32,
+    pages_resident: u32,
+    pages_shared_now_private: u32,
+    pages_swapped_out: u32,
+    pages_dirtied: u32,
+    ref_count: u32,
+    shadow_depth: u32,
+    share_mode: u32,
+    private_pages_resident: u32,
+    shared_pages_resident: u32,
+    obj_id: u32,
+    depth: u32,
+    address: u64,
+    size: u64,
+}
+
 /// Memory a process holds that no other process shares, in bytes: what
 /// the machine has to find for it. A copy shares with the process it was
 /// copied from every page neither has written to since, which its resident
-/// size counts in full.
+/// size counts in full. On macOS so does its footprint, once it has read a
+/// page: a copy of a process holding 1 GiB read it all and its footprint
+/// went from 4 MB to 1,030 MB, its private resident pages from 2 to 3 MB.
+/// Those are counted region by region, 6,000 regions for a heap of 2 GB.
 #[cfg(target_os = "macos")]
 fn held_bytes(pid: i32) -> Option<f64> {
-    // SAFETY: the kernel fills the structure, which is plain numbers.
-    unsafe {
-        let mut usage: libc::rusage_info_v2 = std::mem::zeroed();
-        if libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, (&raw mut usage).cast()) != 0 {
-            return None;
+    const PROC_PIDREGIONINFO: libc::c_int = 7;
+    let size = size_of::<RegionInfo>() as libc::c_int;
+    // SAFETY: plain system call.
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as f64;
+    let mut address = 0u64;
+    let mut pages = 0u64;
+    let mut seen = false;
+    loop {
+        let mut region = RegionInfo::default();
+        // SAFETY: the kernel fills at most `size` bytes of the structure, which is plain numbers.
+        let got = unsafe { libc::proc_pidinfo(pid, PROC_PIDREGIONINFO, address, (&raw mut region).cast(), size) };
+        if got != size {
+            break;
         }
-        Some(usage.ri_phys_footprint as f64)
+        seen = true;
+        pages += u64::from(region.private_pages_resident);
+        let next = region.address.saturating_add(region.size);
+        if next <= address {
+            break;
+        }
+        address = next;
     }
+    seen.then(|| pages as f64 * page)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -837,21 +884,23 @@ fn held_bytes(pid: i32) -> Option<f64> {
 }
 
 /// Memory the machine can give processes without taking it from others,
-/// in bytes: what Linux says is available, and on macOS the free and the
-/// inactive pages.
+/// in bytes: what Linux says is available, and on macOS the share of its
+/// memory the system counts as free (`kern.memorystatus_level`, which
+/// `memory_pressure` prints). The free and the inactive pages alone leave
+/// out what macOS can compress or drop: on a 7 GB runner whose system said
+/// 73 to 77 in a hundred were free, copies waited for 2.3 GB for hours.
 #[cfg(target_os = "macos")]
-#[allow(deprecated)]
 fn available_bytes() -> Option<f64> {
-    // SAFETY: the kernel fills the structure, which is plain numbers.
-    unsafe {
-        let mut stats: libc::vm_statistics64 = std::mem::zeroed();
-        let mut count = libc::HOST_VM_INFO64_COUNT;
-        if libc::host_statistics64(libc::mach_host_self(), libc::HOST_VM_INFO64, (&raw mut stats).cast(), &mut count) != libc::KERN_SUCCESS {
-            return None;
-        }
-        let page = libc::sysconf(libc::_SC_PAGESIZE) as f64;
-        Some((f64::from(stats.free_count) + f64::from(stats.inactive_count)) * page)
+    fn read<T: Default>(name: &std::ffi::CStr) -> Option<T> {
+        let mut value = T::default();
+        let mut size = size_of::<T>();
+        // SAFETY: the kernel writes at most `size` bytes into the value.
+        let read = unsafe { libc::sysctlbyname(name.as_ptr(), (&raw mut value).cast(), &mut size, ptr::null_mut(), 0) };
+        (read == 0 && size == size_of::<T>()).then_some(value)
     }
+    let level: i32 = read(c"kern.memorystatus_level")?;
+    let total: u64 = read(c"hw.memsize")?;
+    Some(total as f64 * f64::from(level) / 100.0)
 }
 
 #[cfg(not(target_os = "macos"))]
