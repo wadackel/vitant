@@ -141,7 +141,7 @@ describe('a test that fails in every run with no mutant on', () => {
   it('leaves every mutant its file reaches unconfirmed, naming the test, where the suite would detect them', () => {
     const run = (name: string, env: Record<string, string> = {}): RunResult => {
       const report = reportPath(name)
-      const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage.test.ts'], {
+      const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage'], {
         env: { ...process.env, ...env },
       })
       expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
@@ -153,8 +153,9 @@ describe('a test that fails in every run with no mutant on', () => {
     const test = 'test/postage.test.ts > charges more for a parcel'
     expect(down.failedBaselines).toEqual([test])
     const open = down.mutants.filter((mutant) => mutant.status !== 'Killed')
-    // The one at load among them, which no test's own record holds.
-    expect(open.map((mutant) => mutant.replacement)).toContain('50 / 2')
+    // The one at load among them, which no test's own record holds, and one
+    // that only another file's test was seen to reach.
+    expect(open.map((mutant) => mutant.replacement)).toEqual(expect.arrayContaining(['50 / 2', 'grams >= 500']))
     for (const mutant of open) expect([mutant.replacement, mutant.status, mutant.leftOut]).toEqual([mutant.replacement, 'Unconfirmed', [test]])
   }, 120_000)
 })

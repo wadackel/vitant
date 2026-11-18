@@ -226,7 +226,7 @@ for (const mutant of result.mutants) {
   const { line, column } = mutant.location.start
   const why = [
     ...(mutant.confirmed ? [`passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files`] : []),
-    ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that reach it fail by themselves and were left out`] : []),
+    ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that may reach it fail by themselves and were left out`] : []),
     ...(mutant.wavered ? [`failed in one run of their file and not in another: ${some(mutant.wavered)}`] : []),
     ...(mutant.doubted ? [`failed only in ${mutant.doubted.join(', ')}, which fails by chance`] : []),
   ]
@@ -313,7 +313,7 @@ if (result.flakyTests.length > 0) {
 }
 const unjudged = result.mutants.filter((mutant) => mutant.leftOut).length
 if (unjudged > 0) {
-  console.log(`${unjudged} mutant(s) such tests reach passed their test files without them and are unconfirmed; they count as survived in the score`)
+  console.log(`${unjudged} mutant(s) such tests may reach passed their test files without them and are unconfirmed; they count as survived in the score`)
 }
 const doubted = result.mutants.filter((mutant) => mutant.doubted).length
 if (doubted > 0) {
