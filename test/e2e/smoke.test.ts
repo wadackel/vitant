@@ -52,7 +52,7 @@ describe('console output on Vitest 5.1', () => {
 })
 
 describe('runs copied after the tests before the first to reach the mutant', () => {
-  it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file, a hook started a thread or the tests run at once', () => {
+  it.skipIf(!addonTarget())('are made, and not where an earlier test wrote a file or the tests run at once, nor in a file whose hook starts a thread', () => {
     const walk = fixture('walk')
     const report = reportPath('walk')
     const cli = tool(['--root', walk, '--report', report])
@@ -60,32 +60,57 @@ describe('runs copied after the tests before the first to reach the mutant', () 
     const run: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(run.wholeRuns['copied before a test']).toBeGreaterThan(0)
     const results = path.join(walk, 'node_modules/.vitant/session/results')
-    const refused = fs
+    const records = fs
       .readdirSync(results)
       .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
-      .filter((line) => line.includes('"type":"walk"'))
-      .map((line) => JSON.parse(line) as { file: string; why: string })
-      .map((record) => `${path.basename(record.file)} ${record.why}`)
-    expect([...new Set(refused)].sort()).toEqual(['inbox.test.ts wrote', 'pair.test.ts concurrent', 'relay.test.ts threads'])
+      .filter((line) => line.startsWith('{'))
+      .map((line) => JSON.parse(line) as { type: string; file: string; why?: string; clock?: boolean })
+    const refused = records.filter((record) => record.type === 'walk').map((record) => `${path.basename(record.file)} ${record.why}`)
+    expect([...new Set(refused)].sort()).toEqual(['inbox.test.ts wrote', 'pair.test.ts concurrent'])
+    // The thread the hook starts is still there as the file's first run
+    // ends, and might read the clock for a test: no run of the file is made
+    // in a copy whose clocks stood still, a copy made before a test included.
+    const clocked = records.filter((record) => record.type === 'early' && record.clock).map((record) => path.basename(record.file))
+    expect([...new Set(clocked)]).toEqual(['relay.test.ts'])
     // Copied once after the first test, the file it leaves is there for one copy and gone for the next.
     expect(run.mutants.find((mutant) => mutant.replacement === 'n / 2')?.status).toBe('Killed')
-    // Copied after the hook that started the thread, the last hook waits on it in vain and fails the file.
+    // Copied after the hook that started the thread, the last hook would wait on it in vain and fail the file.
     expect(run.mutants.find((mutant) => mutant.file === 'src/relay.ts' && mutant.mutator === 'StringLiteral')?.status).toBe('Survived')
   }, 60_000)
 })
 
 describe('copies of a worker made one after another', () => {
-  it('read the clock as a run of the suite would, not later by the copies before them', () => {
+  it('read the clock as a run of the suite would, and are not made where a test reads another process or thread\'s', () => {
     const report = reportPath('clock')
-    const cli = tool(['--root', fixture('clock'), '--report', report, '--max-workers', '1'])
+    // A worker to each file, whose copies come one after another.
+    const cli = tool(['--root', fixture('clock'), '--report', report, '--max-workers', '3'])
     expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
     const clock: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     // With the clock as it runs, the test that checks how long has passed
     // since the file loaded failed in later copies and was taken to fail now
-    // and then, and each failure was run again with nothing else running.
+    // and then. With it standing still, the tests that compare it with a
+    // child process's or a worker thread's failed in them the same way.
     expect(clock.flakyTests).toEqual([])
-    expect(clock.quietRuns).toEqual({ failed: 0, passed: 0 })
-  }, 60_000)
+    // The one run made with nothing else running is for the mutant that
+    // empties `now`, which fails the hook, where no test tried it.
+    expect(clock.quietRuns).toEqual({ failed: 1, passed: 0 })
+    const statuses = clock.mutants.filter((mutant) => mutant.file === 'src/asked.ts' && mutant.status !== 'NoCoverage').map((mutant) => `${mutant.replacement} ${mutant.status}`)
+    // The suite passes with `now` asking a child process; in a copy that had
+    // stood still for the copies before it, the hook failed.
+    expect(statuses).toEqual(['{} Killed', 'true Survived', 'false Survived'])
+    if (!addonTarget()) return
+    expect(clock.wholeRuns['copied before load']).toBeGreaterThan(0)
+    // libuv's pool, which a worker starts before it copies itself and a copy starts again, is no such thread.
+    const results = path.join(fixture('clock'), 'node_modules/.vitant/session/results')
+    const clocked = fs
+      .readdirSync(results)
+      .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
+      .filter((line) => line.startsWith('{'))
+      .map((line) => JSON.parse(line) as { type: string; file: string; clock?: boolean })
+      .filter((record) => record.type === 'early' && record.clock)
+      .map((record) => path.basename(record.file))
+    expect([...new Set(clocked)].sort()).toEqual(['apart.test.ts', 'asked.test.ts'])
+  }, 120_000)
 })
 
 describe('mocks a test file clears between its tests, on Vitest 3.2', () => {

@@ -134,3 +134,15 @@ describe('files that fail with no mutant on and no test to name', () => {
     expect(workByFile.size).toBe(0)
   })
 })
+
+describe('files whose tests read a clock other than the process\'s', () => {
+  const lead = probe(loading, loading, { mode: 'planned', killed: [0], attempts: 1, at: 3 })
+  const records = [...history().filter((record) => record.type !== 'whole' && record.type !== 'pair'), lead]
+  const job = (more: SessionRecord[]) => next([...records, ...more], 1).plan.whole[loading]?.find((planned) => planned.mutant === 0)
+
+  it('have their runs made in copies made before they load, never in ones made while they load', () => {
+    expect(job([])).toMatchObject({ early: true, loading: true })
+    const clock = { type: 'early', file: loading, site: -1, clock: true, at: 4 } as SessionRecord
+    expect(job([clock])).toMatchObject({ early: true, loading: false })
+  })
+})

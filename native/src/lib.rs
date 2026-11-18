@@ -443,8 +443,18 @@ pub fn pid() -> i32 {
 /// one as it does a process id.
 #[napi]
 pub fn threads() -> Result<Vec<String>> {
-    listed_threads()
+    Ok(listed_threads()?.into_iter().map(|(id, _)| id).collect())
 }
+
+/// The threads of libuv's pool, named as `threads` names them. libuv names
+/// each `libuv-worker` as it starts, and starts the pool again in a copy
+/// that uses it.
+#[napi]
+pub fn pool_threads() -> Result<Vec<String>> {
+    Ok(listed_threads()?.into_iter().filter(|(_, name)| name == POOL_THREAD).map(|(id, _)| id).collect())
+}
+
+const POOL_THREAD: &str = "libuv-worker";
 
 #[cfg(target_os = "macos")]
 unsafe extern "C" {
@@ -453,7 +463,7 @@ unsafe extern "C" {
 
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
-fn listed_threads() -> Result<Vec<String>> {
+fn listed_threads() -> Result<Vec<(String, String)>> {
     // SAFETY: the kernel fills the list and the structures, which are plain
     // numbers; each port it hands over and the list itself are given back.
     unsafe {
@@ -470,7 +480,14 @@ fn listed_threads() -> Result<Vec<String>> {
             let mut info: libc::thread_identifier_info = std::mem::zeroed();
             let mut size = libc::THREAD_IDENTIFIER_INFO_COUNT;
             if libc::thread_info(port, libc::THREAD_IDENTIFIER_INFO as u32, (&raw mut info).cast(), &mut size) == libc::KERN_SUCCESS {
-                ids.push(info.thread_id.to_string());
+                let mut extended: libc::thread_extended_info = std::mem::zeroed();
+                let mut size = libc::THREAD_EXTENDED_INFO_COUNT;
+                let name = if libc::thread_info(port, libc::THREAD_EXTENDED_INFO as u32, (&raw mut extended).cast(), &mut size) == libc::KERN_SUCCESS {
+                    std::ffi::CStr::from_ptr(extended.pth_name.as_ptr()).to_string_lossy().into_owned()
+                } else {
+                    String::new()
+                };
+                ids.push((info.thread_id.to_string(), name));
             }
             mach_port_deallocate(task, port);
         }
@@ -480,7 +497,7 @@ fn listed_threads() -> Result<Vec<String>> {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn listed_threads() -> Result<Vec<String>> {
+fn listed_threads() -> Result<Vec<(String, String)>> {
     let unreadable = |error: std::io::Error| Error::from_reason(format!("/proc/self/task: {error}"));
     let mut ids = Vec::new();
     for task in std::fs::read_dir("/proc/self/task").map_err(unreadable)? {
@@ -490,8 +507,10 @@ fn listed_threads() -> Result<Vec<String>> {
         let Ok(stat) = std::fs::read_to_string(task.path().join("stat")) else { continue };
         // The name, in parentheses, may hold spaces; the fields are counted
         // from its end, the start time being the 22nd.
-        let Some(started) = stat.rsplit_once(')').and_then(|(_, rest)| rest.split_ascii_whitespace().nth(19)) else { continue };
-        ids.push(format!("{id}:{started}"));
+        let Some((head, rest)) = stat.rsplit_once(')') else { continue };
+        let Some(started) = rest.split_ascii_whitespace().nth(19) else { continue };
+        let name = head.split_once('(').map_or("", |(_, name)| name);
+        ids.push((format!("{id}:{started}"), name.to_owned()));
     }
     Ok(ids)
 }

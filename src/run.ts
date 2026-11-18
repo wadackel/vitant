@@ -65,7 +65,11 @@ export interface MutantResult {
   static: boolean
   coveredBy: number
   killedBy: number
-  /** For a timeout, what stopped the run: the loop limit, the timer, or a re-run in a fresh worker. */
+  /**
+   * For a timeout, what stopped the run: the loop limit or the timer, or,
+   * where no test timed out while trying the mutant, the kind of process the
+   * run of its file was made in, `unknown` for a verdict an earlier run left.
+   */
   timeoutCause?: string
   /** For an unconfirmed mutant, how many of the test files that reach it were run, all passing, and how many were not. */
   confirmed?: { passed: number; open: number }
@@ -493,6 +497,14 @@ interface EarlyRecord {
   site: number
   /** For the file as a whole: a thread had started while it loaded, which copies made afterwards would be without. */
   threads?: boolean
+  /**
+   * For the file as a whole: its tests started a child process, a worker
+   * thread or a native module's thread, whose clock is the machine's and
+   * not one a copy's clocks stand still with.
+   */
+  clock?: boolean
+  /** With `clock`, from a copy that ended without a verdict for it: the mutant of the run it was made for. */
+  mutant?: number
 }
 
 export type SessionRecord = (
@@ -578,6 +590,8 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const sharing = new Set<string>()
   /** Test files in which a copy could not be made while they loaded. */
   const unpaused = new Set<string>()
+  /** Test files whose tests read a clock other than this process's, see `EarlyRecord.clock`. */
+  const clocked = new Set<string>()
   /** Whole-file runs that a copy of a worker did not get through. */
   const plain = new Set<string>()
   /** Whole-file runs that a copy was stopped in for the memory it held. */
@@ -718,6 +732,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.type === 'loading') unpaused.add(record.file)
     if (record.type === 'early') {
       if (record.site === -1) sharing.add(record.file)
+      if (record.clock) clocked.add(record.file)
       const set = staticSites.get(record.file) ?? new Set()
       set.add(record.site)
       staticSites.set(record.file, set)
@@ -1085,7 +1100,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, clocked, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1644,7 +1659,9 @@ function planPhase(
       // job whose module did not begin goes to a copy made after loading, and
       // those of formbricks' `validate.test.ts` failed beside other runs where
       // the suite passes.
-      loading: early && status.staticSites.has(file) && !status.unpaused.has(file) && !status.lost.has(file),
+      // Nor where the tests read a clock of another process or thread: a copy
+      // made while the file loads, after others, has its clocks stand still.
+      loading: early && status.staticSites.has(file) && !status.unpaused.has(file) && !status.lost.has(file) && !status.clocked.has(file),
       again: remade ? again : undefined,
       before:
         cloning && !early && !remade && !status.unwalked.has(file) && !status.unwalked.has(wholeKey(mutant, file)) && !status.staticMutants.get(file)?.has(mutant)
@@ -2783,7 +2800,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // runs made one at a time. One by the clock names none, as a busy
       // machine can make one of a wait that only got longer. One on memory
       // is no verdict, the suite having no such limit.
-      const stops = readRecords().filter((record): record is StallRecord & { at: number } => record.type === 'stall' && record.whole === true && record.at >= plannedAt)
+      const recent = readRecords().filter((record) => record.at >= plannedAt)
+      const stops = recent.filter((record): record is StallRecord & { at: number } => record.type === 'stall' && record.whole === true)
       const stoppedIn = (mutant: number, file: string) => {
         const stop = stops.findLast((record) => record.mutant === mutant && status.tests.get(record.id)?.file === file)
         return stop && stop.by !== 'clock' && stop.id !== '' ? { test: stop.id, tests: [stop.id] } : {}
@@ -2801,6 +2819,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
           total(status.whole.get(wholeKey(job.mutant, job.file))) === job.had &&
           fs.existsSync(path.join(paths.claims, `whole.${job.id}`)),
       )
+      // A copy whose clocks stood still and that met another clock ended
+      // without a verdict, and the file's runs are made before it loads next.
+      const withdrawn = new Set(recent.flatMap((record) => (record.type === 'early' && record.mutant !== undefined ? [wholeKey(record.mutant, record.file)] : [])))
       // A run that was taken on and left no word otherwise ended with its
       // process. In a worker started for it, that is how the suite would go
       // with the mutant: a worker that dies fails the run. Anywhere else the
@@ -2809,6 +2830,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const silent = planned.filter(
         (job) =>
           !stopped.includes(job) &&
+          !withdrawn.has(wholeKey(job.mutant, job.file)) &&
           total(status.whole.get(wholeKey(job.mutant, job.file))) === job.had &&
           (job.plain || !status.plain.has(wholeKey(job.mutant, job.file))) &&
           fs.existsSync(path.join(paths.claims, `whole.${job.id}`)),
@@ -2818,7 +2840,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // same two runs of formbricks' `proxy.test.ts` were planned three
       // rounds in a row and the file was given up on. Its runs go to workers
       // started for each, which take no copy of themselves.
-      const heard = new Set(readRecords().flatMap((record) => ((record as { at?: number }).at ?? 0) >= plannedAt && 'file' in record ? [record.file as string] : []))
+      const heard = new Set(recent.flatMap((record) => ('file' in record ? [record.file as string] : [])))
       const unreached = planned.filter(
         (job) => !job.plain && !heard.has(job.file) && !fs.existsSync(path.join(paths.claims, `whole.${job.id}`)) && !stopped.includes(job),
       )
@@ -3314,6 +3336,11 @@ export async function run(options: RunOptions): Promise<RunResult> {
       file: relative(options.root, entry.file),
       test: entry.test === undefined ? undefined : (status.tests.get(entry.test)?.name ?? entry.test),
     }))
+  /** Where no try of a test timed out: the kind of process whose run of the file was stopped. */
+  const stoppedBy = (mutant: number): string => {
+    const by = status.evidence.get(mutant)?.find((entry) => entry.kind === 'timeout')?.by
+    return by === undefined ? 'unknown' : by === 'started' ? 'started worker' : by
+  }
   const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label)
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
@@ -3342,7 +3369,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       static: isStatic,
       coveredBy: coveredBy[mutant.id],
       killedBy: killedBy[mutant.id],
-      timeoutCause: status === 'Timeout' ? (timeoutCauses.get(mutant.id) ?? 'fresh worker') : undefined,
+      timeoutCause: status === 'Timeout' ? (timeoutCauses.get(mutant.id) ?? stoppedBy(mutant.id)) : undefined,
       confirmed: status === 'Unconfirmed' ? unconfirmed.get(mutant.id) : undefined,
       leftOut: status === 'Unconfirmed' && leftOut.length > 0 ? leftOut : undefined,
       wavered: status === 'Unconfirmed' && wavered.length > 0 ? wavered : undefined,
