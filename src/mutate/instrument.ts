@@ -179,6 +179,19 @@ function isTransparent(node: Node, ancestors: readonly Node[]): boolean {
   }
 }
 
+/**
+ * Whether the node is a member of `import.meta`, at the end of a chain of
+ * members. Such a chain is counted as a whole, with no check of each read:
+ * Vitest and Vite rewrite it by its text, `import.meta.env` into the
+ * environment of the worker for one, and the checks would leave that text in
+ * pieces and the module reading Vite's own object.
+ */
+function isOnImportMeta(node: Node): boolean {
+  let object = node
+  while (object.type === 'MemberExpression') object = object.object
+  return node !== object && object.type === 'MetaProperty' && object.meta.name === 'import'
+}
+
 const testParents = new Set([
   'IfStatement',
   'WhileStatement',
@@ -598,7 +611,7 @@ export function instrument(
         // `{ name }` reads the name, and has no place to put the check.
         if (parent.type === 'Property' && parent.shorthand) for (const condition of open) condition.broken = true
         else siteFor('expr', node, node.start).global = node.name
-      } else if (isPlainRead(node)) {
+      } else if (isPlainRead(node) && !isOnImportMeta(node)) {
         siteFor('expr', node, node.start).read = {
           object: [node.object.start, node.object.end],
           key: node.computed ? [node.property.start, node.property.end] : node.property.name,
