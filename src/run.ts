@@ -3246,9 +3246,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
     for (const [file, pass] of passes) {
       // Read back, what its tests reach would pass for what a plain run shows.
       if (status.unsure.has(file)) continue
-      // Nor what a test left out after it had passed reached: read back, it would
-      // pass for a test that passes, or for one that never did.
-      if ([...status.tests].some(([id, test]) => test.file === file && test.coverage && (test.failed || status.flaky.has(id)))) continue
+      // Nor a file with a test left out that had passed or skipped itself: read
+      // back, it would pass for a test that passes, or for one that never did.
+      if ([...status.tests].some(([id, test]) => test.file === file && ((test.coverage && test.failed) || status.flaky.has(id)))) continue
       const snapshot = path.join(path.dirname(file), '__snapshots__', `${path.basename(file)}.snap`)
       const entry: CachedFile = {
         deps: {},
