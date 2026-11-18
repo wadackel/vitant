@@ -137,6 +137,28 @@ describe('a test file that fails outside its tests with no mutant on', () => {
   }, 120_000)
 })
 
+describe('a test that fails in every run with no mutant on', () => {
+  it('leaves every mutant its file reaches unconfirmed, naming the test, where the suite would detect them', () => {
+    const run = (name: string, env: Record<string, string> = {}): RunResult => {
+      const report = reportPath(name)
+      const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage.test.ts'], {
+        env: { ...process.env, ...env },
+      })
+      expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+      return JSON.parse(fs.readFileSync(report, 'utf8'))
+    }
+    const plain = run('postage')
+    expect(plain.mutants.map((mutant) => mutant.status)).toEqual(plain.mutants.map(() => 'Killed'))
+    const down = run('postage-down', { POSTAGE_RATES_DOWN: '1' })
+    const test = 'test/postage.test.ts > charges more for a parcel'
+    expect(down.failedBaselines).toEqual([test])
+    const open = down.mutants.filter((mutant) => mutant.status !== 'Killed')
+    // The one at load among them, which no test's own record holds.
+    expect(open.map((mutant) => mutant.replacement)).toContain('50 / 2')
+    for (const mutant of open) expect([mutant.replacement, mutant.status, mutant.leftOut]).toEqual([mutant.replacement, 'Unconfirmed', [test]])
+  }, 120_000)
+})
+
 describe('a run in which no test runs', () => {
   it('says so and fails, where every mutant would read as not covered', () => {
     const cli = tool(['--root', fixture('basic'), '--mutate', 'src/math.ts', 'no-such-test-file'])

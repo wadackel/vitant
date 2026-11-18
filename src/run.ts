@@ -2136,12 +2136,15 @@ interface SuiteTask {
 /**
  * The tests that leave a mutant no run of whole files detected open, per
  * mutant: those left out of the runs for failing by themselves, and those
- * that failed a run with the mutant where another run passed.
+ * that failed a run with the mutant where another run passed. `reach` gives,
+ * per test file, the mutants that made a difference while it loaded or in its
+ * hooks, and every mutant at a site anything in the file reached.
  */
 export function doubts(
   status: { flaky: Set<string>; tests: Map<string, TestState> },
   records: SessionRecord[],
   label: (test: TestState) => string,
+  reach: (file: string) => { loading: Iterable<number>; reached: Iterable<number> },
 ): { leftOutOf: Map<number, string[]>; everywhere: string[]; waveredIn: Map<number, Set<string>> } {
   // A test that fails by itself is left out of the runs of its file, and a
   // mutant it reaches has then passed the file without the one test that
@@ -2151,15 +2154,24 @@ export function doubts(
   // told from its failures, so such a mutant has not survived the suite.
   const leftOutOf = new Map<number, string[]>()
   const everywhere: string[] = []
-  // So is one whose unmutated run failed after it had passed once: it is
-  // left out of the runs of its file all the same.
+  // So is one whose unmutated run failed, once it had passed or every time:
+  // it is left out of the runs of its file all the same.
   const failed = [...status.tests].flatMap(([id, test]) => (test.failed ? [id] : []))
+  const leaveOpen = (mutants: Iterable<number>, test: TestState) => {
+    for (const mutant of new Set(mutants)) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
+  }
   for (const id of new Set([...status.flaky, ...failed])) {
     const test = status.tests.get(id)
-    if (!test?.coverage) continue
+    if (!test) continue
+    // A test that never passed has no record of what it reaches, and what it
+    // reached before it failed is not what it reaches with no failure in the
+    // way: in headlamp 26 such tests were left out of 83 runs of their files
+    // that passed with a mutant the suite fails with. Whatever its file reaches it may.
+    if (!test.coverage) leaveOpen(reach(test.file).reached, test)
     // Measured in a worker that mutants had been tried in, what the test reaches is not known.
-    if (!test.pristine) everywhere.push(label(test))
-    else for (const mutant of new Set([...test.coverage.covered, ...test.coverage.cleanup])) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
+    else if (!test.pristine) everywhere.push(label(test))
+    // What its file did while it loaded the test met too, and its own record does not hold it.
+    else leaveOpen([...test.coverage.covered, ...test.coverage.cleanup, ...reach(test.file).loading], test)
   }
   // A run of a file that passes settles it for the mutant, whatever failed
   // before: the failure was other runs of the file in the way, or the test's
@@ -3341,7 +3353,19 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const by = status.evidence.get(mutant)?.find((entry) => entry.kind === 'timeout')?.by
     return by === undefined ? 'unknown' : by === 'started' ? 'started worker' : by
   }
-  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label)
+  const mutantsAt = (sites: Iterable<number>) =>
+    [...new Set(sites)].flatMap((site) => {
+      const at: number[] = []
+      for (let mutant = generated.siteMutants[site]; mutant < generated.siteMutants[site + 1]; mutant++) at.push(mutant)
+      return at
+    })
+  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label, (file) => ({
+    loading: status.staticMutants.get(file) ?? [],
+    reached: [
+      ...(status.staticMutants.get(file) ?? []),
+      ...mutantsAt([...(status.exercised.get(file) ?? []), ...(status.staticSites.get(file) ?? []), ...(status.hookSites.get(file) ?? [])]),
+    ],
+  }))
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
     const leftOut = [...(leftOutOf.get(mutant.id) ?? []), ...everywhere]
