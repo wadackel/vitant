@@ -759,6 +759,11 @@ export const targets: Record<string, Target> = {
     dir: 'frontend',
     install: ['cd frontend && HUSKY=0 npm ci --no-audit --no-fund', 'cd frontend && node make-env.js'],
     installStryker: `cd frontend && HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    // The config turns the application's test mode on where `UNDER_TEST` or `VITEST` is `true`. Vitest sets `VITEST` to
+    // `true`, StrykerJS's runner to `1`, and without the variable a test fails in StrykerJS's first run.
+    env: { UNDER_TEST: 'true' },
+    // The scope's run took 7,885 s on an EPYC 7763 against the workflow's 150 minutes.
+    limit: 300,
     // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
     // a file in node_modules, which is the original's, outside the copy: two
     // of the 143 test files that reach a module of the scope fail as they
