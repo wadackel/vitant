@@ -651,6 +651,9 @@ export const targets: Record<string, Target> = {
     installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
     // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
     strykerInPlace: true,
+    // The version the server reports is `npm_package_version`, which `npm test` sets, or else
+    // `0.0.0-development`, for which a test of the version route fails in every run.
+    env: { npm_package_version: '0.125.1' },
     // Under `CI` the config stops a run at its first failing test. Where that is a test that fails by itself,
     // ground truth leaves it out and takes the run for a pass, the tests the mutant fails never having run.
     truthArgs: ['--bail=0'],
