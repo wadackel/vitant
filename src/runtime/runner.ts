@@ -975,8 +975,9 @@ function threadIds(): Set<string> {
  * The threads of this process once libuv's pool has started, which it does
  * all at once on first use and again in a copy that uses it, by a handler it
  * registers with `pthread_atfork`. Left to start later, its threads would
- * look like a native module's; told apart by their name, they are not: on
- * Linux a thread takes the name of the one that started it.
+ * look like a native module's; told apart by the name libuv gives them, a
+ * native module's thread started from one of them would not be: on Linux a
+ * thread takes the name of the one that started it.
  */
 async function threadsOnceThePoolRuns(): Promise<Set<string>> {
   await fs.promises.access(paths.config)
@@ -1012,7 +1013,8 @@ function startedNow(): Started {
  * child process, a worker thread, or a thread of a native module, as
  * isolated-vm runs an isolate's work on. In n8n a test compares the time
  * an isolate reads with the test's, and failed in copies that had stood
- * still for over a minute. libuv's pool reads no clock for the project.
+ * still for over a minute. libuv's pool, which a copy starts again, is told
+ * by the name it gives its threads; what runs on it is not seen (limits.md).
  */
 function startedSince(since: Started): boolean {
   if (starts !== since.starts) return true
