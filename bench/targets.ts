@@ -743,7 +743,7 @@ export const targets: Record<string, Target> = {
     env: { TZ: 'UTC' },
     scopes: {
       // With `src/expression.ts` and `src/expressions/**` beside them, 3,797 mutants, a run on a 12-core machine took 53 minutes
-      // and left 139 unconfirmed: the native evaluator's parity and fuzz tests are run one at a time, and some of them read the clock.
+      // and left 139 unconfirmed: the native evaluator's parity and fuzz tests are run one at a time, and two of them fail in copies of a worker.
       proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
     },
   },
