@@ -601,6 +601,9 @@ pub enum Ended {
 /// other process shares, in bytes, see `held_bytes`.
 static PEAK: AtomicU64 = AtomicU64::new(0);
 
+/// How long a copy runs before what it holds is first read, and the least time between two reads, see `supervise`.
+const WEIGH_EVERY: Duration = Duration::from_millis(250);
+
 /// See `PEAK`.
 #[napi]
 pub fn held_peak() -> f64 {
@@ -627,7 +630,7 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
     let mut checked = started;
     let mut peak = 0.0f64;
     let mut weighed = started;
-    let mut weigh_every = Duration::ZERO;
+    let mut weigh_every = WEIGH_EVERY;
     let ended = loop {
         let mut status = 0;
         // SAFETY: plain system call on a child of this process.
@@ -643,14 +646,16 @@ pub fn supervise(pid: i32, stuck_ms: f64, resident_limit: f64) -> Result<Ended> 
             continue;
         }
         checked = Instant::now();
-        // Reading it walks the copy's memory, a matter of milliseconds for
-        // gigabytes: it is read seldom enough to cost a twentieth of the time.
+        // Reading it walks the copy's memory, and on macOS holds the copy up
+        // while it does: weighed from 20 ms on, ufo's copies took twice as
+        // long, 34 ms at the median against 18 ms. Those that are over by
+        // then are not weighed, and the rest seldom enough to cost a fiftieth.
         if weighed.elapsed() >= weigh_every {
             weighed = Instant::now();
             if let Some(held) = held_bytes(pid) {
                 peak = peak.max(held);
             }
-            weigh_every = (weighed.elapsed() * 20).max(Duration::from_millis(100));
+            weigh_every = (weighed.elapsed() * 50).max(WEIGH_EVERY);
         }
         // A copy can take a gigabyte a second, and as many copies as there
         // are workers do so at once when mutants next to each other in the
