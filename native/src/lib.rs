@@ -888,7 +888,7 @@ fn held_bytes(pid: i32) -> Option<f64> {
 /// memory the system counts as free (`kern.memorystatus_level`, which
 /// `memory_pressure` prints). The free and the inactive pages alone leave
 /// out what macOS can compress or drop: on a 7 GB runner whose system said
-/// 73 to 77 in a hundred were free, copies waited for 2.3 GB for hours.
+/// two thirds to four fifths was free, copies waited for 2.3 GB for hours.
 #[cfg(target_os = "macos")]
 fn available_bytes() -> Option<f64> {
     fn read<T: Default>(name: &std::ffi::CStr) -> Option<T> {
