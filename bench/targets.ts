@@ -20,6 +20,8 @@ export interface Target {
   strykerIgnore?: string[]
   /** Use the checkout when Stryker's sandbox cannot rewrite the project's TypeScript configuration. */
   strykerInPlace?: boolean
+  /** The pool StrykerJS's Vitest runner runs the tests in, where its default, `threads`, does not run the suite. */
+  strykerPool?: 'forks'
   /** The package to run in, for a repository that holds several. */
   dir?: string
   /** The Vitest projects to run, where the others need what the benchmark does not set up, a browser for one. */
@@ -716,6 +718,33 @@ export const targets: Record<string, Target> = {
           'packages/core/src/common/utils/{resolve-system-proxy/resolve-system-proxy-{injection-token,channel},sync-box/{channels,sync-box-injection-token}}.ts',
         ],
       },
+    },
+  },
+  // Vitest 5: a workflow engine's expression evaluator, in four inline
+  // projects: one list of test files run once for each of three engines, a
+  // native isolate (isolated-vm) and QuickJS in WebAssembly among them, and a
+  // `default` project for the rest.
+  n8n: {
+    repo: 'https://github.com/n8n-io/n8n',
+    commit: '51f8cf624992e5813c31684359d95db5bf378092',
+    dir: 'packages/workflow',
+    install: [
+      'ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.4.2 install --frozen-lockfile',
+      "npx -y pnpm@12.4.2 exec turbo build --filter='n8n-workflow^...'",
+    ],
+    // The package depends on StrykerJS 10.1.1 through the workspace catalog, which refuses another version.
+    installStryker: 'true',
+    // In `threads` isolated-vm aborts the process when a thread that started an isolate ends.
+    strykerPool: 'forks',
+    // The tests that evaluate expressions run in each of three engine projects, and of a file several projects include
+    // this tool counts only the first project's run: the rest and the native isolate's, which the package's StrykerJS config keeps.
+    projects: ['default', 'vm-engine'],
+    // Outside UTC a test of `.toDateTime` fails in each engine project with no mutant.
+    env: { TZ: 'UTC' },
+    scopes: {
+      // With `src/expression.ts` and `src/expressions/**` beside them, 3,797 mutants, a run on a 12-core machine took 30 minutes,
+      // the native evaluator's fuzz tests being run one at a time, and left 17 unconfirmed.
+      proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
     },
   },
 }

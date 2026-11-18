@@ -147,7 +147,7 @@ let wrong = false
 if (tools.has('stryker')) {
   const config = path.join(dir, `stryker.${scopeName}.json`)
   // StrykerJS has no way to name the Vitest projects to run; it gets a config that holds only those.
-  const { projects, config: named } = targets[targetName]
+  const { projects, config: named, strykerPool: pool } = targets[targetName]
   const wrapper = path.join(dir, 'vitest.stryker.config.mjs')
   if (projects) {
     const own = named ?? ['ts', 'mts', 'js', 'mjs'].map((ext) => `vitest.config.${ext}`).find((name) => fs.existsSync(path.join(dir, name)))
@@ -168,7 +168,9 @@ if (tools.has('stryker')) {
         ...(targets[targetName].strykerIgnore ? { ignorePatterns: targets[targetName].strykerIgnore } : {}),
         ...(targets[targetName].strykerInPlace ? { inPlace: true } : {}),
         // With no wrapper, the target's config as the relative path it is given: StrykerJS resolves it in the sandbox, the copy it mutates.
-        ...(projects || named ? { vitest: { configFile: projects ? wrapper : named } } : {}),
+        ...(projects || named || pool
+          ? { vitest: { ...(projects || named ? { configFile: projects ? wrapper : named } : {}), ...(pool ? { pool } : {}) } }
+          : {}),
         mutate: strykerMutate(),
         coverageAnalysis: 'perTest',
         // Matches this tool, which does not run mutants that are only
