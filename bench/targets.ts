@@ -720,9 +720,10 @@ export const targets: Record<string, Target> = {
       },
     },
   },
-  // Vitest 5: a workflow engine's expression evaluator, one list of test files
-  // run by four inline projects, one for each engine, two of them a native
-  // isolate (isolated-vm) and QuickJS in WebAssembly.
+  // Vitest 5: a workflow engine's expression evaluator, in four inline
+  // projects: one list of test files run once for each of three engines, a
+  // native isolate (isolated-vm) and QuickJS in WebAssembly among them, and a
+  // `default` project for the rest.
   n8n: {
     repo: 'https://github.com/n8n-io/n8n',
     commit: '51f8cf624992e5813c31684359d95db5bf378092',
@@ -736,13 +737,13 @@ export const targets: Record<string, Target> = {
     // In `threads` isolated-vm aborts the process when a thread that started an isolate ends.
     strykerPool: 'forks',
     // The tests that evaluate expressions run in each of three engine projects, and of a file several projects include
-    // this tool counts only the first project's run: the engine-free tests and the default engine's, as the package's StrykerJS config keeps.
+    // this tool counts only the first project's run: the rest and the native isolate's, which the package's StrykerJS config keeps.
     projects: ['default', 'vm-engine'],
     // Outside UTC a test of `.toDateTime` fails in each engine project with no mutant.
     env: { TZ: 'UTC' },
     scopes: {
-      // With `src/expression.ts` and `src/expressions/**` beside them, 3,797 mutants, a run here took 2.7 hours:
-      // the native evaluator's parity and fuzz tests run one process at a time.
+      // With `src/expression.ts` and `src/expressions/**` beside them, 3,797 mutants, a run on a 12-core machine took 53 minutes
+      // and left 139 unconfirmed: the native evaluator's parity and fuzz tests are run one at a time, and some of them read the clock.
       proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
     },
   },
