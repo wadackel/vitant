@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { poolArgv } from '../src/run.ts'
+import { declaredProjects, poolArgv } from '../src/run.ts'
 
 const poolOptions = {
   forks: { execArgv: ['--expose-gc'] },
@@ -58,4 +58,19 @@ it('keeps the first project\'s arguments and names the pools given others', () =
   expect(poolArgv({ poolOptions, projects })).toEqual({ argv: ['--no-deprecation'], others: ['forks', 'vmThreads'] })
   // Pools given the same list are one list to the workers.
   expect(poolArgv({ poolOptions: { forks: { execArgv: ['-x'] }, threads: { execArgv: ['-x'] } }, projects: [{ test: { pool: 'threads' } }, { test: {} }] })).toEqual({ argv: ['-x'], others: [] })
+})
+
+it('reads the projects from the list the version of Vitest runs', () => {
+  const projects = [{ test: { name: 'p' } }]
+  const workspace = [{ test: { name: 'w' } }]
+  expect(declaredProjects({ workspace }, 3, 0)).toEqual(workspace)
+  // Vitest 3.0 and 3.1 do not read `projects`.
+  expect(declaredProjects({ projects }, 3, 1)).toEqual([])
+  expect(declaredProjects({ projects, workspace }, 3, 1)).toEqual(workspace)
+  expect(declaredProjects({ workspace }, 3, 2)).toEqual(workspace)
+  expect(declaredProjects({ projects, workspace }, 3, 2)).toEqual(projects)
+  expect(declaredProjects({ projects, workspace }, 4, 0)).toEqual(projects)
+  expect(declaredProjects({ workspace }, 5, 0)).toEqual([])
+  // A string names a file of projects.
+  expect(declaredProjects({ workspace: './vitest.workspace.ts' }, 3, 0)).toEqual([])
 })
