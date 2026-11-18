@@ -73,7 +73,7 @@ export interface MutantResult {
   timeoutCause?: string
   /** For an unconfirmed mutant, how many of the test files that reach it were run, all passing, and how many were not. */
   confirmed?: { passed: number; open: number }
-  /** For an unconfirmed mutant, the tests that reach it and were left out of every run for failing by themselves. */
+  /** For an unconfirmed mutant, the tests that may reach it and were left out of every run for failing by themselves. */
   leftOut?: string[]
   /** For an unconfirmed mutant, the tests that reach it and failed in a run of their file with it, which another run of the file passed. */
   wavered?: string[]
@@ -129,6 +129,8 @@ export interface RunResult {
   tests: number
   /** Tests that failed before any mutant was activated; what they cover is unknown. */
   failedBaselines: string[]
+  /** Of those, the ones that never passed: every mutant in the sources their files load is left open for them. */
+  neverPassedTests: string[]
   /** Tests that failed a whole-file run with a mutant and not the next one with the same mutant; what they fail is not counted. */
   flakyTests: string[]
   /**
@@ -2136,12 +2138,15 @@ interface SuiteTask {
 /**
  * The tests that leave a mutant no run of whole files detected open, per
  * mutant: those left out of the runs for failing by themselves, and those
- * that failed a run with the mutant where another run passed.
+ * that failed a run with the mutant where another run passed. `reach` gives,
+ * per test file, the mutants that made a difference while it loaded or in its
+ * hooks, and every mutant in the sources it loads or at a site it reached.
  */
 export function doubts(
   status: { flaky: Set<string>; tests: Map<string, TestState> },
   records: SessionRecord[],
   label: (test: TestState) => string,
+  reach: (file: string) => { loading: Iterable<number>; reached: Iterable<number> },
 ): { leftOutOf: Map<number, string[]>; everywhere: string[]; waveredIn: Map<number, Set<string>> } {
   // A test that fails by itself is left out of the runs of its file, and a
   // mutant it reaches has then passed the file without the one test that
@@ -2151,15 +2156,31 @@ export function doubts(
   // told from its failures, so such a mutant has not survived the suite.
   const leftOutOf = new Map<number, string[]>()
   const everywhere: string[] = []
-  // So is one whose unmutated run failed after it had passed once: it is
-  // left out of the runs of its file all the same.
+  // So is one whose unmutated run failed, once it had passed or every time:
+  // it is left out of the runs of its file all the same.
   const failed = [...status.tests].flatMap(([id, test]) => (test.failed ? [id] : []))
+  const leaveOpen = (mutants: Iterable<number>, test: TestState) => {
+    const name = label(test)
+    for (const mutant of new Set(mutants)) {
+      const names = leftOutOf.get(mutant)
+      if (names) names.push(name)
+      else leftOutOf.set(mutant, [name])
+    }
+  }
   for (const id of new Set([...status.flaky, ...failed])) {
     const test = status.tests.get(id)
-    if (!test?.coverage) continue
+    if (!test) continue
+    // A test that never passed has no record of what it reaches, and neither
+    // what it reached before it failed nor what the other tests of its file
+    // reach is what it reaches with no failure in the way: in headlamp 26 such
+    // tests were left out of 83 runs of their files that passed with a mutant
+    // the suite fails with. Whatever its file loads it may reach.
+    if (!test.coverage) leaveOpen(reach(test.file).reached, test)
     // Measured in a worker that mutants had been tried in, what the test reaches is not known.
-    if (!test.pristine) everywhere.push(label(test))
-    else for (const mutant of new Set([...test.coverage.covered, ...test.coverage.cleanup])) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
+    else if (!test.pristine) everywhere.push(label(test))
+    // A value its file made while loading the test reads with no site of its own run:
+    // in fixtures/basic `postage-quota.test.ts` a mutant there survived the file without it.
+    else leaveOpen([...test.coverage.covered, ...test.coverage.cleanup, ...reach(test.file).loading], test)
   }
   // A run of a file that passes settles it for the mutant, whatever failed
   // before: the failure was other runs of the file in the way, or the test's
@@ -3211,6 +3232,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const label = (test: TestState) => `${relative(options.root, test.file)} > ${test.name}`
   const tests = status.tests.size
   const failedBaselines = [...status.tests.values()].filter((t) => t.failed).map(label)
+  const neverPassedTests = [...status.tests.values()].filter((test) => test.failed && !test.coverage).map(label)
   const nonRepeatableTests = [...status.tests.values()].filter((t) => t.done && t.coverage && !t.failed).map(label)
 
   if (options.incremental && abandonedFiles.length === 0) {
@@ -3224,6 +3246,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
     for (const [file, pass] of passes) {
       // Read back, what its tests reach would pass for what a plain run shows.
       if (status.unsure.has(file)) continue
+      // Nor a file with a test left out that had passed or skipped itself: read
+      // back, it would pass for a test that passes, or for one that never did.
+      if ([...status.tests].some(([id, test]) => test.file === file && ((test.coverage && test.failed) || status.flaky.has(id)))) continue
       const snapshot = path.join(path.dirname(file), '__snapshots__', `${path.basename(file)}.snap`)
       const entry: CachedFile = {
         deps: {},
@@ -3341,7 +3366,39 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const by = status.evidence.get(mutant)?.find((entry) => entry.kind === 'timeout')?.by
     return by === undefined ? 'unknown' : by === 'started' ? 'started worker' : by
   }
-  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label)
+  const mutantsAt = (sites: Iterable<number>) =>
+    [...new Set(sites)].flatMap((site) => {
+      const at: number[] = []
+      for (let mutant = generated.siteMutants[site]; mutant < generated.siteMutants[site + 1]; mutant++) at.push(mutant)
+      return at
+    })
+  const mutantsIn = new Map<string, number[]>()
+  generated.mutants.forEach((mutant, id) => {
+    const source = path.resolve(mutant.file)
+    if (!mutantsIn.has(source)) mutantsIn.set(source, [])
+    mutantsIn.get(source)!.push(id)
+  })
+  const loads = new Map<string, Set<string>>()
+  for (const record of records) {
+    if (record.type !== 'file' || !record.modules) continue
+    const set = loads.get(record.file) ?? new Set()
+    for (const module of record.modules) set.add(path.resolve(module))
+    loads.set(record.file, set)
+  }
+  const reachedBy = new Map<string, number[]>()
+  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label, (file) => ({
+    loading: status.staticMutants.get(file) ?? [],
+    get reached() {
+      if (!reachedBy.has(file)) {
+        reachedBy.set(file, [
+          ...(status.staticMutants.get(file) ?? []),
+          ...[...(loads.get(file) ?? [])].flatMap((module) => mutantsIn.get(module) ?? []),
+          ...mutantsAt([...(status.exercised.get(file) ?? []), ...(status.staticSites.get(file) ?? []), ...(status.hookSites.get(file) ?? [])]),
+        ])
+      }
+      return reachedBy.get(file)!
+    },
+  }))
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
     const leftOut = [...(leftOutOf.get(mutant.id) ?? []), ...everywhere]
@@ -3387,6 +3444,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     testFiles: finishedFiles.size,
     tests,
     failedBaselines,
+    neverPassedTests,
     leftOut,
     quietRuns: {
       failed: records.filter((record) => record.type === 'whole' && record.quiet && record.by && record.verdict !== 'passed').length,

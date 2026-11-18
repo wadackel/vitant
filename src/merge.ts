@@ -63,6 +63,7 @@ export function mergeReports(reports: RunResult[]): RunResult {
     testFiles: Math.max(...reports.map((report) => report.testFiles)),
     tests: Math.max(...reports.map((report) => report.tests)),
     failedBaselines: union(reports.map((report) => report.failedBaselines)),
+    neverPassedTests: union(reports.map((report) => report.neverPassedTests)),
     flakyTests: union(reports.map((report) => report.flakyTests)),
     leftOut: {
       projects,

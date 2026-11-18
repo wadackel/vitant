@@ -226,7 +226,7 @@ for (const mutant of result.mutants) {
   const { line, column } = mutant.location.start
   const why = [
     ...(mutant.confirmed ? [`passed ${mutant.confirmed.passed} of ${mutant.confirmed.passed + mutant.confirmed.open} files`] : []),
-    ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that reach it fail by themselves and were left out`] : []),
+    ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that may reach it fail by themselves and were left out`] : []),
     ...(mutant.wavered ? [`failed in one run of their file and not in another: ${some(mutant.wavered)}`] : []),
     ...(mutant.doubted ? [`failed only in ${mutant.doubted.join(', ')}, which fails by chance`] : []),
   ]
@@ -307,13 +307,21 @@ if (result.skippedFiles.length > 0) {
 if (result.failedBaselines.length > 0) {
   console.log(`${result.failedBaselines.length} test(s) failed without any mutant and were ignored`)
 }
+if (result.neverPassedTests.length > 0) {
+  const never = new Set(result.neverPassedTests)
+  const only = result.mutants.filter(
+    (mutant) => mutant.status === 'Unconfirmed' && mutant.leftOut?.every((test) => never.has(test)) && !mutant.wavered && !mutant.doubted && !mutant.confirmed && !mutant.besideOnly,
+  ).length
+  console.log(`${result.neverPassedTests.length} of them never passed, and ${only} mutant(s) in the sources their files load are unconfirmed for that alone:`)
+  for (const test of result.neverPassedTests.slice(0, 10)) console.log(`  ${test}`)
+}
 if (result.flakyTests.length > 0) {
   console.log(`${result.flakyTests.length} test(s) failed with a mutant and passed with the same one, and were not counted:`)
   for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
 }
 const unjudged = result.mutants.filter((mutant) => mutant.leftOut).length
 if (unjudged > 0) {
-  console.log(`${unjudged} mutant(s) such tests reach passed their test files without them and are unconfirmed; they count as survived in the score`)
+  console.log(`${unjudged} mutant(s) such tests may reach passed their test files without them and are unconfirmed; they count as survived in the score`)
 }
 const doubted = result.mutants.filter((mutant) => mutant.doubted).length
 if (doubted > 0) {

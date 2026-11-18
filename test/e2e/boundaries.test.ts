@@ -137,6 +137,48 @@ describe('a test file that fails outside its tests with no mutant on', () => {
   }, 120_000)
 })
 
+describe('a test that fails in every run with no mutant on', () => {
+  it('leaves every mutant its file reaches unconfirmed, naming the test, where the suite would detect them', () => {
+    let stdout = ''
+    const run = (name: string, env: Record<string, string> = {}): RunResult => {
+      const report = reportPath(name)
+      const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage.test.ts', 'test/postage-tracking.test.ts'], {
+        env: { ...process.env, ...env },
+      })
+      expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+      stdout = cli.stdout
+      return JSON.parse(fs.readFileSync(report, 'utf8'))
+    }
+    const plain = run('postage')
+    expect(plain.mutants.map((mutant) => mutant.status)).toEqual(plain.mutants.map(() => 'Killed'))
+    const down = run('postage-down', { POSTAGE_RATES_DOWN: '1' })
+    const test = 'test/postage.test.ts > charges more for a parcel'
+    expect(down.failedBaselines).toEqual([test])
+    expect(down.neverPassedTests).toEqual([test])
+    const unconfirmed = down.mutants.filter((mutant) => mutant.status === 'Unconfirmed').length
+    expect(stdout).toContain(`1 of them never passed, and ${unconfirmed} mutant(s) in the sources their files load are unconfirmed for that alone:\n  ${test}\n`)
+    const open = down.mutants.filter((mutant) => mutant.status !== 'Killed')
+    // The one at load among them, which no test's own record holds, and one
+    // that only another file's test was seen to reach.
+    expect(open.map((mutant) => mutant.replacement)).toEqual(expect.arrayContaining(['50 / 2', 'grams >= 500']))
+    for (const mutant of open) expect([mutant.replacement, mutant.status, mutant.leftOut]).toEqual([mutant.replacement, 'Unconfirmed', [test]])
+  }, 120_000)
+
+  it('leaves open, for a test left out after it passed, a mutant of a value its file made while loading', () => {
+    const report = reportPath('postage-quota')
+    const quota = report.replace(/\.json$/, '.quota')
+    fs.rmSync(quota, { force: true })
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage-quota.test.ts'], {
+      env: { ...process.env, POSTAGE_RATES_QUOTA: quota },
+    })
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(result.neverPassedTests).toEqual([])
+    const loaded = result.mutants.find((mutant) => mutant.replacement === '50 / 2')!
+    expect([loaded.status, loaded.leftOut]).toEqual(['Unconfirmed', ['test/postage-quota.test.ts > charges more for a parcel within the quota']])
+  }, 120_000)
+})
+
 describe('a run in which no test runs', () => {
   it('says so and fails, where every mutant would read as not covered', () => {
     const cli = tool(['--root', fixture('basic'), '--mutate', 'src/math.ts', 'no-such-test-file'])

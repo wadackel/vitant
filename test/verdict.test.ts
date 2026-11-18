@@ -345,6 +345,7 @@ describe('tests that leave a mutant open', () => {
   const test = (name: string, covered: number[], pristine = true) =>
     ({ file, name, pristine, coverage: { sites: 1, covered, cleanup: [], baselineMs: 1, baselineLoops: 0, rss: 0 } }) as unknown as Tests extends Map<string, infer State> ? State : never
   const label = (state: { name: string }) => state.name
+  const nothing = () => ({ loading: [], reached: [] })
 
   it('names a test left out for failing by itself for the mutants it reaches, and for all where that is not known', () => {
     const tests: Tests = new Map([
@@ -352,13 +353,13 @@ describe('tests that leave a mutant open', () => {
       ['t2', test('t2', [1])],
       ['t3', test('t3', [1], false)],
     ])
-    const reached = doubts({ flaky: new Set(['t1']), tests }, [], label)
+    const reached = doubts({ flaky: new Set(['t1']), tests }, [], label, nothing)
     expect([...reached.leftOutOf]).toEqual([
       [0, ['t1']],
       [2, ['t1']],
     ])
     expect(reached.everywhere).toEqual([])
-    expect(doubts({ flaky: new Set(['t3']), tests }, [], label).everywhere).toEqual(['t3'])
+    expect(doubts({ flaky: new Set(['t3']), tests }, [], label, nothing).everywhere).toEqual(['t3'])
   })
 
   it('names a test whose unmutated run failed after it had passed once, as it is left out the same way', () => {
@@ -366,7 +367,30 @@ describe('tests that leave a mutant open', () => {
       ['t1', { ...test('t1', [0]), failed: true }],
       ['t2', test('t2', [1])],
     ])
-    expect([...doubts({ flaky: new Set(), tests }, [], label).leftOutOf]).toEqual([[0, ['t1']]])
+    expect([...doubts({ flaky: new Set(), tests }, [], label, nothing).leftOutOf]).toEqual([[0, ['t1']]])
+  })
+
+  it('names a test whose unmutated run never passed for every mutant its file reaches, as what it reaches is not known', () => {
+    const tests: Tests = new Map([
+      ['t1', { file, name: 't1', failed: true, pristine: false } as unknown as Tests extends Map<string, infer State> ? State : never],
+      ['t2', test('t2', [1])],
+    ])
+    const reach = (of: string) => (of === file ? { loading: [4], reached: [1, 2, 4] } : { loading: [], reached: [9] })
+    const { leftOutOf, everywhere } = doubts({ flaky: new Set(), tests }, [], label, reach)
+    expect([...leftOutOf]).toEqual([
+      [1, ['t1']],
+      [2, ['t1']],
+      [4, ['t1']],
+    ])
+    expect(everywhere).toEqual([])
+  })
+
+  it('names a test left out after it had passed for what it reached and what its file did while it loaded, not for all its file reaches', () => {
+    const tests: Tests = new Map([['t1', test('t1', [0])]])
+    expect([...doubts({ flaky: new Set(['t1']), tests }, [], label, () => ({ loading: [3], reached: [0, 3, 5] })).leftOutOf]).toEqual([
+      [0, ['t1']],
+      [3, ['t1']],
+    ])
   })
 
   it('names a test that failed a run of its file with a mutant it reaches, and not one that does not reach it', () => {
@@ -375,7 +399,7 @@ describe('tests that leave a mutant open', () => {
       ['t2', test('t2', [1])],
     ])
     const runs = [whole(0, 'failed', { test: 't1', tests: ['t1', 't2'] }), whole(0, 'passed'), whole(1, 'passed')]
-    const { waveredIn } = doubts({ flaky: new Set(), tests }, runs, label)
+    const { waveredIn } = doubts({ flaky: new Set(), tests }, runs, label, nothing)
     expect([...waveredIn].map(([mutant, names]) => [mutant, [...names]])).toEqual([[0, ['t1']]])
   })
 })
