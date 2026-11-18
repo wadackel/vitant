@@ -369,6 +369,8 @@ describe('instrument', () => {
     expect(result.mutants.some((m) => m.mutator === 'ConditionalExpression')).toBe(true)
     expect(result.code).not.toMatch(/import\.meta(?!\.(env|url)\b)/)
     expect(result.code).not.toMatch(/"(env|VOLUME|url)"\)/)
+    // Counted as a read that may run code, so the probes never clear the constants over it.
+    expect(result.code).toContain(`${RUNTIME_GLOBAL}.v++,(import.meta.env.VOLUME)`)
   })
 
   it('leaves type positions, imports and directives alone', () => {
