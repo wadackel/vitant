@@ -39,6 +39,7 @@ const report = (index: number, count: number, mutants: MutantResult[]): RunResul
     testFiles: 3,
     tests: 7,
     failedBaselines: [],
+    neverPassedTests: [],
     flakyTests: [],
     leftOut: { projects: {}, typeTests: 0, browserTests: 0 },
     quietRuns: { failed: 0, passed: index },

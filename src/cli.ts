@@ -307,6 +307,14 @@ if (result.skippedFiles.length > 0) {
 if (result.failedBaselines.length > 0) {
   console.log(`${result.failedBaselines.length} test(s) failed without any mutant and were ignored`)
 }
+if (result.neverPassedTests.length > 0) {
+  const never = new Set(result.neverPassedTests)
+  const only = result.mutants.filter(
+    (mutant) => mutant.status === 'Unconfirmed' && mutant.leftOut?.every((test) => never.has(test)) && !mutant.wavered && !mutant.doubted && !mutant.confirmed && !mutant.besideOnly,
+  ).length
+  console.log(`${result.neverPassedTests.length} of them never passed, and ${only} mutant(s) in the sources their files load are unconfirmed for that alone:`)
+  for (const test of result.neverPassedTests.slice(0, 10)) console.log(`  ${test}`)
+}
 if (result.flakyTests.length > 0) {
   console.log(`${result.flakyTests.length} test(s) failed with a mutant and passed with the same one, and were not counted:`)
   for (const test of result.flakyTests.slice(0, 10)) console.log(`  ${test}`)
