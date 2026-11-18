@@ -171,6 +171,14 @@ describe('running the fixture project', () => {
     expect(result.failedBaselines).toEqual([])
   })
 
+  // A test stubs the variable, which the module reads only where Vitest has
+  // rewritten `import.meta.env`: with that text in pieces the test failed
+  // with no mutant on, and was left out.
+  it('reads the environment of the worker through import.meta.env in a replaced condition', () => {
+    expect(statusOf('src/volume.ts', 2, 'false')).toBe('Killed')
+    expect(statusOf('src/volume.ts', 2, '""')).toBe('Killed')
+  })
+
   it('judges what a test that skipped itself had reached', () => {
     expect(statusOf('src/flags.ts', 2, 'true')).toBe('Killed')
   })

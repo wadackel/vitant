@@ -1,7 +1,7 @@
 // Reuse of an earlier run's results. A test file's results carry over only if
 // nothing it loaded has changed: every module it imported, its snapshot file,
-// and everything that shapes the run as a whole (tool and Vitest versions,
-// lock files, config, limits). What a test reads from disk in other ways is
+// and everything that shapes the run as a whole (the cache's format, the
+// Vitest version, lock files, config, limits). What a test reads from disk in other ways is
 // not tracked, which is why this is opt-in.
 
 import crypto from 'node:crypto'
@@ -11,8 +11,13 @@ import { parseSync } from 'oxc-parser'
 import type { Generated } from './mutate/generate.ts'
 import { relative } from './session.ts'
 
-/** Bumped whenever cached data would be read differently. */
-const FORMAT = 10
+/**
+ * Bumped whenever cached data would be read differently, or this tool would
+ * now make it differently from the same sources: the fingerprint holds no
+ * version of the tool, so results the instrumenter got wrong before a fix
+ * would be reused.
+ */
+const FORMAT = 11
 
 export interface CachedTest {
   name: string

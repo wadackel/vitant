@@ -362,6 +362,17 @@ describe('instrument', () => {
     }
   })
 
+  // Vitest finds `import.meta.env` by its text to turn it into the worker's environment.
+  it('keeps a chain of members of import.meta whole inside a replaced condition', () => {
+    const source = "export const level = () => (import.meta.env.VOLUME === 'loud' || import.meta.env['MODE'] === import.meta.url ? 1 : 0)"
+    const result = mutantsOf(source)
+    expect(result.mutants.some((m) => m.mutator === 'ConditionalExpression')).toBe(true)
+    expect(result.code).not.toMatch(/import\.meta(?!\.(env|url)\b)/)
+    expect(result.code).not.toMatch(/"(env|VOLUME|url)"\)/)
+    // Counted as a read that may run code, so the probes never clear the constants over it.
+    expect(result.code).toContain(`${RUNTIME_GLOBAL}.v++,(import.meta.env.VOLUME)`)
+  })
+
   it('leaves type positions, imports and directives alone', () => {
     const source = [
       '"use strict"',
