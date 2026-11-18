@@ -4,7 +4,9 @@
 // resolves.
 
 import { AsyncLocalStorage, createHook } from 'node:async_hooks'
+import childProcess from 'node:child_process'
 import { createHash } from 'node:crypto'
+import diagnostics from 'node:diagnostics_channel'
 import fs from 'node:fs'
 import os from 'node:os'
 import { createRequire, syncBuiltinESMExports } from 'node:module'
@@ -512,6 +514,8 @@ let exitGuard: typeof process.exit | undefined
 function watch(): void {
   if (watching) return
   watching = true
+  const before = addon ? threadIds() : undefined
+  ownStart = true
   new Worker(watchdogSource, {
     eval: true,
     workerData: {
@@ -526,6 +530,8 @@ function watch(): void {
       child: process.ppid === config.mainPid,
     },
   }).unref()
+  ownStart = false
+  for (const id of before ? threadIds() : []) if (!before!.has(id)) ownThreads.add(id)
 }
 const heartbeat = () => {
   const usage = resourceCpuUsage()
@@ -581,17 +587,21 @@ interface Cloner {
   host(pid: number, stuckMs: number): number
   /** The threads of this process, the calling one included, each by a name no later thread has. */
   threads(): string[]
+  /** Those of `threads` that are libuv's pool. */
+  poolThreads(): string[]
   Ended: { Done: number; Blocked: number; Memory: number; Lost: number }
   exit(code: number): never
 }
 /** In a copy: the id of the process it was copied from. */
 let copiedFrom = 0
+/**
+ * The addon, in every worker of a run whose workers are copied: one that
+ * is not copied lists its threads with it, see `startedSince`.
+ */
+const addon: Cloner | undefined = process.env.VITANT_FORK ? createRequire(import.meta.url)(process.env.VITANT_FORK) : undefined
 // V8 hands work to other threads unless told not to, and a copy would wait
 // for threads it does not have.
-const cloner: Cloner | undefined =
-  process.env.VITANT_FORK && process.execArgv.includes('--single-threaded')
-    ? createRequire(import.meta.url)(process.env.VITANT_FORK)
-    : undefined
+const cloner = process.execArgv.includes('--single-threaded') ? addon : undefined
 
 /**
  * How long this process, and those it was copied from, stood still for
@@ -644,7 +654,9 @@ function standClocks(): void {
   process.uptime = () => nativeUptime() - stood / 1000
 }
 // An addon built before it could list threads would leave every check of them to fail in a test.
-if (cloner && typeof cloner.threads !== 'function') throw new Error(`${process.env.VITANT_FORK} cannot list threads: build it again with pnpm build:native`)
+if (addon && (typeof addon.threads !== 'function' || typeof addon.poolThreads !== 'function')) {
+  throw new Error(`${process.env.VITANT_FORK} cannot list threads: build it again with pnpm build:native`)
+}
 if (cloner) standClocks()
 
 /** Calls that change the file system somewhere outside this tool's session, since the worker started, see `countWrites`. */
@@ -688,6 +700,36 @@ function countWrites(): void {
   syncBuiltinESMExports()
 }
 if (cloner) countWrites()
+
+/** Child processes and worker threads this process has started, see `countStarts`. */
+let starts = 0
+/** Set while this tool starts a worker thread of its own, which is not counted. */
+let ownStart = false
+
+/**
+ * Counts the child processes and worker threads this process starts. Each
+ * reads the machine's clock, not the ones `standClocks` puts in place, and
+ * one that has ended leaves no thread or descriptor behind to be seen. Node
+ * says so on a diagnostics channel where it starts one asynchronously; the
+ * calls that run a process to its end say nothing there and are counted.
+ */
+function countStarts(): void {
+  const count = () => {
+    if (!ownStart) starts++
+  }
+  diagnostics.subscribe('child_process', count)
+  diagnostics.subscribe('worker_threads', count)
+  const exports = childProcess as unknown as Record<string, (...args: unknown[]) => unknown>
+  for (const name of ['spawnSync', 'execSync', 'execFileSync']) {
+    const original = exports[name]
+    exports[name] = function (this: unknown, ...args: unknown[]) {
+      starts++
+      return original.apply(this, args)
+    }
+  }
+  syncBuiltinESMExports()
+}
+if (addon) countStarts()
 
 /**
  * Where a copy notes the test it is in. The process that copied it stops it
@@ -926,7 +968,7 @@ function openDescriptors(): Set<string> | undefined {
  * worker fails, rather than leave every run to a copy made before loading.
  */
 function threadIds(): Set<string> {
-  return new Set(cloner!.threads())
+  return new Set(addon!.threads())
 }
 
 /**
@@ -950,6 +992,36 @@ async function threadsOnceThePoolRuns(): Promise<Set<string>> {
 function threadsStarted(before: Set<string> | undefined): boolean {
   return before === undefined || [...threadIds()].some((id) => !before.has(id))
 }
+
+/** The watchdog's thread, see `watch`. */
+const ownThreads = new Set<string>()
+
+/** What this process had started at some point, for `startedSince` to look back to. */
+interface Started {
+  threads: Set<string>
+  starts: number
+}
+
+function startedNow(): Started {
+  return { threads: threadIds(), starts }
+}
+
+/**
+ * Whether this process has started, since `since`, something that reads
+ * the machine's clock where the clocks of `standClocks` do not reach: a
+ * child process, a worker thread, or a thread of a native module, as
+ * isolated-vm runs an isolate's work on. In n8n a test compares the time
+ * an isolate reads with the test's, and failed in copies that had stood
+ * still for over a minute. libuv's pool reads no clock for the project.
+ */
+function startedSince(since: Started): boolean {
+  if (starts !== since.starts) return true
+  const pool = new Set(addon!.poolThreads())
+  return [...threadIds()].some((id) => !since.threads.has(id) && !pool.has(id) && !ownThreads.has(id))
+}
+
+/** In a copy made for one whole-file run: what it had started as it was made. */
+let startedAtCopy: Started | undefined
 
 /** Resolves once every call has its answer. */
 async function quiet(): Promise<void> {
@@ -1552,6 +1624,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private heldBeforeLoad = new Map<string, number>()
     private openBeforeLoad: Set<string> | undefined
     private threadsBeforeLoad: Set<string> | undefined
+    /** What this process had started as it took the file on, see `noteStarted`. */
+    private startedAtLoad: Started | undefined
     /** Jobs to be copied for as their mutants' modules begin their own code, see `copyWhileLoading`. */
     private waiting: WholeJob[] = []
     /** No copy was made while the file loaded, where one was to be. */
@@ -1646,6 +1720,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.idle = false
       this.measuring = false
       this.wholeFile = file
+      this.startedAtLoad = addon ? startedNow() : undefined
       const jobs = plan?.whole[file] ?? []
       // Before anything of the file runs here, loading it included.
       if (plan?.quiet) await alone(plan.together?.includes(file) ? file : '')
@@ -1869,6 +1944,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         cloned = true
         this.wholeBy = by
         copiedFrom = self
+        startedAtCopy = startedNow()
         // Node read the process id when it started, which was in the process
         // this is a copy of; a signal the tests send themselves must not go there.
         Object.defineProperty(process, 'pid', { value: cloner!.pid(), writable: true, enumerable: true, configurable: true })
@@ -2742,6 +2818,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       }
       if (!this.whole) return
+      // Listing the threads after every test would cost more than the copies save, so a thread waits for the end.
+      if (cloned && stood > 0 && (starts !== startedAtCopy!.starts || (test.id === this.whole.trial && startedSince(startedAtCopy!)))) await this.withdraw()
       noteTest()
       this.floorMs = deadline(this.config.hookTimeout)
       this.limitWhole()
@@ -2826,6 +2904,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // An error nothing handled may be on its way with an answer; the
       // verdict is read once nothing is.
       await quiet()
+      if (stood > 0 && startedSince(startedAtCopy!)) return this.withdraw()
       if (this.whole!.trial !== undefined) {
         if (!this.trialSaid) untold(this.whole!, this.wholeFile!)
         cloner!.done()
@@ -2864,6 +2943,32 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     }
 
     /**
+     * Ends a copy whose clocks stood still, once its tests have started
+     * something that reads the machine's clock, without a verdict: the two
+     * clocks disagree by as long as it stood, which no run of the suite
+     * sees. From then on the file's runs are made in copies made before it
+     * loads, which never stand still.
+     */
+    private async withdraw(): Promise<never> {
+      await quiet()
+      emit({ type: 'early', file: this.wholeFile, site: -1, clock: true, mutant: this.whole!.mutant })
+      if (!this.trialSaid) untold(this.whole!, this.wholeFile!)
+      cloner!.done()
+      return cloner!.exit(0)
+    }
+
+    /**
+     * Says that the file's tests started something that reads the machine's
+     * clock, so that none of its runs is made in a copy whose clocks stood
+     * still: a copy made once the file has loaded, or while it loads, after
+     * others. Every run of the file then reads one clock, as the suite does.
+     */
+    private noteStarted(): void {
+      if (cloned || this.startedAtLoad === undefined || !startedSince(this.startedAtLoad)) return
+      emit({ type: 'early', file: this.wholeFile, site: -1, clock: true })
+    }
+
+    /**
      * Vitest 3.2 runs the teardown of a fixture scoped to the worker after
      * the file, and fails the run where it throws: a mutant the teardown's
      * assertion sees fails the suite with every test passing. A copy ends
@@ -2894,6 +2999,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private async afterRunFiles(files: TaskLike[]): Promise<unknown> {
       // The file's tests and hooks are through, which is all another run of it could meet.
       release()
+      this.noteStarted()
       if (this.whole) {
         // With the mutant still on, as the suite has it.
         if (vitest.major === 3) {
