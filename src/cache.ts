@@ -12,7 +12,7 @@ import type { Generated } from './mutate/generate.ts'
 import { relative } from './session.ts'
 
 /** Bumped whenever cached data would be read differently. */
-const FORMAT = 10
+const FORMAT = 11
 
 export interface CachedTest {
   name: string
