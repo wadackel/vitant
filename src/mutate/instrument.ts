@@ -414,6 +414,16 @@ function positionAt(lineStarts: number[], offset: number): Position {
   return { line: low + 1, column: offset - lineStarts[low] }
 }
 
+/** The first error that keeps `source` from parsing, with its 1-based line and column, if there is one. */
+export function parseError(source: string, filename: string): string | undefined {
+  const error = parseSync(filename, source, { preserveParens: false }).errors.find((error) => error.severity === 'Error')
+  if (!error) return undefined
+  const at = error.labels[0]?.start
+  if (at === undefined) return error.message
+  const { line, column } = positionAt(lineStartsOf(source), at)
+  return `${error.message} at ${line}:${column + 1}`
+}
+
 export function instrument(
   source: string,
   filename: string,

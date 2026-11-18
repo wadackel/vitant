@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { instrument, type Mutant } from './instrument.ts'
+import { instrument, type Mutant, parseError } from './instrument.ts'
 
 export interface MutatedFile {
   /** Absolute path. */
@@ -26,8 +26,14 @@ export interface Generated {
   /** Per mutant, 1 when the unmutated run records whether it changes a value. */
   tracked: Uint8Array
   unplaced: number
-  /** Files oxc could not parse. */
-  skipped: string[]
+  /** Files matched but not mutated, each with why. */
+  skipped: SkippedFile[]
+}
+
+export interface SkippedFile {
+  /** Absolute here, relative to the root in a report. */
+  file: string
+  reason: string
 }
 
 export interface GenerateOptions {
@@ -64,7 +70,10 @@ export function shareOf(mutantsByFile: ReadonlyMap<string, number>, count: numbe
   return shares
 }
 
-export const defaultInclude = ['src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}']
+/** What oxc parses as JavaScript or TypeScript; a file with any other extension is left out. */
+export const instrumentedExtensions = ['ts', 'tsx', 'js', 'jsx', 'mts', 'cts', 'mjs', 'cjs']
+export const instrumentedGlob = `**/*.{${instrumentedExtensions.join(',')}}`
+export const defaultInclude = [`src/${instrumentedGlob}`]
 export const defaultExclude = [
   '**/node_modules/**',
   '**/*.d.ts',
@@ -80,7 +89,7 @@ export function generate(options: GenerateOptions): Generated {
   const files = new Map<string, MutatedFile>()
   const mutants: Generated['mutants'] = []
   const firstMutants: number[] = []
-  const skipped: string[] = []
+  const skipped: SkippedFile[] = []
   const readSites = new Set<number>()
   let unplaced = 0
 
@@ -89,6 +98,14 @@ export function generate(options: GenerateOptions): Generated {
     const file = path.resolve(options.root, relative)
     if (options.lines && !options.lines.get(file)) continue
     if (!fs.statSync(file).isFile()) continue
+    // Parsed as JavaScript, a `.vue` component fails, and a `.json` file can
+    // pass and be served instrumented to the plugin that reads it as JSON.
+    const extension = path.extname(file).slice(1)
+    if (!instrumentedExtensions.includes(extension)) {
+      const kind = extension === '' ? 'a file without an extension' : `.${extension}`
+      skipped.push({ file, reason: `${kind} is not a language vitant instruments; it mutates ${instrumentedExtensions.map((name) => `.${name}`).join(', ')}` })
+      continue
+    }
     sources.set(file, fs.readFileSync(file, 'utf8'))
   }
   if (options.shard) {
@@ -105,7 +122,8 @@ export function generate(options: GenerateOptions): Generated {
       lines,
     })
     if (!result) {
-      skipped.push(file)
+      const error = parseError(source, file)
+      skipped.push({ file, reason: error ? `does not parse: ${error}` : 'its instrumented code would not parse, a defect of vitant' })
       continue
     }
     unplaced += result.unplaced
@@ -133,6 +151,6 @@ export function generate(options: GenerateOptions): Generated {
     readSites,
     tracked: Uint8Array.from(mutants, (mutant) => Number(mutant.tracked)),
     unplaced,
-    skipped,
+    skipped: skipped.sort((a, b) => (a.file < b.file ? -1 : 1)),
   }
 }

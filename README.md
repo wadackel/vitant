@@ -78,7 +78,7 @@ Shares are of whole files, so a file with most of the mutants makes its share th
 |---|---|---|
 | `--root <dir>` | the current directory | The project, where its Vitest config is. |
 | `--config <file>` | the one Vitest finds in the root, `vitest.config.ts` and the like | The Vitest config file, a path relative to the root, for a suite that runs as `vitest --config <file>`. |
-| `--mutate <glob>` | the sources under `src` | Files to mutate. Repeatable. |
+| `--mutate <glob>` | the sources under `src` | Files to mutate. Repeatable. Only JavaScript and TypeScript are mutated: a file of another kind it matches, a `.vue` or `.svelte` component for one, is named in the output and left out. |
 | `--exclude <glob>` | | Files not to mutate. Repeatable. |
 | `--changed <ref>` | | Only mutants whose code lies entirely on lines changed since the git ref. |
 | `--shard <i>/<n>` | | Only the i-th of n shares of the files to mutate, with about as many mutants in each; `vitant merge --report <file> [--elements <file>] <reports>...` makes one report of them. |
@@ -157,6 +157,7 @@ Against the same measurement of [b58eef9](https://github.com/wadackel/vitant/com
 - **Tests that read the source from disk see the original.** Mutants live in what Vitest serves, not in the files.
 - **One test file runs in many processes at once**, which a plain run never does. Tests that listen on a port or write files next to themselves get in each other's way; vitant notices and runs such a file one process at a time.
 - **A Vitest project with a config file of its own is not run.** Projects declared in the root config are.
+- **Only JavaScript and TypeScript are mutated.** The `<script>` of a `.vue` or `.svelte` component is not: such a file is named in the output and left out.
 - **A test that fails now and then** is left out once it is caught failing with no mutant on, and a mutant only it reaches is reported as Unconfirmed, not Survived. A test that is not caught, or that a mutant makes fail by chance, can still give a wrong verdict.
 - **A timeout is a judgement.** No run is ended sooner than the project's own limit for the test that is running, but a mutant that keeps a hook busy for many times longer than the file takes, or makes several tests each wait for most of their time, and still finishes is called a timeout here.
 

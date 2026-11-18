@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util'
 import { changedLines } from './changed.ts'
 import { elementsPage, toElements } from './elements.ts'
 import { mergeReports } from './merge.ts'
-import { defaultExclude, defaultInclude } from './mutate/generate.ts'
+import { defaultExclude, defaultInclude, instrumentedGlob } from './mutate/generate.ts'
 import { type MutantStatus, type RunResult, run } from './run.ts'
 import { relative } from './session.ts'
 
@@ -183,7 +183,7 @@ const result = await run({
   root,
   config,
   // A diff already names the files, so by default any of them may be mutated.
-  include: values.mutate ?? (values.changed ? ['**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'] : defaultInclude),
+  include: values.mutate ?? (values.changed ? [instrumentedGlob] : defaultInclude),
   exclude: [...defaultExclude, ...(values.exclude ?? [])],
   lines: values.changed ? changedLines(root, values.changed) : undefined,
   shard,
@@ -302,7 +302,7 @@ if (counts.Static > 0) {
 }
 if (result.skippedFiles.length > 0) {
   console.log(`${result.skippedFiles.length} file(s) could not be mutated and were left out:`)
-  for (const file of result.skippedFiles) console.log(`  ${file}`)
+  for (const { file, reason } of result.skippedFiles) console.log(`  ${file}: ${reason}`)
 }
 if (result.failedBaselines.length > 0) {
   console.log(`${result.failedBaselines.length} test(s) failed without any mutant and were ignored`)
