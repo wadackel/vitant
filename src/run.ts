@@ -2034,7 +2034,10 @@ function restore(
         at: 0,
       }
       // A test that never passed reaches what its file loads; one that had passed, what it reached then.
-      if (test.passed) lines.push(JSON.stringify({ ...record, baseline: 'pass' }), JSON.stringify({ ...record, covered: [], cleanup: [], sites: [], killed: [], timedOut: [], survived: [] }))
+      if (test.passed) {
+        lines.push(JSON.stringify({ ...record, baseline: 'pass', pristine: test.passed === 'pristine' }))
+        lines.push(JSON.stringify({ ...record, covered: [], cleanup: [], sites: [], killed: [], timedOut: [], survived: [] }))
+      }
       else lines.push(JSON.stringify(record))
     }
   }
@@ -2160,7 +2163,12 @@ export function doubts(
   // it is left out of the runs of its file all the same.
   const failed = [...status.tests].flatMap(([id, test]) => (test.failed ? [id] : []))
   const leaveOpen = (mutants: Iterable<number>, test: TestState) => {
-    for (const mutant of new Set(mutants)) leftOutOf.set(mutant, [...(leftOutOf.get(mutant) ?? []), label(test)])
+    const name = label(test)
+    for (const mutant of new Set(mutants)) {
+      const names = leftOutOf.get(mutant)
+      if (names) names.push(name)
+      else leftOutOf.set(mutant, [name])
+    }
   }
   for (const id of new Set([...status.flaky, ...failed])) {
     const test = status.tests.get(id)
@@ -3267,7 +3275,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       entry.tests[id] = {
         name: test.name,
         baseline: test.failed ? 'fail' : test.coverage ? 'pass' : 'skip',
-        passed: test.failed && test.coverage !== undefined ? true : undefined,
+        passed: test.failed && test.coverage !== undefined ? (test.pristine ? 'pristine' : 'touched') : undefined,
         baselineMs: test.coverage?.baselineMs ?? 0,
         baselineLoops: test.coverage?.baselineLoops ?? 0,
         nonRepeatable: test.done && !test.failed && test.coverage !== undefined,
@@ -3376,13 +3384,19 @@ export async function run(options: RunOptions): Promise<RunResult> {
     for (const module of record.modules) set.add(path.resolve(module))
     loads.set(record.file, set)
   }
+  const reachedBy = new Map<string, number[]>()
   const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label, (file) => ({
     loading: status.staticMutants.get(file) ?? [],
-    reached: [
-      ...(status.staticMutants.get(file) ?? []),
-      ...[...(loads.get(file) ?? [])].flatMap((module) => mutantsIn.get(module) ?? []),
-      ...mutantsAt([...(status.exercised.get(file) ?? []), ...(status.staticSites.get(file) ?? []), ...(status.hookSites.get(file) ?? [])]),
-    ],
+    get reached() {
+      if (!reachedBy.has(file)) {
+        reachedBy.set(file, [
+          ...(status.staticMutants.get(file) ?? []),
+          ...[...(loads.get(file) ?? [])].flatMap((module) => mutantsIn.get(module) ?? []),
+          ...mutantsAt([...(status.exercised.get(file) ?? []), ...(status.staticSites.get(file) ?? []), ...(status.hookSites.get(file) ?? [])]),
+        ])
+      }
+      return reachedBy.get(file)!
+    },
   }))
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)

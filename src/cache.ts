@@ -22,8 +22,11 @@ const FORMAT = 11
 export interface CachedTest {
   name: string
   baseline: 'pass' | 'fail' | 'skip'
-  /** Of a test whose unmutated run failed, that one had passed before; what it reached is that run's. */
-  passed?: boolean
+  /**
+   * Of a test whose unmutated run failed, that one had passed before, in a
+   * worker no mutant had been tried in or in one some had; what it reached is that run's.
+   */
+  passed?: 'pristine' | 'touched'
   baselineMs: number
   baselineLoops: number
   /** The test does not pass when re-run in place; a fresh worker judges its mutants. */
