@@ -742,8 +742,8 @@ export const targets: Record<string, Target> = {
     // Outside UTC a test of `.toDateTime` fails in each engine project with no mutant.
     env: { TZ: 'UTC' },
     scopes: {
-      // With `src/expression.ts` and `src/expressions/**` beside them, 3,797 mutants, a run on a 12-core machine took 53 minutes
-      // and left 139 unconfirmed: the native evaluator's parity and fuzz tests are run one at a time, and two of them fail in copies of a worker.
+      // With `src/expression.ts` and `src/expressions/**` beside them, 3,797 mutants, a run on a 12-core machine took 30 minutes,
+      // the native evaluator's fuzz tests being run one at a time, and left 17 unconfirmed.
       proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
     },
   },
