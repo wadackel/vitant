@@ -107,26 +107,40 @@ describe('reusing a run that gave up on a test file', () => {
   }, 180_000)
 })
 
-describe('reusing a run with a test that never passed', () => {
-  const copy = path.join(owner.directory, 'never-passed')
+describe('reusing a run with a test left out for failing with no mutant on', () => {
+  const copy = path.join(owner.directory, 'left-out')
   const report = path.join(copy, 'report.json')
-  const runCopy = () => {
-    const cli = tool(['--root', copy, '--incremental', '--static', '--mutate', 'src/postage.ts', '--report', report, 'test/postage'], {
-      env: { ...process.env, POSTAGE_RATES_DOWN: '1' },
-    })
+  const runCopy = (files: string[], env: Record<string, string>) => {
+    const cli = tool(['--root', copy, '--incremental', '--static', '--mutate', 'src/postage.ts', '--report', report, ...files], { env: { ...process.env, ...env } })
     expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
     const reused = /(\d+) of \d+ test file\(s\) reused/.exec(cli.stderr)
     return { reused: Number(reused?.[1]), result: JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult }
   }
   const verdicts = (run: RunResult) => run.mutants.map((m) => `${m.id} ${m.status} ${m.leftOut?.join('; ') ?? ''}`)
-
-  it('leaves open the same mutants as the run it reuses', () => {
+  beforeAll(() => {
     fs.rmSync(copy, { recursive: true, force: true })
     fs.cpSync(fixture('basic'), copy, { recursive: true, filter: (source) => !source.includes('node_modules') })
-    const first = runCopy()
+  })
+
+  it('leaves open the same mutants as the run it reuses where the test never passed', () => {
+    const files = ['test/postage.test.ts', 'test/postage-tracking.test.ts']
+    const first = runCopy(files, { POSTAGE_RATES_DOWN: '1' })
     expect(first.result.counts.Unconfirmed).toBeGreaterThan(0)
-    const second = runCopy()
+    const second = runCopy(files, { POSTAGE_RATES_DOWN: '1' })
     expect(second.reused).toBe(2)
+    expect(second.result.rounds).toBe(0)
+    expect(verdicts(second.result)).toEqual(verdicts(first.result))
+  }, 180_000)
+
+  it('runs again a file whose test was left out after it had passed', () => {
+    fs.rmSync(path.join(copy, 'node_modules/.vitant/cache.json'), { force: true })
+    const env = { POSTAGE_RATES_QUOTA: path.join(copy, 'quota') }
+    const first = runCopy(['test/postage-quota.test.ts'], env)
+    expect(first.result.neverPassedTests).toEqual([])
+    expect(first.result.counts.Unconfirmed).toBeGreaterThan(0)
+    fs.rmSync(env.POSTAGE_RATES_QUOTA)
+    const second = runCopy(['test/postage-quota.test.ts'], env)
+    expect(second.reused).toBe(0)
     expect(verdicts(second.result)).toEqual(verdicts(first.result))
   }, 180_000)
 })

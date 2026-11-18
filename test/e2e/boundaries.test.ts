@@ -142,7 +142,7 @@ describe('a test that fails in every run with no mutant on', () => {
     let stdout = ''
     const run = (name: string, env: Record<string, string> = {}): RunResult => {
       const report = reportPath(name)
-      const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage'], {
+      const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage.test.ts', 'test/postage-tracking.test.ts'], {
         env: { ...process.env, ...env },
       })
       expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
@@ -162,6 +162,20 @@ describe('a test that fails in every run with no mutant on', () => {
     // that only another file's test was seen to reach.
     expect(open.map((mutant) => mutant.replacement)).toEqual(expect.arrayContaining(['50 / 2', 'grams >= 500']))
     for (const mutant of open) expect([mutant.replacement, mutant.status, mutant.leftOut]).toEqual([mutant.replacement, 'Unconfirmed', [test]])
+  }, 120_000)
+
+  it('leaves open, for a test left out after it passed, a mutant of a value its file made while loading', () => {
+    const report = reportPath('postage-quota')
+    const quota = report.replace(/\.json$/, '.quota')
+    fs.rmSync(quota, { force: true })
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage-quota.test.ts'], {
+      env: { ...process.env, POSTAGE_RATES_QUOTA: quota },
+    })
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(result.neverPassedTests).toEqual([])
+    const loaded = result.mutants.find((mutant) => mutant.replacement === '50 / 2')!
+    expect([loaded.status, loaded.leftOut]).toEqual(['Unconfirmed', ['test/postage-quota.test.ts > charges more for a parcel within the quota']])
   }, 120_000)
 })
 

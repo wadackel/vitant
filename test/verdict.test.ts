@@ -345,7 +345,7 @@ describe('tests that leave a mutant open', () => {
   const test = (name: string, covered: number[], pristine = true) =>
     ({ file, name, pristine, coverage: { sites: 1, covered, cleanup: [], baselineMs: 1, baselineLoops: 0, rss: 0 } }) as unknown as Tests extends Map<string, infer State> ? State : never
   const label = (state: { name: string }) => state.name
-  const nothing = () => []
+  const nothing = () => ({ loading: [], reached: [] })
 
   it('names a test left out for failing by itself for the mutants it reaches, and for all where that is not known', () => {
     const tests: Tests = new Map([
@@ -375,7 +375,7 @@ describe('tests that leave a mutant open', () => {
       ['t1', { file, name: 't1', failed: true, pristine: false } as unknown as Tests extends Map<string, infer State> ? State : never],
       ['t2', test('t2', [1])],
     ])
-    const reach = (of: string) => (of === file ? [1, 2, 4] : [9])
+    const reach = (of: string) => (of === file ? { loading: [4], reached: [1, 2, 4] } : { loading: [], reached: [9] })
     const { leftOutOf, everywhere } = doubts({ flaky: new Set(), tests }, [], label, reach)
     expect([...leftOutOf]).toEqual([
       [1, ['t1']],
@@ -385,9 +385,12 @@ describe('tests that leave a mutant open', () => {
     expect(everywhere).toEqual([])
   })
 
-  it('names a test left out after it had passed for what it reached, not for all its file reaches', () => {
+  it('names a test left out after it had passed for what it reached and what its file did while it loaded, not for all its file reaches', () => {
     const tests: Tests = new Map([['t1', test('t1', [0])]])
-    expect([...doubts({ flaky: new Set(['t1']), tests }, [], label, () => [0, 3, 5]).leftOutOf]).toEqual([[0, ['t1']]])
+    expect([...doubts({ flaky: new Set(['t1']), tests }, [], label, () => ({ loading: [3], reached: [0, 3, 5] })).leftOutOf]).toEqual([
+      [0, ['t1']],
+      [3, ['t1']],
+    ])
   })
 
   it('names a test that failed a run of its file with a mutant it reaches, and not one that does not reach it', () => {

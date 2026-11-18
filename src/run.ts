@@ -2035,12 +2035,7 @@ function restore(
         unverified: [],
         at: 0,
       }
-      // A test that never passed reaches what its file loads; one that had passed, what it reached then.
-      if (test.passed) {
-        lines.push(JSON.stringify({ ...record, baseline: 'pass', pristine: test.passed === 'pristine' }))
-        lines.push(JSON.stringify({ ...record, covered: [], cleanup: [], sites: [], killed: [], timedOut: [], survived: [] }))
-      }
-      else lines.push(JSON.stringify(record))
+      lines.push(JSON.stringify(record))
     }
   }
   for (const [mutant, verdict] of verdicts) writeStateByte(paths.state, mutant, verdict)
@@ -2144,13 +2139,14 @@ interface SuiteTask {
  * The tests that leave a mutant no run of whole files detected open, per
  * mutant: those left out of the runs for failing by themselves, and those
  * that failed a run with the mutant where another run passed. `reach` gives,
- * per test file, every mutant in the sources it loads or at a site it reached.
+ * per test file, the mutants that made a difference while it loaded or in its
+ * hooks, and every mutant in the sources it loads or at a site it reached.
  */
 export function doubts(
   status: { flaky: Set<string>; tests: Map<string, TestState> },
   records: SessionRecord[],
   label: (test: TestState) => string,
-  reach: (file: string) => Iterable<number>,
+  reach: (file: string) => { loading: Iterable<number>; reached: Iterable<number> },
 ): { leftOutOf: Map<number, string[]>; everywhere: string[]; waveredIn: Map<number, Set<string>> } {
   // A test that fails by itself is left out of the runs of its file, and a
   // mutant it reaches has then passed the file without the one test that
@@ -2179,10 +2175,12 @@ export function doubts(
     // reach is what it reaches with no failure in the way: in headlamp 26 such
     // tests were left out of 83 runs of their files that passed with a mutant
     // the suite fails with. Whatever its file loads it may reach.
-    if (!test.coverage) leaveOpen(reach(test.file), test)
+    if (!test.coverage) leaveOpen(reach(test.file).reached, test)
     // Measured in a worker that mutants had been tried in, what the test reaches is not known.
     else if (!test.pristine) everywhere.push(label(test))
-    else leaveOpen([...test.coverage.covered, ...test.coverage.cleanup], test)
+    // A value its file made while loading the test reads with no site of its own run:
+    // in fixtures/basic `postage-quota.test.ts` a mutant there survived the file without it.
+    else leaveOpen([...test.coverage.covered, ...test.coverage.cleanup, ...reach(test.file).loading], test)
   }
   // A run of a file that passes settles it for the mutant, whatever failed
   // before: the failure was other runs of the file in the way, or the test's
@@ -3234,7 +3232,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const label = (test: TestState) => `${relative(options.root, test.file)} > ${test.name}`
   const tests = status.tests.size
   const failedBaselines = [...status.tests.values()].filter((t) => t.failed).map(label)
-  const neverPassedTests = [...status.tests].flatMap(([id, test]) => ((test.failed || status.flaky.has(id)) && !test.coverage ? [label(test)] : []))
+  const neverPassedTests = [...status.tests.values()].filter((test) => test.failed && !test.coverage).map(label)
   const nonRepeatableTests = [...status.tests.values()].filter((t) => t.done && t.coverage && !t.failed).map(label)
 
   if (options.incremental && abandonedFiles.length === 0) {
@@ -3248,6 +3246,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
     for (const [file, pass] of passes) {
       // Read back, what its tests reach would pass for what a plain run shows.
       if (status.unsure.has(file)) continue
+      // Nor what a test left out after it had passed reached: read back, it would
+      // pass for a test that passes, or for one that never did.
+      if ([...status.tests].some(([id, test]) => test.file === file && test.coverage && (test.failed || status.flaky.has(id)))) continue
       const snapshot = path.join(path.dirname(file), '__snapshots__', `${path.basename(file)}.snap`)
       const entry: CachedFile = {
         deps: {},
@@ -3276,7 +3277,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
       entry.tests[id] = {
         name: test.name,
         baseline: test.failed ? 'fail' : test.coverage ? 'pass' : 'skip',
-        passed: test.failed && test.coverage !== undefined ? (test.pristine ? 'pristine' : 'touched') : undefined,
         baselineMs: test.coverage?.baselineMs ?? 0,
         baselineLoops: test.coverage?.baselineLoops ?? 0,
         nonRepeatable: test.done && !test.failed && test.coverage !== undefined,
@@ -3386,16 +3386,19 @@ export async function run(options: RunOptions): Promise<RunResult> {
     loads.set(record.file, set)
   }
   const reachedBy = new Map<string, number[]>()
-  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label, (file) => {
-    if (!reachedBy.has(file)) {
-      reachedBy.set(file, [
-        ...(status.staticMutants.get(file) ?? []),
-        ...[...(loads.get(file) ?? [])].flatMap((module) => mutantsIn.get(module) ?? []),
-        ...mutantsAt([...(status.exercised.get(file) ?? []), ...(status.staticSites.get(file) ?? []), ...(status.hookSites.get(file) ?? [])]),
-      ])
-    }
-    return reachedBy.get(file)!
-  })
+  const { leftOutOf, everywhere, waveredIn } = doubts(status, records, label, (file) => ({
+    loading: status.staticMutants.get(file) ?? [],
+    get reached() {
+      if (!reachedBy.has(file)) {
+        reachedBy.set(file, [
+          ...(status.staticMutants.get(file) ?? []),
+          ...[...(loads.get(file) ?? [])].flatMap((module) => mutantsIn.get(module) ?? []),
+          ...mutantsAt([...(status.exercised.get(file) ?? []), ...(status.staticSites.get(file) ?? []), ...(status.hookSites.get(file) ?? [])]),
+        ])
+      }
+      return reachedBy.get(file)!
+    },
+  }))
   const mutants = generated.mutants.map((mutant): MutantResult => {
     const isStatic = staticSites.has(mutant.site)
     const leftOut = [...(leftOutOf.get(mutant.id) ?? []), ...everywhere]
