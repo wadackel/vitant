@@ -106,6 +106,7 @@ jobs:
             comfyui stores
             freelens utils
             n8n proxy
+            headlamp api
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)

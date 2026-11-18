@@ -750,6 +750,24 @@ export const targets: Record<string, Target> = {
       proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
     },
   },
+  // Vitest 4, jsdom: a React application's frontend, whose tests render every
+  // Storybook story of the application through `import.meta.glob` and run
+  // its API client against a WebSocket mock server, msw and nock.
+  headlamp: {
+    repo: 'https://github.com/kubernetes-sigs/headlamp',
+    commit: '696a4cdccaf365f20fd6cc1fd33d647772fcd20f',
+    dir: 'frontend',
+    install: ['cd frontend && HUSKY=0 npm ci --no-audit --no-fund', 'cd frontend && node make-env.js'],
+    installStryker: `cd frontend && HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
+    // a file in node_modules, which is the original's, outside the copy: two
+    // of the 143 test files that reach a module of the scope fail as they
+    // load. Ground truth is made with `--jobs 1`.
+    scopes: {
+      // `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself. Each module of it is reached by some 140 test files, components among them.
+      api: { mutate: ['src/lib/k8s/api/v2/{multiplexer,hooks,webSocket,fetch,KubeList,nodeSummaryApi,retry,KubeObjectEndpoint,makeUrl}.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */
