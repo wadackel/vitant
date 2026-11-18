@@ -182,9 +182,9 @@ function isTransparent(node: Node, ancestors: readonly Node[]): boolean {
 /**
  * Whether the node is a member of `import.meta`, at the end of a chain of
  * members. Such a chain is counted as a whole, with no check of each read:
- * Vitest and Vite rewrite it by its text, `import.meta.env` into the
- * environment of the worker for one, and the checks would leave that text in
- * pieces and the module reading Vite's own object.
+ * Vitest finds `import.meta.env` by its text to turn it into the environment
+ * of the worker, and the checks would leave that text in pieces and the
+ * module reading Vite's own object.
  */
 function isOnImportMeta(node: Node): boolean {
   let object = node

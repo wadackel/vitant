@@ -362,7 +362,7 @@ describe('instrument', () => {
     }
   })
 
-  // Vitest rewrites the text `import.meta.env` into the worker's environment, and Vite replaces defined chains by their text.
+  // Vitest finds `import.meta.env` by its text to turn it into the worker's environment.
   it('keeps a chain of members of import.meta whole inside a replaced condition', () => {
     const source = "export const level = () => (import.meta.env.VOLUME === 'loud' || import.meta.env['MODE'] === import.meta.url ? 1 : 0)"
     const result = mutantsOf(source)
