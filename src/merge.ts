@@ -95,7 +95,8 @@ export function mergeReports(reports: RunResult[]): RunResult {
     },
     nearest,
     unplaced: sum(reports.map((report) => report.unplaced)),
-    skippedFiles: union(reports.map((report) => report.skippedFiles)),
+    // A file with another extension is left out by every share.
+    skippedFiles: [...new Map(reports.flatMap((report) => report.skippedFiles).map((skipped) => [skipped.file, skipped])).values()].sort((a, b) => (a.file < b.file ? -1 : 1)),
     vitestVersion: reports[0].vitestVersion,
   }
 }

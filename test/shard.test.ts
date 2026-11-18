@@ -86,6 +86,13 @@ describe('merging the reports of shares', () => {
     expect(() => mergeReports([{ ...first, shard: undefined }])).toThrow('--shard')
   })
 
+  it('names each file left out once, with its reason', () => {
+    const vue = { file: 'src/view.vue', reason: '.vue is not a language vitant instruments' }
+    const broken = { file: 'src/broken.ts', reason: 'does not parse' }
+    const merged = mergeReports([{ ...first, skippedFiles: [vue, broken] }, { ...second, skippedFiles: [vue] }])
+    expect(merged.skippedFiles).toEqual([broken, vue])
+  })
+
   it('refuses a mutant that two shares both have', () => {
     expect(() => mergeReports([first, report(2, 2, [mutant('src/b.ts', 1, 'Killed')])])).toThrow('a mutant is in two shares: src/b.ts:1:1')
   })
