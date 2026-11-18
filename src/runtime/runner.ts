@@ -553,10 +553,22 @@ const heartbeat = () => {
 heartbeat()
 realSetInterval(heartbeat, 50).unref()
 
+/** What a copy for a whole-file run is to find room for in the machine's memory, see `Room` in `native/src/lib.rs`. */
+interface Room {
+  need: number
+  spare: number
+  ceiling: number
+  registry: string
+}
+
 /** The addon that copies a process (`native/src/lib.rs`). */
 interface Cloner {
-  /** 0 in the copy, its process id in the one that was copied. */
-  fork(lock: number): number
+  /** 0 in the copy, its process id in the one that was copied; with a room, made once the machine has it. */
+  fork(lock: number, room?: Room): number
+  /** The most the copy `supervise` last waited for held that no other process shares, in bytes. */
+  heldPeak(): number
+  /** Waits until the machine has the room for this process, which is to run a test file itself. */
+  room(lock: number, room: Room): void
   pid(): number
   heartbeat(cpuMs: number, limitMs: number, floorMs: number): void
   /** In a copy: its verdict is written. */
@@ -1202,6 +1214,46 @@ function residentLimitOf(job: { fileRss: number; roomy?: boolean }): number {
   return Math.max(job.fileRss, process.memoryUsage.rss()) * 4 + 1024 ** 3
 }
 
+const heldPath = (file: string): string => path.join(paths.held, createHash('sha1').update(file).digest('hex').slice(0, 16))
+
+/** The most a whole-file run of the file in a copy has been seen to hold that no other process shares, or 0. */
+function heldBefore(file: string): number {
+  try {
+    return Number(fs.readFileSync(heldPath(file), 'utf8')) || 0
+  } catch {
+    return 0
+  }
+}
+
+function noteHeld(file: string, bytes: number): void {
+  if (bytes <= heldBefore(file)) return
+  const named = heldPath(file)
+  fs.writeFileSync(`${named}.${process.pid}`, String(bytes))
+  fs.renameSync(`${named}.${process.pid}`, named)
+}
+
+/**
+ * The room a process that is to run a test file, a copy made for a run of
+ * it included, is to find in the machine's memory before it starts. As many
+ * go at once as there are workers whatever each holds otherwise, and four
+ * runs of tailwindcss's `canonicalize-candidates.test.ts`, each holding
+ * 3.5 GB of its own, had a runner of 16 GB out of memory. What it will hold
+ * is what the file's processes have been seen to: the most a copy for a run
+ * of it held that it shared with no other process, and no less than what a
+ * worker held at the end of one of its tests with no mutant on. One held
+ * back waits for the others; nothing is left out.
+ */
+function roomFor(file: string, fileRss: number): Room {
+  return {
+    need: Math.max(heldBefore(file), fileRss),
+    spare: os.totalmem() / 16,
+    ceiling: config.memoryBytes,
+    registry: paths.room,
+  }
+}
+
+
+
 function firstError(test: TaskLike): string | undefined {
   const error = test.result?.errors?.[0] as { message?: string } | undefined
   return error?.message?.slice(0, 500)
@@ -1495,6 +1547,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeBy: 'started' | CopiedBy = 'started'
     /** This process loads the file with no mutant on, to be copied for each job once it has. */
     private template = false
+    /** This process holds room for what it takes on as it runs the file, see `takeRoom`. */
+    private roomTaken = false
     private heldBeforeLoad = new Map<string, number>()
     private openBeforeLoad: Set<string> | undefined
     private threadsBeforeLoad: Set<string> | undefined
@@ -1599,6 +1653,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       const plain = jobs.find((job) => job.plain && this.open(job) && claim(`whole.${job.id}`))
       let settled: boolean | undefined
       if (plain) {
+        // The two halves of a pair are to start at once, and one held back would not meet the other.
+        if (!plain.pair) this.takeRoom(file)
         if (plain.pair) this.pairMet = await meetOther(plain, jobs)
         this.begin(plain, true)
       } else if (cloner && !watching && jobs.length > 0 && (settled = await calm(workerResources, ['Timeout', 'Immediate']))) {
@@ -1621,6 +1677,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // would make no copy.
         this.template = jobs.some((job) => !job.plain && (!job.early || job.loading) && this.open(job) && !claimed(`whole.${job.id}`))
         if (this.template) {
+          this.takeRoom(file)
           this.waiting = jobs.filter((job) => !job.plain && job.loading && this.open(job))
           this.unpaused = false
           this.threadsBeforeLoad = await threadsOnceThePoolRuns()
@@ -1645,7 +1702,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         }
       } else {
         const job = jobs.find((job) => !job.control && this.open(job) && claim(`whole.${job.id}`))
-        if (job) this.begin(job, true)
+        if (job) {
+          this.takeRoom(file)
+          this.begin(job, true)
+        }
       }
       this.idle = !this.whole && file !== undefined && plan?.wholeOnly.includes(file) === true
       // A round in which the file's workers made none of its runs ends with
@@ -1665,10 +1725,38 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           })),
         })
       }
+      if (!this.idle && !this.whole) this.takeRoom(file)
       watch()
       workerResources = activeResources()
       this.loadStart = realNow()
       return super.onBeforeCollect?.(paths)
+    }
+
+    /**
+     * Waits for the room this process is to take as it runs the file itself,
+     * see `roomFor`. A copy made for a run of the file has had it found.
+     */
+    private takeRoom(file: string): void {
+      if (!cloner || !plan || cloned) return
+      forkLock ??= fs.openSync(paths.config, 'r')
+      const room = roomFor(file, plan.rss[file] ?? 0)
+      const asked = preciseNow()
+      cloner.room(forkLock, room)
+      const waited = preciseNow() - asked
+      this.roomTaken = true
+      // What the file takes is timed from here: the wait is no part of it, and
+      // a longer time for the file would give its runs more before they time out.
+      this.fileStart += waited
+      if (waited >= 100) emit({ type: 'room', file, need: room.need, ms: waited })
+    }
+
+    /**
+     * Takes room again for a process that made copies, which then hold what
+     * it would have gone on to, where it goes on to run the file's tests
+     * itself. Made where its clocks still stand still for the copies.
+     */
+    private retakeRoom(): void {
+      if (!this.roomTaken) this.takeRoom(this.wholeFile!)
     }
 
     /** Whether this worker gives the tests of the file their unmutated run, see `RoundPlan.probe`. */
@@ -1765,9 +1853,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private copy(job: WholeJob, by: CopiedBy): boolean {
       forkLock ??= fs.openSync(paths.config, 'r')
       const self = process.pid
+      const room = roomFor(this.wholeFile!, job.fileRss)
+      const asked = preciseNow()
+      // Made or not, what this process was to take on is no longer kept for it.
+      this.roomTaken = false
       let pid: number
       try {
-        pid = cloner!.fork(forkLock)
+        pid = cloner!.fork(forkLock, room)
       } catch {
         // No copy could be made; a worker started for the job makes the run.
         emit({ type: 'plain', file: this.wholeFile, mutant: job.mutant })
@@ -1788,6 +1880,10 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // heartbeat and never ends stops itself by the clock, see `heartbeat`.
       const copiedAt = preciseNow()
       const ended = cloner!.supervise(pid, STUCK_MS, job.control || job.calm ? 0 : residentLimitOf(job))
+      // Only a run that went to its end: one stopped for its memory is made
+      // again alone, and one stopped as a loop held what no other run will.
+      if (ended === cloner!.Ended.Done) noteHeld(this.wholeFile!, cloner!.heldPeak())
+      if (copiedAt - asked >= 100) emit({ type: 'room', file: this.wholeFile, mutant: job.mutant, need: room.need, ms: copiedAt - asked })
       if (job.trial !== undefined) {
         if (ended !== cloner!.Ended.Done) untold(job, this.wholeFile!)
       } else if (job.calm) {
@@ -1945,6 +2041,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           return true
         }
       }
+      // With no test left to copy before, the tests that follow are skipped.
+      if (this.walking && this.walking.size > 0) this.retakeRoom()
       thaw()
       return false
     }
@@ -2131,14 +2229,16 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           if (this.threaded) break
           copied = true
         }
-        thaw()
-        runtime.a = -1
         const ahead =
           shares || concurrent
             ? []
             : (plan?.whole[this.wholeFile!] ?? []).filter(
                 (job) => job.before !== undefined && !job.plain && !told.has(job.site) && runtime.h[job.site] !== 1 && this.open(job) && !claimed(`whole.${job.id}`),
               )
+        // Where the tests are run here, on to the copies before a test or as a worker the file's tries can have.
+        if (ahead.length > 0 || (!copied && plan && !plan.wholeOnly.includes(this.wholeFile!))) this.retakeRoom()
+        thaw()
+        runtime.a = -1
         if (ahead.length > 0) {
           this.walk(ahead)
           return super.onCollected?.(files)

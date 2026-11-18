@@ -40,6 +40,10 @@ for each one whether the suite detects it.
   --no-related            run every test file, not only those that import a mutated file
   --no-clone              start a worker for every whole-file run instead of copying one
   --max-workers <n>       workers at once (default: the number of processors)
+  --memory-mb <n>         megabytes the processes that run test files may be expected to hold together, from
+                          the second round on: one waits for room before it starts on a file, going by what the
+                          file held so far, and goes anyway where nothing else could give memory back (default:
+                          what the machine has available, less a sixteenth of its memory)
   --timeout-factor <n>    a test may take this many times what it took unmutated (default: 4)
   --timeout-ms <n>        and this much on top, in milliseconds (default: 3000)
   --help, --version
@@ -108,6 +112,7 @@ const { values, positionals } = (() => {
         'timeout-factor': { type: 'string', default: '4' },
         'timeout-ms': { type: 'string', default: '3000' },
         'recycle-heap-mb': { type: 'string' },
+        'memory-mb': { type: 'string', default: '0' },
         'loop-factor': { type: 'string', default: '50' },
         'loop-slack': { type: 'string', default: '1000000' },
         'budget-ms': { type: 'string', default: '30000' },
@@ -188,6 +193,7 @@ const result = await run({
   timeoutFactor: Number(values['timeout-factor']),
   timeoutMs: Number(values['timeout-ms']),
   recycleHeapMb: Number(values['recycle-heap-mb'] ?? recycleDefault()),
+  memoryMb: Number(values['memory-mb']),
   loopFactor: Number(values['loop-factor']),
   loopSlack: Number(values['loop-slack']),
   budgetMs: Number(values['budget-ms']),

@@ -213,6 +213,8 @@ export interface RunOptions extends GenerateOptions {
   timeoutFactor: number
   timeoutMs: number
   recycleHeapMb: number
+  /** The most the whole-file runs in copies may be expected to hold together, in megabytes; 0 for what the machine has available. */
+  memoryMb: number
   loopFactor: number
   loopSlack: number
   /** Work a file needs to have for each worker run it gets in a planned round. */
@@ -1388,6 +1390,7 @@ function planPhase(
     sole: [],
     handed: [],
     wholeOnly: [],
+    rss: {},
     settling: false,
     quiet: false,
     whole: {},
@@ -1475,6 +1478,7 @@ function planPhase(
     fileRss.set(test.file, Math.max(fileRss.get(test.file) ?? 0, test.coverage?.rss ?? 0))
     if (test.failed || status.flaky.has(id)) failing.set(test.file, [...(failing.get(test.file) ?? []), id])
   }
+  for (const [file, rss] of fileRss) if (rss > 0) plan.rss[file] = rss
   // What a run of a file may take is gone by its tests alone only where
   // loading it and its hooks take no time: with a `beforeAll` of 16 s and a
   // test of a millisecond, every run of a mutant the suite passes ran into
@@ -2064,6 +2068,7 @@ function writeSession(
   fs.mkdirSync(paths.results, { recursive: true })
   fs.mkdirSync(paths.trying)
   fs.mkdirSync(paths.locks)
+  fs.mkdirSync(paths.held)
   const config: SessionConfig = {
     runtimeGlobal: RUNTIME_GLOBAL,
     siteCount: generated.siteMutants.length - 1,
@@ -2071,6 +2076,7 @@ function writeSession(
     timeoutFactor: options.timeoutFactor,
     timeoutMs: options.timeoutMs,
     recycleHeapBytes: options.recycleHeapMb * 1024 * 1024,
+    memoryBytes: options.memoryMb * 1024 * 1024,
     cheapMs: options.cheapMs,
     loopFactor: options.loopFactor,
     loopSlack: options.loopSlack,

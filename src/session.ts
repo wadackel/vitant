@@ -20,6 +20,8 @@ export interface SessionConfig {
   timeoutMs: number
   /** Heap size at which a worker hands its file over to a fresh one. */
   recycleHeapBytes: number
+  /** The most the whole-file runs in copies may be expected to hold together, in bytes; 0 for what the machine has available. */
+  memoryBytes: number
   /** In the first round, tests faster than this run their mutants right away. */
   cheapMs: number
   /** A mutant run may execute `baselineLoops * loopFactor + loopSlack` guarded loop iterations. */
@@ -81,6 +83,8 @@ export interface RoundPlan {
   handed: string[]
   /** Test files of which the round only makes runs of the whole file: no test of theirs is driven, and none still needs its unmutated run. */
   wholeOnly: string[]
+  /** Per test file, the most resident memory a worker had at the end of one of its tests, unmutated, where that was measured. */
+  rss: Record<string, number>
 }
 
 export interface WholeJob {
@@ -395,6 +399,10 @@ export function sessionPaths(dir: string) {
     trying: path.join(dir, 'trying'),
     /** One directory per test file a whole-file run of which is under way and must be the only one, see `WholeJob.exclusive`. */
     locks: path.join(dir, 'locks'),
+    /** One file per test file: the most a whole-file run of it in a copy was seen to hold that no other process shares, in bytes. */
+    held: path.join(dir, 'held'),
+    /** The copies made for whole-file runs that are under way, with what each is expected to hold, and the processes waiting for room to make one. */
+    room: path.join(dir, 'room'),
     runner: path.join(dir, 'runner.mjs'),
     /** Loaded by a worker that is to be copied before anything else, see `channelWatch`. */
     preload: path.join(dir, 'preload.cjs'),
