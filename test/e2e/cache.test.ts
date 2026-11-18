@@ -107,6 +107,30 @@ describe('reusing a run that gave up on a test file', () => {
   }, 180_000)
 })
 
+describe('reusing a run with a test that never passed', () => {
+  const copy = path.join(owner.directory, 'never-passed')
+  const report = path.join(copy, 'report.json')
+  const runCopy = () => {
+    const cli = tool(['--root', copy, '--incremental', '--static', '--mutate', 'src/postage.ts', '--report', report, 'test/postage'], {
+      env: { ...process.env, POSTAGE_RATES_DOWN: '1' },
+    })
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const reused = /(\d+) of \d+ test file\(s\) reused/.exec(cli.stderr)
+    return { reused: Number(reused?.[1]), result: JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult }
+  }
+  const verdicts = (run: RunResult) => run.mutants.map((m) => `${m.id} ${m.status} ${m.leftOut?.join('; ') ?? ''}`)
+
+  it('leaves open the same mutants as the run it reuses', () => {
+    fs.rmSync(copy, { recursive: true, force: true })
+    fs.cpSync(fixture('basic'), copy, { recursive: true, filter: (source) => !source.includes('node_modules') })
+    const first = runCopy()
+    expect(first.result.counts.Unconfirmed).toBeGreaterThan(0)
+    const second = runCopy()
+    expect(second.reused).toBe(2)
+    expect(verdicts(second.result)).toEqual(verdicts(first.result))
+  }, 180_000)
+})
+
 describe('a project that keeps transformed modules on disk', () => {
   // Inside the repository, so that it resolves the repository's Vitest; the cache stays in the copy.
   const project = path.join(owner.directory, 'cached')

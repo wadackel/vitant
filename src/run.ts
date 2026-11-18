@@ -2033,7 +2033,9 @@ function restore(
         unverified: [],
         at: 0,
       }
-      lines.push(JSON.stringify(record))
+      // A test that never passed reaches what its file loads; one that had passed, what it reached then.
+      if (test.passed) lines.push(JSON.stringify({ ...record, baseline: 'pass' }), JSON.stringify({ ...record, covered: [], cleanup: [], sites: [], killed: [], timedOut: [], survived: [] }))
+      else lines.push(JSON.stringify(record))
     }
   }
   for (const [mutant, verdict] of verdicts) writeStateByte(paths.state, mutant, verdict)
@@ -3265,6 +3267,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       entry.tests[id] = {
         name: test.name,
         baseline: test.failed ? 'fail' : test.coverage ? 'pass' : 'skip',
+        passed: test.failed && test.coverage !== undefined ? true : undefined,
         baselineMs: test.coverage?.baselineMs ?? 0,
         baselineLoops: test.coverage?.baselineLoops ?? 0,
         nonRepeatable: test.done && !test.failed && test.coverage !== undefined,
