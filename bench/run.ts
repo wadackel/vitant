@@ -4,7 +4,8 @@
 //   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES]
 //
 // `--limit` ends a run of this tool that goes on for that long, having first
-// written down what its processes were doing (`<tool>.hang.txt`).
+// written down what its processes were doing (`<tool>.hang.txt`); a target's
+// own `limit` takes its place where it is longer.
 // `vitant-no-clone` is this tool starting a worker for every whole-file run.
 // `vitant-base` is the tool as another checkout has it, named by VITANT_BASE:
 // two commits are compared on one machine, CI runners differing by a third
@@ -63,7 +64,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
     prepareStrykerSandbox(dir)
     const startedAt = performance.now()
     const log = fs.openSync(path.join(outDir, `${tool}.log`), 'w')
-    const limitMs = values.limit && tool !== 'stryker' ? Number(values.limit) * 60_000 : undefined
+    const limitMs = values.limit && tool !== 'stryker' ? Math.max(Number(values.limit), targets[targetName].limit ?? 0) * 60_000 : undefined
     // A run that never ends says nothing of why once the job's own limit has
     // ended it: the processes are looked at while they are still there, by a
     // process of its own, this one being held by the run.

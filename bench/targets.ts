@@ -53,6 +53,13 @@ export interface Target {
    * coverage the config turns on.
    */
   truthArgs?: string[]
+  /**
+   * Minutes after which `bench/run.ts` ends a run of this tool as one that
+   * hangs, where they are more than its `--limit`: for a scope whose run
+   * takes most of the workflow's limit on the fastest runners, so that one
+   * on a runner half as fast is still let finish.
+   */
+  limit?: number
   scopes: Record<string, Scope>
 }
 
@@ -648,6 +655,67 @@ export const targets: Record<string, Target> = {
     scopes: {
       // The scoring assertions. With `xml.ts` and `sql.ts` beside them, 3,064 mutants: those two add 488 survivors, each a run of up to 159 test files in ground truth.
       assertions: { mutate: ['src/assertions/{bleu,gleu,rouge,ngrams,levenshtein,meteor,toolCallF1,trajectory}.ts'] },
+    },
+  },
+  // Vitest 5, happy-dom: the front end of a node-graph editor, three inline
+  // projects with test tags under `strictTags`, a setup that stops real
+  // network requests, and two retries of a failing test under `CI`.
+  comfyui: {
+    repo: 'https://github.com/Comfy-Org/ComfyUI_frontend',
+    commit: '3633e2613c24a74d58f8183ceef3b470a7801878',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@11.28.10 install --frozen-lockfile'],
+    installStryker: `HUSKY=0 npx -y pnpm@11.28.10 add -D -w ${stryker}`,
+    // From StrykerJS's sandbox a test's mock of a workspace package resolves to the checkout's, and is not found.
+    strykerInPlace: true,
+    // From a `--jobs` copy of ground truth, `vitest related` on one store runs
+    // 1,965 test files, 60 tests failing, where in the checkout it runs 6; and
+    // a test's `pnpm exec` has pnpm install the workspace in the copy,
+    // relinking the shared node_modules there. Ground truth is made with `--jobs 1`.
+    scopes: {
+      // The 13 stores that the fewest test files import, directly or not: `src/lib/litegraph/src/utils` is loaded by nearly all 2,550.
+      stores: {
+        mutate: [
+          'src/stores/{bootstrapStore,aboutPanelStore,actionBarButtonStore,serverConfigStore,topbarBadgeStore,helpCenterStore,userStore}.ts',
+          'src/stores/{nodeBookmarkStore,browserTabTitleStore,comfyRegistryStore,modelStore,assetExportStore,workflowTabActivityStore}.ts',
+        ],
+      },
+    },
+  },
+  // Vitest 5, jsdom: an application built on dependency injection, through a
+  // plugin of the project's for standard decorators, in projects the config
+  // makes as it loads, with snapshots.
+  freelens: {
+    repo: 'https://github.com/freelensapp/freelens',
+    commit: '2547f555b8286f515f443d6f29580597093365ae',
+    install: [
+      'HUSKY=0 npx -y pnpm@12.18.0 install --frozen-lockfile',
+      // Tests of the extension API read these builds, and fail without them with no mutant.
+      'npx -y pnpm@12.18.0 --filter @freelensapp/extensions build',
+      'npx -y pnpm@12.18.0 build:fixture-extension',
+      // Electron fetches its binary the first time it is loaded, and two test workers doing so at once fail each other.
+      'cd packages/core && node node_modules/electron/install.js',
+    ],
+    installStryker: `HUSKY=0 npx -y pnpm@12.18.0 add -D -w ${stryker}`,
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
+    strykerInPlace: true,
+    // As the project's `test:unit:core` script runs the package's tests.
+    projects: ['@freelensapp/core'],
+    env: { TZ: 'UTC' },
+    // The scope's run took 7,412 to 7,824 s on a Xeon 6975P-C against the workflow's 150 minutes. A job of this tool alone stays within its six hours.
+    limit: 300,
+    // From a `--jobs` copy of ground truth, most of the 303 test files that
+    // reach one module of the scope fail as they load (10 tests run, against
+    // 2,882 in the checkout). Ground truth is made with `--jobs 1`.
+    scopes: {
+      // The modules of `src/common/utils` that are not injectables or their registration. Every test that builds
+      // the container loads every injectable through `import.meta.glob`, and these modules with them: some 300 test files reach each.
+      utils: {
+        mutate: [
+          'packages/core/src/common/utils/{async-computed,await-lock,cluster-id-url-parsing,enum,get-error-message,get-latest-version-channel,registrator-helper,replace-observable-object,singleton,toJS,wait-for-path}.ts',
+          'packages/core/src/common/utils/{add-separator,composable-responsibilities,composite,date,find-exactly-one,reactive-now,with-error-suppression}/**/*.ts',
+          'packages/core/src/common/utils/{resolve-system-proxy/resolve-system-proxy-{injection-token,channel},sync-box/{channels,sync-box-injection-token}}.ts',
+        ],
+      },
     },
   },
 }
