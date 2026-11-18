@@ -2325,13 +2325,27 @@ export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<num
 }
 
 /**
+ * The list of projects in the root config that Vitest of this version runs:
+ * `projects` from 3.2, where a `workspace` given with it is ignored, and
+ * `workspace` before 4, as 3.0 and 3.1 have nothing else. A `workspace` that
+ * is a string names a file of projects, which this config does not hold.
+ */
+export function declaredProjects(test: Record<string, unknown>, major: number, minor: number): unknown[] {
+  const list = (value: unknown) => (Array.isArray(value) ? value : [])
+  if (major >= 4) return list(test.projects)
+  if (minor >= 2 && test.projects) return list(test.projects)
+  return list(test.workspace)
+}
+
+/**
  * Before Vitest 4, the arguments the suite's workers get from the config:
  * each pool takes those the root's `poolOptions` give it, whatever a project
  * gives, and a project runs in the pool it names or, where it names none, in
  * `forks`, or in the root's pool where it extends the root. The tool runs
  * every project in one pool of forks, which takes one list: where projects run
  * in pools given different lists, the first project's is kept and `others`
- * names the pools whose lists are not. Only the projects the tool runs count:
+ * names the pools whose lists are not. `test.projects` is to hold the list
+ * `declaredProjects` gives. Only the projects the tool runs count:
  * those written inline (one given by a path is left out, see `instrumented`
  * below) that `names` selects as Vitest's `--project` does, and not in a
  * browser. One that extends a file and names no pool runs in the pool that
@@ -2449,7 +2463,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     enforce: 'pre' as const,
     // Projects declared in the config get their own servers, which take
     // neither the plugins nor the runner given to the root.
-    config(config: { test?: Record<string, unknown> & { projects?: unknown[] } }) {
+    config(config: { test?: Record<string, unknown> }) {
       // What the project starts its workers with stays: tests can depend
       // on it, `--expose-gc` for one.
       // Vitest keys the module cache it keeps on disk by the source on disk
@@ -2475,11 +2489,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
       // The root's config comes first, before the servers of its projects
       // call this with theirs, and only its `poolOptions` reach a pool.
+      const declared = declaredProjects(config.test ?? {}, major, minor)
       if (major < 4 && rootArgv === undefined) {
-        rootArgv = poolArgv(config.test ?? {}, options.projects)
+        rootArgv = poolArgv({ ...config.test, projects: declared }, options.projects)
         if (rootArgv.others.length > 0) leftOut.poolArgv = rootArgv.others
       }
-      for (const project of config.test?.projects ?? []) {
+      for (const project of declared) {
         if (typeof project !== 'object' || project === null) continue
         const inline = project as { plugins?: unknown[]; test?: Record<string, unknown> }
         inline.plugins = [...(inline.plugins ?? []), instrumentPlugin, readsPlugin()]

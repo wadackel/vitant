@@ -156,7 +156,7 @@ Against the same measurement of [b58eef9](https://github.com/wadackel/vitant/com
 - **Type tests are not run.** A mutant that only breaks types passes here.
 - **Tests that read the source from disk see the original.** Mutants live in what Vitest serves, not in the files.
 - **One test file runs in many processes at once**, which a plain run never does. Tests that listen on a port or write files next to themselves get in each other's way; vitant notices and runs such a file one process at a time.
-- **A Vitest project with a config file of its own is not run.** Projects declared in the root config are.
+- **A Vitest project with a config file of its own is not run.** Projects written inline in the root config, under `test.projects` or, before Vitest 4, `test.workspace`, are.
 - **Only JavaScript and TypeScript are mutated.** The `<script>` of a `.vue` or `.svelte` component is not: such a file is named in the output and left out.
 - **A test that fails now and then** is left out once it is caught failing with no mutant on, and a mutant only it reaches is reported as Unconfirmed, not Survived. A test that is not caught, or that a mutant makes fail by chance, can still give a wrong verdict.
 - **A timeout is a judgement.** No run is ended sooner than the project's own limit for the test that is running, but a mutant that keeps a hook busy for many times longer than the file takes, or makes several tests each wait for most of their time, and still finishes is called a timeout here.

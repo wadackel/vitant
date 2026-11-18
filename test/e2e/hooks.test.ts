@@ -95,14 +95,43 @@ it.each(versions)('keeps the hooks and assertions of each try to that try with %
   expect(records.filter((record) => record.baseline === 'fail' || record.nonRepeatable || record.needsReplay)).toEqual([])
 }, 180_000)
 
+// Vitest 3.0 and 3.1 have no `projects`; their projects are written under
+// `workspace`, which 3.2 still reads where `projects` is not given. Neither
+// server of such a project takes the plugins given to the root's.
+it.each(versions)('puts the mutants into the projects written inline in the root config, under `workspace` before Vitest 4, with %s', (version, vitestPath) => {
+  const project = path.join(owner.directory, `inline-${version}`)
+  const [major] = (JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version as string).split('.').map(Number)
+  fs.mkdirSync(path.join(project, 'src'), { recursive: true })
+  fs.mkdirSync(path.join(project, 'test'))
+  fs.mkdirSync(path.join(project, 'node_modules'))
+  fs.symlinkSync(vitestPath, path.join(project, 'node_modules/vitest'), 'junction')
+  fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
+  const list = "[{ extends: true, test: { name: 'lease', include: ['test/lease.test.ts'] } }, { test: { name: 'tip', include: ['test/tip.test.ts'] } }]"
+  fs.writeFileSync(path.join(project, 'vitest.config.mjs'), `export default { test: { ${major < 4 ? 'workspace' : 'projects'}: ${list} } }\n`)
+  for (const name of ['lease', 'tip']) {
+    fs.copyFileSync(path.join(root, `fixtures/basic/src/${name}.ts`), path.join(project, `src/${name}.ts`))
+    fs.copyFileSync(path.join(root, `fixtures/basic/test/${name}.test.ts`), path.join(project, `test/${name}.test.ts`))
+  }
+  const report = owner.reportPath(`inline-${version}`)
+  const cli = owner.tool(['--root', project, '--report', report])
+  expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+  const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+  expect(result.vitestVersion).toBe(JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version)
+  expect(result.leftOut.projects).toEqual({})
+  expect(result.mutants.map((mutant) => `${mutant.file}:${mutant.location.start.line} ${mutant.replacement} ${mutant.status}`).sort()).toEqual([
+    'src/lease.ts:1 {} Killed',
+    'src/lease.ts:2 hours / 3 Killed',
+    'src/tip.ts:1 {} Killed',
+    'src/tip.ts:2 amount * 5 Killed',
+  ])
+}, 180_000)
+
 // Inline: the main process sets every project to update no snapshot.
-// Before Vitest 3.2 there is no `projects`, and the tool puts no mutant into
-// a project declared under `workspace`: there the root project is the one.
-it.each(versions)('leaves a snapshot file of an inline project, or before Vitest 3.2 of the root one, as it was, with %s', (version, vitestPath) => {
+it.each(versions)('leaves a snapshot file of an inline project as it was, with %s', (version, vitestPath) => {
   const project = path.join(owner.directory, `snapshot-${version}`)
   const snap = 'test/__snapshots__/copies.test.ts.snap'
   const [major, minor] = (JSON.parse(fs.readFileSync(path.join(vitestPath, 'package.json'), 'utf8')).version as string).split('.').map(Number)
-  const inline = major > 3 || minor >= 2 ? "projects: [{ extends: true, test: { name: 'inline' } }]" : ''
+  const inline = `${major > 3 || minor >= 2 ? 'projects' : 'workspace'}: [{ extends: true, test: { name: 'inline' } }]`
   fs.mkdirSync(path.join(project, 'src'), { recursive: true })
   fs.mkdirSync(path.join(project, 'test/__snapshots__'), { recursive: true })
   fs.mkdirSync(path.join(project, 'node_modules'))
