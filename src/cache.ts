@@ -11,7 +11,12 @@ import { parseSync } from 'oxc-parser'
 import type { Generated } from './mutate/generate.ts'
 import { relative } from './session.ts'
 
-/** Bumped whenever cached data would be read differently. */
+/**
+ * Bumped whenever cached data would be read differently, or this tool would
+ * now make it differently from the same sources: the fingerprint holds no
+ * version of the tool, so results the instrumenter got wrong before a fix
+ * would be reused.
+ */
 const FORMAT = 11
 
 export interface CachedTest {
