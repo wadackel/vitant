@@ -461,7 +461,7 @@
     {"file":"lib/util/sample.ts","start":[12,17],"end":[12,76],"mutator":"ArithmeticOperator","replacement":"index - Math.floor(Math.random() * (lastIndex - index + 1))","suite":"fail"},
     {"file":"lib/util/sample.ts","start":[12,36],"end":[12,75],"mutator":"ArithmeticOperator","replacement":"Math.random() / (lastIndex - index + 1)","suite":"pass"},
     {"file":"lib/util/sample.ts","start":[12,53],"end":[12,74],"mutator":"ArithmeticOperator","replacement":"lastIndex - index - 1","suite":"pass"},
-    {"file":"lib/util/sample.ts","start":[12,53],"end":[12,70],"mutator":"ArithmeticOperator","replacement":"lastIndex + index","suite":"pass"},
+    {"file":"lib/util/sample.ts","start":[12,53],"end":[12,70],"mutator":"ArithmeticOperator","replacement":"lastIndex + index","suite":"fail","note":"The index is drawn with Math.random, unseeded, and widening its range lets it fall past the end, which a test of bitbucket-server/index.spec.ts finds. With the mutant written in, the related tests failed in 6 of 10 runs made by hand, and in the first of the two runs ground truth made; either verdict is explained by it."},
     {"file":"lib/util/sample.ts","start":[13,36],"end":[13,65],"mutator":"ArrayDeclaration","replacement":"[]","suite":"fail"},
     {"file":"lib/util/sample.ts","start":[14,4],"end":[14,14],"mutator":"AssignmentOperator","replacement":"index -= 1","suite":"timeout"},
     {"file":"lib/util/sample.ts","start":[16,9],"end":[16,38],"mutator":"MethodExpression","replacement":"result","suite":"fail"},
