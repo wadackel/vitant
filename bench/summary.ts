@@ -31,6 +31,9 @@ for (const [tool, timing] of Object.entries<{ seconds: number[]; exitCodes: numb
   const time = timing.seconds.map((seconds, index) => `${seconds} s${timing.exitCodes[index] === 0 ? '' : ` (exit ${timing.exitCodes[index]})`}`)
   console.log(`| ${tool} | ${time.join(', ')} | ${counts} | ${runs} | ${report?.truth ?? ''} |`)
 }
+for (const [tool, reason] of Object.entries<string>(summary.notRun ?? {})) {
+  if (!summary.timings[tool]) console.log(`| ${tool} | not run: ${reason} | | | |`)
+}
 
 const strykerFile = path.join(path.dirname(file), 'stryker.json')
 if (summary.timings.stryker?.exitCodes.at(-1) === 0 && fs.existsSync(strykerFile)) {
