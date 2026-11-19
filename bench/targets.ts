@@ -94,6 +94,22 @@ export function targetEnv(
 
 const stryker = '@stryker-mutator/core@10.0.0 @stryker-mutator/vitest-runner@10.0.0'
 
+// The two configs of vercel/ai's `packages/ai`, which `vitest.config.js` makes with a function it exports.
+const vercelAi: Omit<Target, 'config' | 'scopes'> = {
+  repo: 'https://github.com/vercel/ai',
+  commit: '8ba3940d3dd1f3cd3c4365bbaec505c6ef0eb1e3',
+  dir: 'packages/ai',
+  install: [
+    'ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.14.0 install --frozen-lockfile',
+    // As the repository's `test` task builds first: the tests import the workspace packages from their builds,
+    // and one compiles a declaration against the package's own.
+    "npx -y pnpm@12.14.0 exec turbo build --filter='ai...'",
+  ],
+  installStryker: `cd packages/ai && npx -y pnpm@12.14.0 add -D ${stryker}`,
+  // A mutant that breaks only types fails the suite's type check, which this tool does not run.
+  truthArgs: ['--typecheck.enabled=false'],
+}
+
 export const targets: Record<string, Target> = {
   excalidraw: {
     repo: 'https://github.com/excalidraw/excalidraw',
@@ -771,6 +787,75 @@ export const targets: Record<string, Target> = {
       // The `.ts` modules of `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself, each of which would add a run of about
       // a minute to ground truth in the checkout alone. Each module of the scope is imported by 124 to 176 test files, components among them.
       api: { mutate: ['src/lib/k8s/api/v2/{multiplexer,hooks,webSocket,fetch,KubeList,nodeSummaryApi,retry,KubeObjectEndpoint,makeUrl}.ts'] },
+    },
+  },
+  // Vitest 4: a schema library whose parsers compile themselves to code with
+  // `new Function`, run as the repository's `test:compile` runs its tests:
+  // every test of the package, with compilation on for all of them.
+  zod: {
+    repo: 'https://github.com/colinhacks/zod',
+    commit: 'fef16cba0cf6668eb25ecc32fdfe2ce0a46f6f80',
+    install: [
+      // The repository's package manager is nub, which reads the workspace from `package.json` and
+      // writes a pnpm lockfile pnpm does not take as it is: peers resolved to the workspace's `zod`
+      // as `zod@4.6.7`, which it has no entry for, and aliases under their own names. The entry is
+      // added for the install and the lockfile put back after it.
+      `printf '%s\\n' 'packages:' '  - packages/*' > pnpm-workspace.yaml`,
+      `node --input-type=module -e 'import fs from "node:fs"; const s = fs.readFileSync("pnpm-lock.yaml", "utf8"); fs.writeFileSync("pnpm-lock.yaml", s.replace("\\npackages:\\n\\n", "\\npackages:\\n\\n  zod@4.6.7:\\n    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}\\n\\n").replace("\\nsnapshots:\\n\\n", "\\nsnapshots:\\n\\n  zod@4.6.7: {}\\n\\n"))'`,
+      // The docs package's postinstall runs nub; nothing the tests load has a script to run.
+      'HUSKY=0 npm_config_package_manager_strict=false npx -y pnpm@10.33.0 install --frozen-lockfile --ignore-scripts --config.strict-store-pkg-content-check=false',
+      'git checkout pnpm-lock.yaml',
+    ],
+    installStryker: `HUSKY=0 npm_config_package_manager_strict=false npx -y pnpm@10.33.0 add -D -w ${stryker} --ignore-scripts --config.strict-store-pkg-content-check=false`,
+    // Stryker copies this directory symlink as a file; nothing the tests load is in it.
+    strykerIgnore: ['.codex/skills'],
+    // The root config's projects are the packages' and this one, each a config file of its own, which this tool does
+    // not run; the package's config merges the root's, whose projects then name files from the package's directory.
+    // This config has the type check off, which the root config has on.
+    config: 'vitest.compile.config.ts',
+    scopes: {
+      core: { mutate: ['packages/zod/src/v4/core/{compile,checks,util}.ts'] },
+    },
+  },
+  // Vitest 4: the AI SDK's core package, with 993 snapshots and a type check
+  // of `*.test-d.ts` files turned on, run once in node and once in the edge
+  // runtime (@edge-runtime/vm), each from a config of its own.
+  'vercel-ai': {
+    ...vercelAi,
+    config: 'vitest.node.config.js',
+    scopes: {
+      node: { mutate: ['src/{util,prompt}/**/!(*.test-d).ts'] },
+    },
+  },
+  // The edge config leaves out `*.node.test.ts`.
+  'vercel-ai-edge': {
+    ...vercelAi,
+    config: 'vitest.edge.config.js',
+    scopes: {
+      edge: { mutate: ['src/{util,prompt}/**/!(*.test-d).ts'] },
+    },
+  },
+  // Vitest 5: SvelteKit's runtime, JavaScript typed through JSDoc, in two
+  // inline projects, one of them in `forks` with `--expose-gc`, from a config
+  // with a name of its own so that the test applications do not pick it up.
+  sveltekit: {
+    repo: 'https://github.com/sveltejs/kit',
+    commit: 'ccd3474411a179abac03c1b8310e8c25f7a3b1ae',
+    dir: 'packages/kit',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
+    installStryker: `cd packages/kit && npx -y pnpm@12.18.0 add -D ${stryker}`,
+    config: 'vitest.kit.config.js',
+    scopes: {
+      // `src/utils` and the modules of `src/runtime/server` that the package's own tests reach. The rest, 3,359 mutants,
+      // 2,419 of them reached by no test, mostly handle requests and render pages, which the repository tests through its test
+      // applications and their servers.
+      server: {
+        mutate: [
+          'src/utils/*.js',
+          'src/runtime/server/{cookie,csrf,errors,internal,state,validate-headers}.js',
+          'src/runtime/server/page/{csp,hash_bytes,serialize_data}.js',
+        ],
+      },
     },
   },
 }

@@ -107,6 +107,10 @@ jobs:
             freelens utils
             n8n proxy
             headlamp api
+            zod core
+            vercel-ai node
+            vercel-ai-edge edge
+            sveltekit server
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
