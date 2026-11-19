@@ -869,6 +869,63 @@ export const targets: Record<string, Target> = {
       },
     },
   },
+  renovate: {
+    repo: 'https://github.com/renovatebot/renovate',
+    commit: 'da9664321d4d16371084d616d2ac5c57de02e27d',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@11.28.11 install --frozen-lockfile'],
+    installStryker: `HUSKY=0 npx -y pnpm@11.28.11 add -D -w ${stryker}`,
+    env: { NODE_ENV: 'test', GIT_ALLOW_PROTOCOL: 'file', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', LOG_LEVEL: 'fatal', CI: null },
+    truthArgs: ['--update=none', '--coverage.enabled=false'],
+    scopes: {
+      util: { mutate: ['lib/util/{modules,split,interpolator,markdown,memoize,fingerprint,ignore,minimum-release-age,pretty-time,sample}.ts'] },
+    },
+  },
+  'lint-staged': {
+    repo: 'https://github.com/lint-staged/lint-staged',
+    commit: '49b5472587a6ad112bb32fe1ea3d4c324f2e2ecc',
+    install: ['HUSKY=0 npm ci --no-audit --no-fund'],
+    installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    binOnPath: true,
+    projects: ['unit', 'integration'],
+    truthArgs: ['--coverage.enabled=false'],
+    scopes: {
+      lib: { mutate: ['lib/*.js'] },
+    },
+  },
+  tsdown: {
+    repo: 'https://github.com/rolldown/tsdown',
+    commit: 'e2e174deff987cf3e0d48eac0ef8b59f68f736c0',
+    install: ['pnpm install --frozen-lockfile'],
+    installStryker: `pnpm add -D -w ${stryker}`,
+    scopes: {
+      src: { mutate: ['src/**/*.ts'] },
+    },
+  },
+  'happy-dom': {
+    repo: 'https://github.com/capricorn86/happy-dom',
+    commit: '5e100dedb73111a276f75a3daff3a506e2524759',
+    dir: 'packages/happy-dom',
+    install: ['HUSKY=0 npm ci --no-audit --no-fund'],
+    installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund -w packages/happy-dom ${stryker}`,
+    scopes: {
+      selectors: { mutate: ['src/query-selector/*.ts', 'src/dom/DOMTokenList.ts'] },
+    },
+  },
+  'mikro-orm': {
+    repo: 'https://github.com/mikro-orm/mikro-orm',
+    commit: '5f86240cf8daaaa0179b76dd9f1f3aaea145074f',
+    install: [
+      'HUSKY=0 corepack yarn install --immutable',
+      // The files `test:sqlite` runs, `sqlite.test.ts` as a filter, in a config of their own: StrykerJS takes no filter, and `vitest related` takes none.
+      `printf '%s\\n' 'import config from "./vitest.config.ts";' 'export default { ...config, test: { ...config.test, projects: config.test.projects.map((project) => ({ ...project, test: { ...project.test, include: project.test.include.map((glob) => glob.replace(/[*][.]test[.]ts$/, "*sqlite.test.ts")) } })) } };' > vitest.sqlite.config.ts`,
+    ],
+    installStryker: `HUSKY=0 corepack yarn add -D ${stryker}`,
+    env: { npm_lifecycle_event: 'test:sqlite' },
+    config: 'vitest.sqlite.config.ts',
+    scopes: {
+      core: { mutate: ['packages/core/src/{unit-of-work,hydration,serialization}/**/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */

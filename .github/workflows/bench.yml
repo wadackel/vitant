@@ -111,6 +111,11 @@ jobs:
             vercel-ai node
             vercel-ai-edge edge
             sveltekit server
+            renovate util
+            lint-staged lib
+            tsdown src
+            happy-dom selectors
+            mikro-orm core
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
