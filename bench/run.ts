@@ -194,17 +194,7 @@ if (skipped) {
       2,
     ),
   )
-  // The bin npx would find, started without npx: npm refuses to run in a project whose `devEngines` names another package manager.
-  timings.push(time('stryker', nearestBin(dir, 'stryker'), ['run', config], dir))
-}
-
-/** `node_modules/.bin/<name>` in `dir` or the nearest directory above it that has one. */
-function nearestBin(dir: string, name: string): string {
-  for (let at = dir; ; at = path.dirname(at)) {
-    const bin = path.join(at, 'node_modules', '.bin', name)
-    if (fs.existsSync(bin)) return bin
-    if (path.dirname(at) === at) throw new Error(`no node_modules/.bin/${name} in ${dir} or above it`)
-  }
+  timings.push(time('stryker', 'npx', ['stryker', 'run', config], dir))
 }
 
 interface Reported {
