@@ -514,7 +514,7 @@
     {"file":"src/lib/k8s/api/v2/nodeSummaryApi.ts","start":[67,10],"end":[67,17],"mutator":"ConditionalExpression","replacement":"true","suite":"pass"},
     {"file":"src/lib/k8s/api/v2/nodeSummaryApi.ts","start":[67,10],"end":[67,17],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},
     {"file":"src/lib/k8s/api/v2/nodeSummaryApi.ts","start":[67,19],"end":[69,7],"mutator":"BlockStatement","replacement":"{}","suite":"pass"},
-    {"file":"src/lib/k8s/api/v2/nodeSummaryApi.ts","start":[73,20],"end":[75,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
+    {"file":"src/lib/k8s/api/v2/nodeSummaryApi.ts","start":[73,20],"end":[75,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail","note":"with the body of cancel() empty its clearInterval(handle) never runs, and the interval goes on into the tests that follow: on a 12-core Mac the related tests fail in 6 of 8 runs with it, one to three tests of other stories in storybook.test.tsx, different ones in each, and pass in the other 2"},
     {"file":"src/lib/k8s/api/v2/retry.ts","start":[21,77],"end":[27,1],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
     {"file":"src/lib/k8s/api/v2/retry.ts","start":[22,6],"end":[22,81],"mutator":"LogicalOperator","replacement":"error instanceof ApiError || (error.status === 401 || error.status === 403)","suite":"fail"},
     {"file":"src/lib/k8s/api/v2/retry.ts","start":[22,6],"end":[22,81],"mutator":"ConditionalExpression","replacement":"true","suite":"fail"},

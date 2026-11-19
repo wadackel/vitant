@@ -769,7 +769,8 @@ export const targets: Record<string, Target> = {
     // of the 143 test files that reach a module of the scope fail as they
     // load. Ground truth is made with `--jobs 1`.
     scopes: {
-      // The `.ts` modules of `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself. Each module of it is reached by some 140 test files, components among them.
+      // The `.ts` modules of `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself, each of which would add a run of about
+      // a minute to ground truth in the checkout alone. Each module of the scope is imported by 124 to 176 test files, components among them.
       api: { mutate: ['src/lib/k8s/api/v2/{multiplexer,hooks,webSocket,fetch,KubeList,nodeSummaryApi,retry,KubeObjectEndpoint,makeUrl}.ts'] },
     },
   },
