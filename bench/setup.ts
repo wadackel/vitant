@@ -17,17 +17,19 @@ if (!target) {
 const dir = workDir(name)
 const env = { ...targetEnv(target, { dir: projectDir(name) }), VITANT_BENCH: import.meta.dirname }
 const sh = (command: string) => execSync(command, { cwd: dir, stdio: 'inherit', env })
+// The checkout is not the install: a target's variables can keep git from fetching, as `GIT_ALLOW_PROTOCOL=file` does.
+const git = (command: string) => execSync(command, { cwd: dir, stdio: 'inherit' })
 
 if (!fs.existsSync(path.join(dir, '.git'))) {
   fs.mkdirSync(dir, { recursive: true })
-  sh('git init -q')
-  sh(`git remote add origin ${target.repo}`)
+  git('git init -q')
+  git(`git remote add origin ${target.repo}`)
 }
 // Depth 2 so scopes can diff the pinned commit against its parent.
 // Ground truth names a mutant by its text: the sources are to be the bytes the commit holds, on Windows too.
-sh('git config core.autocrlf false')
-sh(`git fetch -q --depth 2 origin ${target.commit}`)
-sh('git checkout -q --force FETCH_HEAD')
+git('git config core.autocrlf false')
+git(`git fetch -q --depth 2 origin ${target.commit}`)
+git('git checkout -q --force FETCH_HEAD')
 for (const command of target.install) sh(command)
 sh(target.installStryker)
 // Here, next to the install that may have been the one to write it, not at the first run of the scope.
