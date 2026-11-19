@@ -909,22 +909,6 @@ export const targets: Record<string, Target> = {
       lib: { mutate: ['lib/*.js'] },
     },
   },
-  // Vitest 5: a bundler's front end, each test building fixtures with
-  // rolldown into a `tests/temp` directory that test files share.
-  tsdown: {
-    repo: 'https://github.com/rolldown/tsdown',
-    commit: 'e2e174deff987cf3e0d48eac0ef8b59f68f736c0',
-    // pnpm as `devEngines` names it, 12.18.0, which the pnpm on PATH fetches and hands over to; npx refuses to run in the project.
-    install: ['pnpm install --frozen-lockfile'],
-    // Tests call `process.chdir()`, which `threads` does not allow, and StrykerJS 10.0.0 takes no pool.
-    installStryker: 'pnpm add -D -w @stryker-mutator/core@10.1.1 @stryker-mutator/vitest-runner@10.1.1',
-    strykerPool: 'forks',
-    scopes: {
-      // The modules of `src/features` that write no files. With all of `src`, 4,031 mutants, a hosted run left 2,180 pending:
-      // a mutant rewrote the project's own `package.json`, after which a test of `packages/exe` failed to load.
-      features: { mutate: ['src/features/{deps,entry,target,tsconfig,cjs,node-protocol,shebang,shims,output,report,hooks}.ts'] },
-    },
-  },
   // Vitest 4: a DOM implementation, tests held to 500 ms each, Node's
   // modules mocked from the setup file.
   'happy-dom': {
