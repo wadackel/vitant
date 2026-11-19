@@ -869,19 +869,28 @@ export const targets: Record<string, Target> = {
       },
     },
   },
+  // Vitest 4: a dependency bot's utilities, tested with nock, memfs and a
+  // native regular expression engine (re2), coverage turned on by the config.
   renovate: {
     repo: 'https://github.com/renovatebot/renovate',
     commit: 'da9664321d4d16371084d616d2ac5c57de02e27d',
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@11.28.11 install --frozen-lockfile'],
     installStryker: `HUSKY=0 npx -y pnpm@11.28.11 add -D -w ${stryker}`,
-    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has. In place, a test loads
+    // StrykerJS's backup of `lib/expose.ts`, which finds no `../package.json`, and its first run fails: it does not run here.
     strykerInPlace: true,
+    // The variables of the project's `vitest` script. Under `CI` the config adds reporters of its own.
     env: { NODE_ENV: 'test', GIT_ALLOW_PROTOCOL: 'file', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', LOG_LEVEL: 'fatal', CI: null },
     truthArgs: ['--update=none', '--coverage.enabled=false'],
     scopes: {
+      // Modules of `lib/util` whose related tests, a run of ground truth, take 75 s or less here. `check-token`, `coerce` and `emoji` are
+      // reached by 383 to 396 test files and take 151 to 215 s; most of the rest of `lib/util` by over 400 files, going by their imports.
       util: { mutate: ['lib/util/{modules,split,interpolator,markdown,memoize,fingerprint,ignore,minimum-release-age,pretty-time,sample}.ts'] },
     },
   },
+  // Vitest 5, plain ESM JavaScript: a git hook runner, its integration tests
+  // running real git in temporary repositories and the formatter the
+  // project uses, coverage held to 100% by the config.
   'lint-staged': {
     repo: 'https://github.com/lint-staged/lint-staged',
     commit: '49b5472587a6ad112bb32fe1ea3d4c324f2e2ecc',
@@ -889,23 +898,35 @@ export const targets: Record<string, Target> = {
     installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
     // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
     strykerInPlace: true,
+    // The integration tests start `oxfmt` by its name.
     binOnPath: true,
+    // `e2e` runs the published command, `types` Vitest's type check.
     projects: ['unit', 'integration'],
+    // A run of some of the test files falls short of the config's coverage thresholds and fails by that alone.
     truthArgs: ['--coverage.enabled=false'],
+    // From a `--jobs` copy of ground truth, which has no `.git`, three tests fail with no mutant. Ground truth is made with `--jobs 1`.
     scopes: {
       lib: { mutate: ['lib/*.js'] },
     },
   },
+  // Vitest 5: a bundler's front end, each test building fixtures with
+  // rolldown into a `tests/temp` directory that test files share.
   tsdown: {
     repo: 'https://github.com/rolldown/tsdown',
     commit: 'e2e174deff987cf3e0d48eac0ef8b59f68f736c0',
+    // pnpm as `devEngines` names it, 12.18.0, which the pnpm on PATH fetches and hands over to; npx refuses to run in the project.
     install: ['pnpm install --frozen-lockfile'],
+    // Tests call `process.chdir()`, which `threads` does not allow, and StrykerJS 10.0.0 takes no pool.
     installStryker: 'pnpm add -D -w @stryker-mutator/core@10.1.1 @stryker-mutator/vitest-runner@10.1.1',
     strykerPool: 'forks',
     scopes: {
+      // The modules of `src/features` that write no files. With all of `src`, 4,031 mutants, a hosted run left 2,180 pending:
+      // a mutant rewrote the project's own `package.json`, after which a test of `packages/exe` failed to load.
       features: { mutate: ['src/features/{deps,entry,target,tsconfig,cjs,node-protocol,shebang,shims,output,report,hooks}.ts'] },
     },
   },
+  // Vitest 4: a DOM implementation, tests held to 500 ms each, Node's
+  // modules mocked from the setup file.
   'happy-dom': {
     repo: 'https://github.com/capricorn86/happy-dom',
     commit: '5e100dedb73111a276f75a3daff3a506e2524759',
@@ -913,9 +934,14 @@ export const targets: Record<string, Target> = {
     install: ['HUSKY=0 npm ci --no-audit --no-fund'],
     installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund -w packages/happy-dom ${stryker}`,
     scopes: {
+      // Every module of `src/css`, `src/dom` and `src/query-selector` is reached by 276 of the 304 test files, each run of ground
+      // truth being a run of nearly the whole suite: the selector engine and `DOMTokenList.ts`, 1,787 of their 10,606 mutants.
       selectors: { mutate: ['src/query-selector/*.ts', 'src/dom/DOMTokenList.ts'] },
     },
   },
+  // Vitest 5: an ORM's core against SQLite through better-sqlite3, in two
+  // inline projects, one for legacy decorators through oxc and one for
+  // standard decorators through SWC, with `isolate: false`.
   'mikro-orm': {
     repo: 'https://github.com/mikro-orm/mikro-orm',
     commit: '5f86240cf8daaaa0179b76dd9f1f3aaea145074f',
@@ -925,10 +951,13 @@ export const targets: Record<string, Target> = {
       `printf '%s\\n' 'import config from "./vitest.config.ts";' 'export default { ...config, test: { ...config.test, projects: config.test.projects.map((project) => ({ ...project, test: { ...project.test, include: project.test.include.map((glob) => glob.replace(/[*][.]test[.]ts$/, "*sqlite.test.ts")) } })) } };' > vitest.sqlite.config.ts`,
     ],
     installStryker: `HUSKY=0 corepack yarn add -D ${stryker}`,
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
     strykerInPlace: true,
+    // As `test:sqlite` runs; the global setup starts MongoDB, downloading it first, under any other script.
     env: { npm_lifecycle_event: 'test:sqlite' },
     config: 'vitest.sqlite.config.ts',
     scopes: {
+      // With all of `unit-of-work`, `hydration` and `serialization`, 3,605 mutants, a hosted run had not ended after 150 minutes.
       core: { mutate: ['packages/core/src/unit-of-work/{ChangeSetComputer,CommitOrderCalculator,IdentityMap,ChangeSet}.ts', 'packages/core/src/{hydration/Hydrator,serialization/SerializationContext}.ts'] },
     },
   },
