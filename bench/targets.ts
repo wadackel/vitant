@@ -766,8 +766,7 @@ export const targets: Record<string, Target> = {
     limit: 300,
     // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
     // a file in node_modules, which is the original's, outside the copy: two
-    // of the 143 test files that reach a module of the scope fail as they
-    // load. Ground truth is made with `--jobs 1`.
+    // of the 143 test files that reach `retry.ts` fail as they load. Ground truth is made with `--jobs 1`.
     scopes: {
       // The `.ts` modules of `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself, each of which would add a run of about
       // a minute to ground truth in the checkout alone. Each module of the scope is imported by 124 to 176 test files, components among them.
