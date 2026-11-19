@@ -932,7 +932,7 @@
     {"file":"src/utils/sourcemap.js","start":[78,54],"end":[78,80],"mutator":"ObjectLiteral","replacement":"{}","suite":"pass"},
     {"file":"src/utils/sourcemap.js","start":[89,39],"end":[89,58],"mutator":"ConditionalExpression","replacement":"true","suite":"fail"},
     {"file":"src/utils/sourcemap.js","start":[101,81],"end":[101,86],"mutator":"BooleanLiteral","replacement":"true","suite":"pass"},
-    {"file":"src/utils/sourcemap.js","start":[102,5],"end":[102,31],"mutator":"ConditionalExpression","replacement":"false","suite":"fail","note":"Only the type check fails with it: the 10 tests of write_types/index.spec.js \"Creates correct $types\" run tsc, which reads the sources from disk (limits: tests that read the source from disk); every other test passes."},
+    {"file":"src/utils/sourcemap.js","start":[102,5],"end":[102,31],"mutator":"ConditionalExpression","replacement":"false","suite":"fail","note":"The Vitest run fails in the 10 tests of src/core/sync/write_types/index.spec.js \"Creates correct $types\" and in no other: each runs tsc in a process of its own on generated route types, and tsc reads the package sources, the mutant among them, from disk, where this tool does not put it (limits: tests that read the source from disk)."},
     {"file":"src/utils/sourcemap.js","start":[102,5],"end":[102,31],"mutator":"EqualityOperator","replacement":"typeof source === 'string'","suite":"fail"},
     {"file":"src/utils/sourcemap.js","start":[104,5],"end":[104,18],"mutator":"ConditionalExpression","replacement":"true","suite":"pass"},
     {"file":"src/utils/sourcemap.js","start":[108,6],"end":[108,67],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},

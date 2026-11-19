@@ -144,7 +144,12 @@ const truth = path.join(import.meta.dirname, 'truth', `${targetName}-${scopeName
 const reports: Record<string, unknown> = {}
 let wrong = false
 
-if (tools.has('stryker')) {
+const skipped = tools.has('stryker') ? targets[targetName].strykerSkip : undefined
+if (skipped) {
+  console.log(`stryker not run: ${skipped}`)
+  // A report of an earlier run would otherwise be compared as if it were of this one.
+  fs.rmSync(strykerReport, { force: true })
+} else if (tools.has('stryker')) {
   const config = path.join(dir, `stryker.${scopeName}.json`)
   // StrykerJS has no way to name the Vitest projects to run; it gets a config that holds only those.
   const { projects, config: named, strykerPool: pool } = targets[targetName]
@@ -318,6 +323,7 @@ const summary = {
   machine,
   timings: { ...previous.timings, ...Object.fromEntries(timings.map((t) => [t.tool, t])) },
   reports: { ...previous.reports, ...reports },
+  ...(skipped ? { notRun: { ...previous.notRun, stryker: skipped } } : {}),
 }
 fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2))
 

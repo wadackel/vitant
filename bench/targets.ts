@@ -22,6 +22,11 @@ export interface Target {
   strykerInPlace?: boolean
   /** The pool StrykerJS's Vitest runner runs the tests in, where its default, `threads`, does not run the suite. */
   strykerPool?: 'forks'
+  /**
+   * Why StrykerJS is not run on this target, where a run of it does not end within the workflow's job: the
+   * job's limit would end this tool's run with it, which comes after. `bench/run.ts` records the reason in its place.
+   */
+  strykerSkip?: string
   /** The package to run in, for a repository that holds several. */
   dir?: string
   /** The Vitest projects to run, where the others need what the benchmark does not set up, a browser for one. */
@@ -724,6 +729,7 @@ export const targets: Record<string, Target> = {
     env: { TZ: 'UTC' },
     // The scope's run took 7,412 to 7,824 s on a Xeon 6975P-C against the workflow's 150 minutes. A job of this tool alone stays within its six hours.
     limit: 300,
+    strykerSkip: 'in place and alone in a job on an EPYC 7763 it took 15,994 s and killed none of its 454 mutants',
     // From a `--jobs` copy of ground truth, most of the 303 test files that
     // reach one module of the scope fail as they load (10 tests run, against
     // 2,882 in the checkout). Ground truth is made with `--jobs 1`.
@@ -847,6 +853,7 @@ export const targets: Record<string, Target> = {
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
     installStryker: `cd packages/kit && npx -y pnpm@12.18.0 add -D ${stryker}`,
     config: 'vitest.kit.config.js',
+    strykerSkip: 'it was not through after the six hours of a job, on this scope and on all of src/runtime/server and src/utils',
     // From a `--jobs` copy of ground truth, 269 mutants failed the suite that passes with them in the checkout:
     // the tests import the package by its own name. Ground truth is made with `--jobs 1`.
     scopes: {
