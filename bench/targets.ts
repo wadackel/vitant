@@ -797,14 +797,14 @@ export const targets: Record<string, Target> = {
     commit: 'fef16cba0cf6668eb25ecc32fdfe2ce0a46f6f80',
     install: [
       // The repository's package manager is nub, which reads the workspace from `package.json` and
-      // writes a pnpm lockfile pnpm does not take as it is: peers resolved to the workspace's `zod`
-      // as `zod@4.6.7`, which it has no entry for, and aliases under their own names. The entry is
-      // added for the install and the lockfile put back after it.
+      // writes a pnpm lockfile pnpm does not install from frozen as it is: peers resolved to the workspace's
+      // `zod` as `zod@4.6.7`, which it has no entry for, and aliases under their own names. The install adds
+      // the entry. StrykerJS's `pnpm add` then resolves the workspace again, as for every target, and writes
+      // those peers as links to the workspace's package; of the versions locked it drops only get-tsconfig 4.10.0.
       `printf '%s\\n' 'packages:' '  - packages/*' > pnpm-workspace.yaml`,
       `node --input-type=module -e 'import fs from "node:fs"; const s = fs.readFileSync("pnpm-lock.yaml", "utf8"); fs.writeFileSync("pnpm-lock.yaml", s.replace("\\npackages:\\n\\n", "\\npackages:\\n\\n  zod@4.6.7:\\n    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}\\n\\n").replace("\\nsnapshots:\\n\\n", "\\nsnapshots:\\n\\n  zod@4.6.7: {}\\n\\n"))'`,
       // The docs package's postinstall runs nub; nothing the tests load has a script to run.
       'HUSKY=0 npm_config_package_manager_strict=false npx -y pnpm@10.33.0 install --frozen-lockfile --ignore-scripts --config.strict-store-pkg-content-check=false',
-      'git checkout pnpm-lock.yaml',
     ],
     installStryker: `HUSKY=0 npm_config_package_manager_strict=false npx -y pnpm@10.33.0 add -D -w ${stryker} --ignore-scripts --config.strict-store-pkg-content-check=false`,
     // Stryker copies this directory symlink as a file; nothing the tests load is in it.
@@ -813,6 +813,8 @@ export const targets: Record<string, Target> = {
     // not run; the package's config merges the root's, whose projects then name files from the package's directory.
     // This config has the type check off, which the root config has on.
     config: 'vitest.compile.config.ts',
+    // The tests import `zod` by its name, which from a `--jobs` copy of ground truth resolves through the shared
+    // node_modules to the checkout's sources, where the mutant is not. Ground truth is made with `--jobs 1`.
     scopes: {
       core: { mutate: ['packages/zod/src/v4/core/{compile,checks,util}.ts'] },
     },
@@ -845,6 +847,8 @@ export const targets: Record<string, Target> = {
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
     installStryker: `cd packages/kit && npx -y pnpm@12.18.0 add -D ${stryker}`,
     config: 'vitest.kit.config.js',
+    // From a `--jobs` copy of ground truth, 269 mutants failed the suite that passes with them in the checkout:
+    // the tests import the package by its own name. Ground truth is made with `--jobs 1`.
     scopes: {
       // `src/utils` and the modules of `src/runtime/server` that the package's own tests reach. The rest, 3,359 mutants,
       // 2,419 of them reached by no test, mostly handle requests and render pages, which the repository tests through its test
