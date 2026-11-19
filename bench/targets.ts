@@ -874,6 +874,8 @@ export const targets: Record<string, Target> = {
     commit: 'da9664321d4d16371084d616d2ac5c57de02e27d',
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@11.28.11 install --frozen-lockfile'],
     installStryker: `HUSKY=0 npx -y pnpm@11.28.11 add -D -w ${stryker}`,
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
+    strykerInPlace: true,
     env: { NODE_ENV: 'test', GIT_ALLOW_PROTOCOL: 'file', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', LOG_LEVEL: 'fatal', CI: null },
     truthArgs: ['--update=none', '--coverage.enabled=false'],
     scopes: {
@@ -885,6 +887,8 @@ export const targets: Record<string, Target> = {
     commit: '49b5472587a6ad112bb32fe1ea3d4c324f2e2ecc',
     install: ['HUSKY=0 npm ci --no-audit --no-fund'],
     installStryker: `HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
+    strykerInPlace: true,
     binOnPath: true,
     projects: ['unit', 'integration'],
     truthArgs: ['--coverage.enabled=false'],
