@@ -972,6 +972,34 @@ export const targets: Record<string, Target> = {
       core: { mutate: ['packages/core/src/unit-of-work/{ChangeSetComputer,CommitOrderCalculator,IdentityMap,ChangeSet}.ts', 'packages/core/src/{hydration/Hydrator,serialization/SerializationContext}.ts'] },
     },
   },
+  // Vitest 4, jsdom: the front end of a platform for development
+  // environments, its agents' pages compiled by the React Compiler (Babel),
+  // in a `unit` project beside one of Storybook stories in a browser.
+  coder: {
+    repo: 'https://github.com/coder/coder',
+    commit: '241ec8dfeafd1e01a26d18088d59fba6426682cc',
+    dir: 'site',
+    install: [
+      'cd site && ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.16.1 install --frozen-lockfile',
+      // With the config's vite-plugin-checker, Vitest's `forks` pool fails to start a worker after five test
+      // files with `spawn EBADF`, in the plain suite as well; `threads` does not, and this tool runs every file
+      // in `forks`. A config beside the project's leaves the plugin out. It also keeps the `unit` project to the
+      // tests of the scope's directories: the scope's modules are reached by some 155 test files, the pages'
+      // components among them, and a run of those took 228 s, against 15 s for the 41 of the directories.
+      `printf '%s\\n' 'import config from "./vite.config.mts";' 'const include = ["src/pages/AgentsPage/{hooks,utils}/**/*.test.?(m)ts?(x)"];' 'export default {' '  ...config,' '  plugins: config.plugins.flat().filter((plugin) => !String(plugin?.name ?? "").includes("checker")),' '  test: { ...config.test, projects: config.test.projects.map((project) => project.test.name === "unit" ? { ...project, test: { ...project.test, include } } : project) },' '};' > site/vitest.bench.config.mts`,
+    ],
+    installStryker: `cd site && npx -y pnpm@12.16.1 add -D ${stryker}`,
+    config: 'vitest.bench.config.mts',
+    // The other project runs Storybook's stories in a browser.
+    projects: ['unit'],
+    // Outside UTC two tests of `timeGroups.test.ts` fail with no mutant: they compare a pinned time with local midnight.
+    env: { TZ: 'UTC' },
+    scopes: {
+      // The React Compiler compiles 17 of the 53 modules, 2,206 of their 5,014 mutants, from their source and gives up on
+      // their instrumented code; this tool leaves those out (docs/limits.md), and the scope's verdicts are of the other 36.
+      agents: { mutate: ['src/pages/AgentsPage/{hooks,utils}/**/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */

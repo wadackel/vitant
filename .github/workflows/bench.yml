@@ -115,6 +115,7 @@ jobs:
             lint-staged lib
             happy-dom selectors
             mikro-orm core
+            coder agents
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
