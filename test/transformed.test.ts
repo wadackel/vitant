@@ -47,6 +47,12 @@ describe('divergence', () => {
     )
   })
 
+  it('names a plugin that gives the same code for both, as one caching by file would', () => {
+    expect(divergence(source, source, 'x.ts')).toBe(
+      "the project's plugins give the same code for its instrumented code as for its source, so no mutant would be in what its tests run",
+    )
+  })
+
   it('is none where either output does not parse', () => {
     expect(divergence(source, 'import {', 'x.ts')).toBeUndefined()
   })

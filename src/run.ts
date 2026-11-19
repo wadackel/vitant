@@ -2575,12 +2575,16 @@ export async function run(options: RunOptions): Promise<RunResult> {
         // Vitest's own environments for a DOM run in Vite's `client`; the rest in `ssr`.
         const name = config.environment === 'jsdom' || config.environment === 'happy-dom' ? 'client' : 'ssr'
         const environment = host.environments?.[name]
-        const transform = (file: string) => (environment ? environment.transformRequest(file) : host.transformRequest(file, { ssr: name === 'ssr' }))
+        // Vite keys its modules by paths with forward slashes, Windows' included,
+        // and looks a file up as given: by the path as Windows writes it, the
+        // module the source was cached on would not be found to forget.
+        const vitePath = (file: string) => file.split(path.sep).join('/')
+        const transform = (file: string) => (environment ? environment.transformRequest(vitePath(file)) : host.transformRequest(vitePath(file), { ssr: name === 'ssr' }))
         const graph = environment?.moduleGraph ?? host.moduleGraph
         // What a later request for the file gets must be the instrumented code
         // with the reads placed in it, which neither of these is.
         const forget = (file: string) => {
-          for (const module of graph.getModulesByFile(file) ?? []) graph.invalidateModule(module)
+          for (const module of graph.getModulesByFile(vitePath(file)) ?? []) graph.invalidateModule(module)
         }
         await Promise.all(
           [...generated.files.keys()].filter((file) => !leave.has(file)).map(async (file) => {

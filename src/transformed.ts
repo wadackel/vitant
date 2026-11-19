@@ -51,6 +51,10 @@ export function divergence(source: string, instrumented: string | Error, filenam
   if (instrumented instanceof Error) {
     return `the project's plugins fail on its instrumented code and not on its source (${instrumented.message.split('\n')[0]}), so its tests would not run the code the suite runs`
   }
+  // The switches are always in the instrumented code: a plugin that gives
+  // back what it made of the source, from a cache of its own by file or by
+  // putting other code in the file's place, leaves no mutant in what runs.
+  if (instrumented === source) return "the project's plugins give the same code for its instrumented code as for its source, so no mutant would be in what its tests run"
   const plain = importedModules(source, filename)
   const mutated = importedModules(instrumented, filename)
   if (!plain || !mutated) return undefined
