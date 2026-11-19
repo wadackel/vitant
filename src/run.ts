@@ -23,6 +23,7 @@ import {
 import { type Generated, generate, type GenerateOptions, type Shard, type SkippedFile } from './mutate/generate.ts'
 import { RUNTIME_GLOBAL } from './mutate/instrument.ts'
 import { placeReads, reexports, type WatchedModule } from './mutate/reads.ts'
+import { divergence } from './transformed.ts'
 import { addonTarget } from './platform.ts'
 import { mendPool } from './pool.ts'
 import { writeHookObserver } from './hooks.ts'
@@ -124,7 +125,8 @@ export interface WholeRuns {
 export interface RunResult {
   mutants: MutantResult[]
   counts: Record<MutantStatus, number>
-  timings: { generateMs: number; vitestMs: number; totalMs: number }
+  /** `compareMs`: what telling the files the project's plugins compile otherwise once instrumented took, see `leaveDivergent`. */
+  timings: { generateMs: number; compareMs: number; vitestMs: number; totalMs: number }
   testFiles: number
   tests: number
   /** Tests that failed before any mutant was activated; what they cover is unknown. */
@@ -2075,6 +2077,17 @@ function recordReader(dir: string): () => SessionRecord[] {
   }
 }
 
+/** What of the session follows from the mutants: their counts in `config`, their sites and their states. */
+function writeMutants(dir: string, generated: Generated, config: SessionConfig): void {
+  const paths = sessionPaths(dir)
+  config.siteCount = generated.siteMutants.length - 1
+  config.mutantCount = generated.mutants.length
+  fs.writeFileSync(paths.config, JSON.stringify(config))
+  fs.writeFileSync(paths.sites, new Uint8Array(generated.siteMutants.buffer))
+  fs.writeFileSync(paths.tracked, generated.tracked)
+  fs.writeFileSync(paths.state, new Uint8Array(generated.mutants.length))
+}
+
 function writeSession(
   dir: string,
   generated: Generated,
@@ -2090,8 +2103,8 @@ function writeSession(
   fs.mkdirSync(paths.held)
   const config: SessionConfig = {
     runtimeGlobal: RUNTIME_GLOBAL,
-    siteCount: generated.siteMutants.length - 1,
-    mutantCount: generated.mutants.length,
+    siteCount: 0,
+    mutantCount: 0,
     timeoutFactor: options.timeoutFactor,
     timeoutMs: options.timeoutMs,
     recycleHeapBytes: options.recycleHeapMb * 1024 * 1024,
@@ -2101,11 +2114,8 @@ function writeSession(
     loopSlack: options.loopSlack,
     mainPid: process.pid,
   }
-  fs.writeFileSync(paths.config, JSON.stringify(config))
+  writeMutants(dir, generated, config)
   fs.writeFileSync(paths.preload, channelWatch)
-  fs.writeFileSync(paths.sites, new Uint8Array(generated.siteMutants.buffer))
-  fs.writeFileSync(paths.tracked, generated.tracked)
-  fs.writeFileSync(paths.state, new Uint8Array(generated.mutants.length))
   const runtime = pathToFileURL(
     path.join(import.meta.dirname, `runtime/runner${path.extname(import.meta.filename)}`),
   ).href
@@ -2406,7 +2416,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   unconfirmed.clear()
   nearestFiles.clear()
   besideOnly.clear()
-  const generated = generate(options)
+  let generated = generate(options)
   const generateMs = performance.now() - startedAt
   watchedReads = generated.mutants.map((mutant) => mutant.reads)
   watchedAgain = generated.mutants.map((mutant) => mutant.again)
@@ -2447,9 +2457,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // Limits decide what counts as a timeout, so results from other limits do not carry over.
   const limits = [options.timeoutFactor, options.timeoutMs, options.loopFactor, options.loopSlack]
   const print = fingerprint(options.root, vitestVersion, limits, options.config)
-  const keys = options.incremental ? mutantKeys(generated, options.root) : []
+  let keys = options.incremental ? mutantKeys(generated, options.root) : []
   const cache = options.incremental ? loadCache(options.root, print) : undefined
-  const hints = options.incremental ? hintKeys(generated, options.root) : []
+  let hints = options.incremental ? hintKeys(generated, options.root) : []
   const earlierKillers = options.incremental ? loadKillers(options.root) : {}
 
   const workersExited = watchWorkers()
@@ -2515,15 +2525,101 @@ export async function run(options: RunOptions): Promise<RunResult> {
     // mutants were placed at.
     load(id: string) {
       // An alias can leave a doubled slash in the id.
-      const entry = generated.files.get(path.normalize(id.split('?')[0]))
+      const file = path.normalize(id.split('?')[0])
+      if (sourceServed.has(file)) return undefined
+      const entry = generated.files.get(file)
       return entry && { code: entry.code, map: lineMap(id, entry.source) }
     },
   }
   const watchedModules = new Map<string, WatchedModule>()
-  for (const [file, entry] of generated.files) {
-    if (entry.bindings.size > 0) watchedModules.set(file, { exports: new Map([...entry.exports].map(([name, site]) => [name, [site]])), all: [...entry.bindings.values()] })
+  const everyRead: number[] = []
+  const watch = () => {
+    watchedModules.clear()
+    for (const [file, entry] of generated.files) {
+      if (entry.bindings.size > 0) watchedModules.set(file, { exports: new Map([...entry.exports].map(([name, site]) => [name, [site]])), all: [...entry.bindings.values()] })
+    }
+    everyRead.splice(0, everyRead.length, ...generated.readSites)
   }
-  const everyRead = [...generated.readSites]
+  watch()
+  /** Mutated files served as they are on disk, while `leaveDivergent` transforms their sources. */
+  const sourceServed = new Set<string>()
+  /** Whether `leaveDivergent` is under way, which compares what the project's own plugins make of the files. */
+  let comparing = false
+  let compareMs = 0
+  /**
+   * The mutated files the project's own plugins do not make the same of
+   * instrumented as of their source, each with why: run as they come out,
+   * their tests would not run the code they run in the suite. The React
+   * Compiler gives up on a hook whose instrumented code writes to the
+   * runtime while it renders, and a test of coder's that passes with the
+   * compiled hook ran out of memory with the other one. Each file goes
+   * through the plugins of every project that runs mutants, in the Vite
+   * environment of that project's test environment, as it would in a run.
+   */
+  const leaveDivergent = async (projects: readonly unknown[]): Promise<Map<string, string>> => {
+    type Transform = { code: string } | null
+    type Graph = { getModulesByFile(file: string): Set<object> | undefined; invalidateModule(module: object): void }
+    type Environment = { transformRequest(url: string): Promise<Transform>; moduleGraph: Graph }
+    type Server = Partial<Environment> & {
+      environments?: Record<string, Environment | undefined>
+      transformRequest(url: string, options?: { ssr?: boolean }): Promise<Transform>
+      moduleGraph: Graph
+    }
+    const startedAt = performance.now()
+    const leave = new Map<string, string>()
+    comparing = true
+    try {
+      for (const project of projects) {
+        const { vite, server, config } = project as { vite?: Server; server?: Server; config: { environment?: string } }
+        const host = (vite ?? server)!
+        // Vitest's own environments for a DOM run in Vite's `client`; the rest in `ssr`.
+        const name = config.environment === 'jsdom' || config.environment === 'happy-dom' ? 'client' : 'ssr'
+        const environment = host.environments?.[name]
+        // Vite keys its modules by paths with forward slashes, Windows' included,
+        // and looks a file up as given: by the path as Windows writes it, the
+        // module the source was cached on would not be found to forget.
+        const vitePath = (file: string) => file.split(path.sep).join('/')
+        const transform = (file: string) => (environment ? environment.transformRequest(vitePath(file)) : host.transformRequest(vitePath(file), { ssr: name === 'ssr' }))
+        const graph = environment?.moduleGraph ?? host.moduleGraph
+        // What a later request for the file gets must be the instrumented code
+        // with the reads placed in it, which neither of these is.
+        const forget = (file: string) => {
+          for (const module of graph.getModulesByFile(vitePath(file)) ?? []) graph.invalidateModule(module)
+        }
+        await Promise.all(
+          [...generated.files.keys()].filter((file) => !leave.has(file)).map(async (file) => {
+            sourceServed.add(file)
+            let source: string | undefined
+            try {
+              source = (await transform(file))?.code
+            } catch {
+              // A file the plugins cannot make anything of is the suite's own trouble.
+            } finally {
+              forget(file)
+              sourceServed.delete(file)
+            }
+            if (source === undefined) return
+            let instrumented: string | Error | undefined
+            try {
+              instrumented = (await transform(file))?.code
+            } catch (error) {
+              instrumented = error instanceof Error ? error : new Error(String(error))
+            } finally {
+              forget(file)
+            }
+            const why = instrumented === undefined ? undefined : divergence(source, instrumented, file)
+            if (why !== undefined) leave.set(file, why)
+          }),
+        )
+        // A plugin may have asked for a file while another of its transforms was under way.
+        for (const file of generated.files.keys()) forget(file)
+      }
+    } finally {
+      comparing = false
+      compareMs += performance.now() - startedAt
+    }
+    return leave
+  }
   type Resolve = (source: string, importer: string) => Promise<{ id: string } | null>
   const normalized = (id: string) => path.normalize(id.split('?')[0])
   // On the code as the other plugins leave it: one of them can add an import
@@ -2558,6 +2654,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       enforce: 'post' as const,
       async transform(this: { resolve: Resolve; environment?: { name: string } }, code: string, id: string, options?: { ssr?: boolean }) {
         const [file, query = ''] = id.split('?')
+        if (comparing) return undefined
         // A module that is not a dependency and not a style sheet can be code
         // that reads a binding, a virtual one or one of a kind of its own.
         if (watchedModules.size === 0 || file.includes('/node_modules/')) return undefined
@@ -2676,6 +2773,32 @@ export async function run(options: RunOptions): Promise<RunResult> {
   let rounds = 0
   try {
     await (vitest.standalone ?? vitest.init).call(vitest)
+    // A project that came from a config file of its own is given the runner
+    // with everything else on the command line, and not the plugin that puts
+    // the mutants into the sources: its tests would run, reach nothing that
+    // can change, and every mutant would be reported as one no test covers.
+    // A file two projects share would need its results kept per project.
+    const instrumented = (project: unknown): boolean => {
+      const { vite, server } = project as Record<'vite' | 'server', { config: { plugins: readonly { name: string }[] } } | undefined>
+      return (vite ?? server)?.config.plugins.some((plugin) => plugin.name === instrumentPlugin.name) === true
+    }
+    const leave = await leaveDivergent((vitest.projects ?? [vitest]).filter(instrumented))
+    if (leave.size > 0) {
+      generated = generate({ ...options, leave })
+      watchedReads = generated.mutants.map((mutant) => mutant.reads)
+      watchedAgain = generated.mutants.map((mutant) => mutant.again)
+      writeMutants(sessionDir, generated, config)
+      ;(globalThis as Record<string, unknown>)[RUNTIME_GLOBAL] = createRuntime(generated.siteMutants.length, generated.mutants.length)
+      if (options.incremental) {
+        keys = mutantKeys(generated, options.root)
+        hints = hintKeys(generated, options.root)
+      }
+      watch()
+      if (options.related) {
+        for (const project of [vitest, ...(vitest.projects ?? [])]) project.config.related = [...generated.files.keys()]
+      }
+      options.log(`${leave.size} file(s) left out, which the project's plugins do not compile instrumented as they compile them: ${generated.mutants.length} mutants in ${generated.files.size} files`)
+    }
     type Spec = { moduleId: string; pool?: string; project: { name: string; config: { runner?: string; related?: unknown } } }
     let found: Spec[]
     try {
@@ -2689,15 +2812,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
       vitest.config.related = undefined
       for (const project of vitest.projects ?? []) project.config.related = undefined
       found = await vitest.getRelevantTestSpecifications(options.filters)
-    }
-    // A project that came from a config file of its own is given the runner
-    // with everything else on the command line, and not the plugin that puts
-    // the mutants into the sources: its tests would run, reach nothing that
-    // can change, and every mutant would be reported as one no test covers.
-    // A file two projects share would need its results kept per project.
-    const instrumented = (project: unknown): boolean => {
-      const { vite, server } = project as Record<'vite' | 'server', { config: { plugins: readonly { name: string }[] } } | undefined>
-      return (vite ?? server)?.config.plugins.some((plugin) => plugin.name === instrumentPlugin.name) === true
     }
     const taken = new Set<string>()
     const specs = found.filter((spec) => {
@@ -3455,7 +3569,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   return {
     mutants,
     counts,
-    timings: { generateMs, vitestMs, totalMs: performance.now() - startedAt },
+    timings: { generateMs, compareMs, vitestMs, totalMs: performance.now() - startedAt },
     testFiles: finishedFiles.size,
     tests,
     failedBaselines,

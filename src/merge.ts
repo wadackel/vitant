@@ -57,6 +57,7 @@ export function mergeReports(reports: RunResult[]): RunResult {
     counts,
     timings: {
       generateMs: Math.max(...reports.map((report) => report.timings.generateMs)),
+      compareMs: Math.max(...reports.map((report) => report.timings.compareMs)),
       vitestMs: Math.max(...reports.map((report) => report.timings.vitestMs)),
       totalMs: Math.max(...reports.map((report) => report.timings.totalMs)),
     },
