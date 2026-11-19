@@ -729,7 +729,7 @@ export const targets: Record<string, Target> = {
     env: { TZ: 'UTC' },
     // The scope's run took 7,412 to 7,824 s on a Xeon 6975P-C against the workflow's 150 minutes. A job of this tool alone stays within its six hours.
     limit: 300,
-    strykerSkip: 'in place and alone in a job on an EPYC 7763 it took 15,994 s and killed none of its 454 mutants',
+    strykerSkip: 'alone in a job on an EPYC 7763 it took 15,994 s and killed none of its 454 mutants, and with this tool after it a job passes its six hours',
     // From a `--jobs` copy of ground truth, most of the 303 test files that
     // reach one module of the scope fail as they load (10 tests run, against
     // 2,882 in the checkout). Ground truth is made with `--jobs 1`.
