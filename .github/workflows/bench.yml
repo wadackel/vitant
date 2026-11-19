@@ -113,7 +113,7 @@ jobs:
             sveltekit server
             renovate util
             lint-staged lib
-            tsdown src
+            tsdown features
             happy-dom selectors
             mikro-orm core
         run: |

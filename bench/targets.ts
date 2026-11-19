@@ -900,9 +900,10 @@ export const targets: Record<string, Target> = {
     repo: 'https://github.com/rolldown/tsdown',
     commit: 'e2e174deff987cf3e0d48eac0ef8b59f68f736c0',
     install: ['pnpm install --frozen-lockfile'],
-    installStryker: `pnpm add -D -w ${stryker}`,
+    installStryker: 'pnpm add -D -w @stryker-mutator/core@10.1.1 @stryker-mutator/vitest-runner@10.1.1',
+    strykerPool: 'forks',
     scopes: {
-      src: { mutate: ['src/**/*.ts'] },
+      features: { mutate: ['src/features/{deps,entry,target,tsconfig,cjs,node-protocol,shebang,shims,output,report,hooks}.ts'] },
     },
   },
   'happy-dom': {
@@ -924,10 +925,11 @@ export const targets: Record<string, Target> = {
       `printf '%s\\n' 'import config from "./vitest.config.ts";' 'export default { ...config, test: { ...config.test, projects: config.test.projects.map((project) => ({ ...project, test: { ...project.test, include: project.test.include.map((glob) => glob.replace(/[*][.]test[.]ts$/, "*sqlite.test.ts")) } })) } };' > vitest.sqlite.config.ts`,
     ],
     installStryker: `HUSKY=0 corepack yarn add -D ${stryker}`,
+    strykerInPlace: true,
     env: { npm_lifecycle_event: 'test:sqlite' },
     config: 'vitest.sqlite.config.ts',
     scopes: {
-      core: { mutate: ['packages/core/src/{unit-of-work,hydration,serialization}/**/*.ts'] },
+      core: { mutate: ['packages/core/src/unit-of-work/{ChangeSetComputer,CommitOrderCalculator,IdentityMap,ChangeSet}.ts', 'packages/core/src/{hydration/Hydrator,serialization/SerializationContext}.ts'] },
     },
   },
 }
