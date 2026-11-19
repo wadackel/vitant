@@ -931,14 +931,13 @@ export const targets: Record<string, Target> = {
     commit: '5f86240cf8daaaa0179b76dd9f1f3aaea145074f',
     install: [
       'HUSKY=0 corepack yarn install --immutable',
-      // The files `test:sqlite` runs, `sqlite.test.ts` as a filter, in a config of their own: StrykerJS takes no filter, and `vitest related` takes none.
-      `printf '%s\\n' 'import config from "./vitest.config.ts";' 'export default { ...config, test: { ...config.test, projects: config.test.projects.map((project) => ({ ...project, test: { ...project.test, include: project.test.include.map((glob) => glob.replace(/[*][.]test[.]ts$/, "*sqlite.test.ts")) } })) } };' > vitest.sqlite.config.ts`,
+      // `test:sqlite` as a config: its filter, `sqlite.test.ts`, which StrykerJS and `vitest related` take none of, and its `npm_lifecycle_event`, without
+      // which the global setup starts MongoDB, downloading it first. A variable of the target's would not do: npx, which starts StrykerJS, sets its own.
+      `printf '%s\\n' 'import config from "./vitest.config.ts";' 'process.env.npm_lifecycle_event = "test:sqlite";' 'export default { ...config, test: { ...config.test, projects: config.test.projects.map((project) => ({ ...project, test: { ...project.test, include: project.test.include.map((glob) => glob.replace(/[*][.]test[.]ts$/, "*sqlite.test.ts")) } })) } };' > vitest.sqlite.config.ts`,
     ],
     installStryker: `HUSKY=0 corepack yarn add -D ${stryker}`,
     // StrykerJS's sandbox rewrites `tsconfig.json` through an API TypeScript 7 no longer has.
     strykerInPlace: true,
-    // As `test:sqlite` runs; the global setup starts MongoDB, downloading it first, under any other script.
-    env: { npm_lifecycle_event: 'test:sqlite' },
     config: 'vitest.sqlite.config.ts',
     scopes: {
       // With all of `unit-of-work`, `hydration` and `serialization`, 3,605 mutants, a hosted run had not ended after 150 minutes.
