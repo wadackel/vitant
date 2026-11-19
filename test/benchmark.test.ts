@@ -68,6 +68,29 @@ it('marks Stryker timings as incomparable when covered survivors ran no tests', 
   }
 })
 
+it('lists a tool left out of a scope with its reason, unless a run of it was recorded', () => {
+  const target = `.notrun-${process.pid}`
+  const directory = path.join(import.meta.dirname, '../bench/results', `${target}-scope`)
+  fs.mkdirSync(directory, { recursive: true })
+  const write = (timings: object) =>
+    fs.writeFileSync(path.join(directory, 'summary.json'), JSON.stringify({
+      machine: { platform: 'test', cores: 1, cpu: 'test', node: process.version },
+      timings,
+      notRun: { stryker: 'it does not end within a job' },
+    }))
+  const summary = () => spawnSync(process.execPath, [path.join(import.meta.dirname, '../bench/summary.ts'), target, 'scope'], { encoding: 'utf8' })
+  try {
+    write({ vitant: { seconds: [1], exitCodes: [0] } })
+    const left = summary()
+    expect(left.status, left.stderr).toBe(0)
+    expect(left.stdout).toContain('| stryker | not run: it does not end within a job |')
+    write({ stryker: { seconds: [2], exitCodes: [0] } })
+    expect(summary().stdout).not.toContain('not run')
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 it('gives a target its config, projects and filters on the command line', () => {
   const target: Target = { ...targets.ufo, config: 'config/unit.config.ts', projects: ['unit'], filters: ['sqlite.test.ts'] }
   expect(vitestArgs(target)).toEqual(['--config', 'config/unit.config.ts', '--project', 'unit', 'sqlite.test.ts'])
