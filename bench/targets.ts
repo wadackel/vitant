@@ -750,6 +750,29 @@ export const targets: Record<string, Target> = {
       proxy: { mutate: ['src/workflow-data-proxy*.ts'] },
     },
   },
+  // Vitest 4, jsdom: a React application's frontend, whose tests render every
+  // Storybook story of the application through `import.meta.glob` and run
+  // its API client against a WebSocket mock server, msw and nock.
+  headlamp: {
+    repo: 'https://github.com/kubernetes-sigs/headlamp',
+    commit: '696a4cdccaf365f20fd6cc1fd33d647772fcd20f',
+    dir: 'frontend',
+    install: ['cd frontend && HUSKY=0 npm ci --no-audit --no-fund', 'cd frontend && node make-env.js'],
+    installStryker: `cd frontend && HUSKY=0 npm install --save-dev --no-audit --no-fund ${stryker}`,
+    // The config turns off the retries of a failed request where `UNDER_TEST` or `VITEST` is `true`. Vitest sets `VITEST`
+    // to `true`, StrykerJS's runner to `1`, and without the variable a test fails in StrykerJS's first run.
+    env: { UNDER_TEST: 'true' },
+    // The scope's run took 7,885 s on an EPYC 7763 against the workflow's 150 minutes.
+    limit: 300,
+    // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
+    // a file in node_modules, which is the original's, outside the copy: two
+    // of the 143 test files that reach `retry.ts` fail as they load. Ground truth is made with `--jobs 1`.
+    scopes: {
+      // The `.ts` modules of `src/lib/k8s/api/v2` but `useKubeObjectList.ts`, 707 mutants by itself, each of which would add a run of about
+      // a minute to ground truth in the checkout alone. Each module of the scope is imported by 124 to 176 test files, components among them.
+      api: { mutate: ['src/lib/k8s/api/v2/{multiplexer,hooks,webSocket,fetch,KubeList,nodeSummaryApi,retry,KubeObjectEndpoint,makeUrl}.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */
