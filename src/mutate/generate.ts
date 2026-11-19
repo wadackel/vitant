@@ -44,6 +44,8 @@ export interface GenerateOptions {
   lines?: ReadonlyMap<string, ReadonlySet<number>>
   /** When set, only the files of this share of them, see `shareOf`; `index` counts from 1. */
   shard?: Shard
+  /** Files of the share left out after all, by absolute path, each with why. */
+  leave?: ReadonlyMap<string, string>
 }
 
 export interface Shard {
@@ -115,6 +117,12 @@ export function generate(options: GenerateOptions): Generated {
     for (const file of sources.keys()) if (shares.get(file) !== options.shard.index - 1) sources.delete(file)
   }
   for (const [file, source] of sources) {
+    // After the shares are dealt, so that every share leaves out only files of its own.
+    const left = options.leave?.get(file)
+    if (left !== undefined) {
+      skipped.push({ file, reason: left })
+      continue
+    }
     const lines = options.lines?.get(file)
     const result = instrument(source, file, {
       siteBase: firstMutants.length,

@@ -35,7 +35,7 @@ const report = (index: number, count: number, mutants: MutantResult[]): RunResul
   return {
     mutants: mutants.map((m, id) => ({ ...m, id })),
     counts,
-    timings: { generateMs: 1, vitestMs: 10 * index, totalMs: 11 * index },
+    timings: { generateMs: 1, compareMs: 1, vitestMs: 10 * index, totalMs: 11 * index },
     testFiles: 3,
     tests: 7,
     failedBaselines: [],

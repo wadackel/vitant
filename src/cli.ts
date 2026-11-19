@@ -271,7 +271,7 @@ console.log(
 )
 console.log(
   `time ${(result.timings.totalMs / 1000).toFixed(1)}s ` +
-    `(generate ${(result.timings.generateMs / 1000).toFixed(1)}s, run ${(result.timings.vitestMs / 1000).toFixed(1)}s, rounds ${result.rounds})`,
+    `(generate ${(result.timings.generateMs / 1000).toFixed(1)}s, compare ${(result.timings.compareMs / 1000).toFixed(1)}s, run ${(result.timings.vitestMs / 1000).toFixed(1)}s, rounds ${result.rounds})`,
 )
 {
   const { started, lost, ...copied } = result.wholeRuns

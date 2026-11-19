@@ -250,3 +250,26 @@ describe('a project that has Vitest check types with its tests', () => {
     expect(typed.counts.Killed).toBeGreaterThan(0)
   }, 180_000)
 })
+
+describe("a file the project's own plugins compile from its source and not once instrumented", () => {
+  // The fixture's plugin compiles `box` only as written, and its test holds
+  // only for the compiled function. Instrumented, the test failed with no
+  // mutant on and the file's mutants were reported as covered by no test,
+  // where the suite fails with each of them.
+  it.each(['vitest3', 'vitest', 'vitest51'])('is left out and named with why, and the other file is mutated, with %s', (version) => {
+    const project = path.join(owner.directory, `compiled-${version}`)
+    fs.rmSync(project, { recursive: true, force: true })
+    fs.cpSync(path.join(root, 'fixtures/compiled'), project, { recursive: true, filter: (source) => path.basename(source) !== 'node_modules' })
+    fs.mkdirSync(path.join(project, 'node_modules'))
+    fs.symlinkSync(path.join(root, 'node_modules', version), path.join(project, 'node_modules/vitest'), 'junction')
+    const report = reportPath(`compiled-${version}`)
+    const cli = tool(['--root', project, '--mutate', 'src/{box,double}.js', '--report', report])
+    expect(cli.status, cli.stdout + cli.stderr).toBe(0)
+    const result = JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult
+    const reason = "the project's plugins do not compile its instrumented code as they compile its source (only its source imports /src/memoize.js), so its tests would not run the code the suite runs"
+    expect(result.skippedFiles).toEqual([{ file: 'src/box.js', reason }])
+    expect(cli.stdout).toContain(`1 file(s) could not be mutated and were left out:\n  src/box.js: ${reason}`)
+    expect(result.failedBaselines).toEqual([])
+    expect(result.mutants.map((mutant) => `${mutant.file} ${mutant.replacement} ${mutant.status}`).sort()).toEqual(['src/double.js value / 2 Killed', 'src/double.js {} Killed'])
+  }, 180_000)
+})
