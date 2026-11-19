@@ -315,6 +315,8 @@ const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus(
 // Times taken on another machine do not belong next to these.
 const earlier = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
 const previous = JSON.stringify(earlier.machine) === JSON.stringify(machine) ? earlier : {}
+// Nor does an earlier time of StrykerJS belong next to the reason it was left out this time.
+if (skipped && previous.timings) delete previous.timings.stryker
 const summary = {
   ...previous,
   target: targetName,
