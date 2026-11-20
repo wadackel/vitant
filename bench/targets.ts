@@ -583,6 +583,9 @@ export const targets: Record<string, Target> = {
       `node --input-type=module -e 'import fs from "node:fs"; fs.appendFileSync("resources/assets/js/__tests__/setup.ts", "\\nimport { faker } from \\"@faker-js/faker\\"\\nfaker.seed(0)\\n")'`,
     ],
     installStryker: `npx -y pnpm@10.32.1 add -D ${stryker}`,
+    // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of `@koel-project/projectm-wasm`,
+    // which resolves outside the copy, and `visualizers/projectm/index.spec.ts` fails as it loads in every
+    // run that takes it in, the related tests of `useKoelPlus.ts` among them. Ground truth is made with `--jobs 1`.
     scopes: {
       composables: { mutate: ['resources/assets/js/composables/*.ts'] },
     },

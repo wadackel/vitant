@@ -104,6 +104,89 @@ it("sets and removes a target's variables over the environment it is given", () 
   expect(targetEnv(targets.ufo, { dir: '/p', base })).not.toBe(base)
 })
 
+// Under build/, so that the project resolves this repository's Vitest; the copies go next to it.
+function truthProject(files: Record<string, string>, unused = false): string {
+  fs.mkdirSync(path.join(import.meta.dirname, '../build'), { recursive: true })
+  const project = fs.mkdtempSync(path.join(import.meta.dirname, '../build/truth-copies-'))
+  for (const [file, text] of Object.entries({ 'package.json': '{ "type": "module" }\n', 'vitest.config.mjs': 'export default {}\n', ...files })) {
+    fs.mkdirSync(path.dirname(path.join(project, file)), { recursive: true })
+    fs.writeFileSync(path.join(project, file), text.replaceAll('<project>', project))
+  }
+  // `export const value = 1`, its `1` made `2`.
+  const mutant = (file: string, status: string) =>
+    ({ file, location: { start: { line: 1, column: 21 }, end: { line: 1, column: 22 } }, mutator: 'NumericLiteral', replacement: '2', status })
+  const report = { mutants: [mutant('src/value.ts', 'Killed'), ...(unused ? [mutant('src/unused.ts', 'Survived')] : [])] }
+  fs.writeFileSync(path.join(project, 'report.json'), JSON.stringify(report))
+  return project
+}
+
+function makeTruth(project: string, ...args: string[]) {
+  const truth = path.join(import.meta.dirname, '../bench/truth.ts')
+  const copies = () => fs.readdirSync(path.dirname(project)).filter((name) => name.startsWith('.tmp-truth-'))
+  const before = new Set(copies())
+  const run = spawnSync(process.execPath, [truth, 'make', '--root', project, '--report', path.join(project, 'report.json'), '--jobs', '2', ...args], { encoding: 'utf8' })
+  const left = copies().filter((name) => !before.has(name))
+  return { ...run, source: fs.readFileSync(path.join(project, 'src/value.ts'), 'utf8'), left }
+}
+
+it('makes ground truth from copies whose tests run their own sources', { timeout: 60_000 }, () => {
+  // `unused.ts` no test loads: a throw in it passes in the checkout as in the copy.
+  const project = truthProject({
+    'vitest.config.mjs': 'export default { test: { passWithNoTests: true } }\n',
+    'src/value.ts': 'export const value = 1\n',
+    'src/unused.ts': 'export const value = 1\n',
+    'test/value.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '../src/value.ts'\nit('is one', () => expect(value).toBe(1))\n",
+  }, true)
+  try {
+    const made = makeTruth(project, '--related')
+    expect(made.status, made.stderr).toBe(0)
+    expect(made.stdout).toContain('2 mutants checked against the suite: 2 agree')
+    expect(made.source).toBe('export const value = 1\n')
+    expect(made.left).toEqual([])
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+  }
+})
+
+it('refuses copies whose tests fail there with no mutant', { timeout: 60_000 }, () => {
+  // As lint-staged's tests do, these need the `.git` that a copy is made without.
+  const project = truthProject({
+    '.git/HEAD': 'ref: refs/heads/main\n',
+    'src/value.ts': 'export const value = 1\n',
+    'test/value.test.ts':
+      "import fs from 'node:fs'\nimport { expect, it } from 'vitest'\nimport { value } from '../src/value.ts'\n" +
+      "it('is one in a checkout', () => expect([value, fs.existsSync(new URL('../.git', import.meta.url))]).toEqual([1, true]))\n",
+  })
+  try {
+    const made = makeTruth(project, '--related')
+    expect(made.status).not.toBe(0)
+    expect(made.stderr).toMatch(/the probe with no mutant failed in the copy \S*\.tmp-truth-\d+-[01]: `vitest related --run src\/value\.ts` for src\/value\.ts fails there/)
+    expect(made.stderr).toContain('make ground truth with --jobs 1')
+    expect(made.source).toBe('export const value = 1\n')
+    expect(made.left).toEqual([])
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+  }
+})
+
+it("refuses copies whose tests load the original's sources", { timeout: 60_000 }, () => {
+  // As lobehub's config does, this aliases the sources by a path that leaves a copy for the original.
+  const project = truthProject({
+    'vitest.config.mjs': "export default { resolve: { alias: { '@src': '<project>/src' } } }\n",
+    'src/value.ts': 'export const value = 1\n',
+    'test/value.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '@src/value.ts'\nit('is one', () => expect(value).toBe(1))\n",
+  })
+  try {
+    const made = makeTruth(project)
+    expect(made.status).not.toBe(0)
+    expect(made.stderr).toMatch(/the probe with a throw failed in the copy \S*\.tmp-truth-\d+-[01]: with a throw at the top of its src\/value\.ts, `vitest run` passes there and fails in the checkout/)
+    expect(made.source).toBe('export const value = 1\n')
+    expect(made.left).toEqual([])
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+  }
+})
+
 it("puts the project's node_modules/.bin first on PATH only for a target that asks for it", () => {
   const base = { PATH: ['/usr/bin', '/bin'].join(path.delimiter) }
   const bin = path.join('/p', 'node_modules', '.bin')
