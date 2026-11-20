@@ -1006,6 +1006,17 @@ export const targets: Record<string, Target> = {
       agents: { mutate: ['src/pages/AgentsPage/{hooks,utils}/**/*.ts'] },
     },
   },
+  // Vitest 5, jsdom: a Vue component library, its components written as
+  // single-file components and TSX, mounted through @vue/test-utils.
+  'element-plus': {
+    repo: 'https://github.com/element-plus/element-plus',
+    commit: '3b5d0ad35b1d309a3430b49db9be1369f0966321',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@12.18.0 add -D -w ${stryker}`,
+    scopes: {
+      table: { mutate: ['packages/components/table/src/**/*.{ts,tsx}', 'packages/hooks/use-*/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */
