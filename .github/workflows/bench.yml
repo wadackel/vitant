@@ -117,6 +117,7 @@ jobs:
             mikro-orm core
             coder agents
             element-plus table
+            element-plus hooks
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)

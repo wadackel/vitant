@@ -1014,7 +1014,8 @@ export const targets: Record<string, Target> = {
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
     installStryker: `npx -y pnpm@12.18.0 add -D -w ${stryker}`,
     scopes: {
-      table: { mutate: ['packages/components/table/src/**/*.{ts,tsx}', 'packages/hooks/use-*/*.ts'] },
+      table: { mutate: ['packages/components/table/src/**/*.{ts,tsx}'] },
+      hooks: { mutate: ['packages/hooks/use-*/*.ts'] },
     },
   },
 }
