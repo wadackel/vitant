@@ -1016,9 +1016,10 @@ export const targets: Record<string, Target> = {
     // In a `--jobs` copy of ground truth, a test that imports a workspace package by its name, `@element-plus/hooks`
     // or `@element-plus/components`, loads the original's sources through the linked node_modules, and the copy probe
     // passes all the same where the mutated file's own tests import it by path: 171 killed hooks mutants passed there.
-    // Every entry that passes is made with `--jobs 1`.
+    // Ground truth is made with `--jobs 1`.
     scopes: {
-      // The `.vue` files of both directories, 15% of the project's mutants, are left out by this tool (docs/limits.md).
+      // This tool leaves out `.vue` files (docs/limits.md), the table's four among them: over the table, select and form
+      // components and the hooks, 15% of the mutants.
       // One scope of both took over 150 minutes on a hosted runner, where each of these takes about 70.
       table: { mutate: ['packages/components/table/src/**/*.{ts,tsx}'] },
       // The components import the hooks: each of four timed is reached by 115 to 118 of the 173 test files.
