@@ -106,13 +106,16 @@ function hangReport(seconds: number, out: string): string {
   const each =
     process.platform === 'darwin'
       ? 'sample "$pid" 1 2>&1 | head -n 120; lsof -p "$pid" 2>/dev/null | awk \'{print $4, $5, $9}\' | grep -vE "dylib|/usr/lib|/System" | head -n 40'
-      : 'cat "/proc/$pid/wchan" 2>/dev/null; echo; grep -E "^(State|Threads|VmRSS)" "/proc/$pid/status"; ls -l "/proc/$pid/fd" 2>/dev/null | tail -n +2 | awk \'{print $NF}\' | sort | uniq -c | sort -rn | head -n 15'
+      : 'cat "/proc/$pid/wchan" 2>/dev/null; echo; grep -E "^(State|Threads|VmRSS)" "/proc/$pid/status"; cat /proc/$pid/task/*/comm 2>/dev/null | sort | uniq -c; ls -l "/proc/$pid/fd" 2>/dev/null | tail -n +2 | awk \'{print $NF}\' | sort | uniq -c | sort -rn | head -n 15'
+  // The mutant each process last said it had on for a test, -1 for none.
+  const trying = path.join(dir, 'node_modules/.vitant/session/trying')
   return [
     `sleep ${seconds}`,
     `exec > '${out}' 2>&1`,
     'date',
-    'ps -axo pid,ppid,stat,etime,command | grep -E "PID|node" | grep -v grep | cut -c1-260',
-    `for pid in $(pgrep node); do echo "== $pid"; ${each}; done`,
+    'ps -axo pid,ppid,stat,etime,time,command | grep -E "PID|node" | grep -v grep | cut -c1-260',
+    `for f in '${trying}'/*; do echo "trying $(basename "$f") $(od -An -i "$f")"; done`,
+    `for pid in $(pgrep -f node); do echo "== $pid"; ${each}; done`,
   ].join('\n')
 }
 
