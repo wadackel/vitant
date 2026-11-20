@@ -118,6 +118,7 @@ jobs:
             coder agents
             element-plus table
             element-plus hooks
+            fast-check check
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
