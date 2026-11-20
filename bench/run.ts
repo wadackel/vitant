@@ -194,7 +194,7 @@ if (skipped) {
       2,
     ),
   )
-  timings.push(time('stryker', 'npx', ['stryker', 'run', config], dir))
+  timings.push(time('stryker', 'npx', [...(targets[targetName].strykerForce ? ['--force'] : []), 'stryker', 'run', config], dir))
 }
 
 interface Reported {
