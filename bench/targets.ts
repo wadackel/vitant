@@ -994,9 +994,12 @@ export const targets: Record<string, Target> = {
     projects: ['unit'],
     // Outside UTC two tests of `timeGroups.test.ts` fail with no mutant: they compare a pinned time with local midnight.
     env: { TZ: 'UTC' },
+    // From a `--jobs` copy of ground truth, Vite refuses the setup file `@testing-library/jest-dom/vitest`, which
+    // resolves through the linked node_modules to the original, outside the copy, and every run fails. Ground truth is made with `--jobs 1`.
     scopes: {
-      // The React Compiler compiles 17 of the 53 modules, 2,206 of their 5,014 mutants, from their source and gives up on
-      // their instrumented code; this tool leaves those out (docs/limits.md), and the scope's verdicts are of the other 36.
+      // The React Compiler compiles 17 of the 53 modules, the 16 of `hooks` and `utils/notificationWindow.ts`, 2,206 mutants,
+      // from their source and gives up on their instrumented code; this tool leaves those out (docs/limits.md), and the
+      // scope's verdicts are of the other 36 modules of `utils`. StrykerJS mutates all 53.
       agents: { mutate: ['src/pages/AgentsPage/{hooks,utils}/**/*.ts'] },
     },
   },
