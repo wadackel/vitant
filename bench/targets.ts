@@ -23,6 +23,12 @@ export interface Target {
   /** The pool StrykerJS's Vitest runner runs the tests in, where its default, `threads`, does not run the suite. */
   strykerPool?: 'forks'
   /**
+   * Start StrykerJS with `npx --force`, for a project whose `devEngines` names another package manager: npm refuses
+   * to run there otherwise, and with `--force` it warns instead. Not for every target: it also hands
+   * `npm_config_force=true` to the tests StrykerJS runs.
+   */
+  strykerForce?: boolean
+  /**
    * Why StrykerJS is not run on this target, where a run of it does not end within the workflow's job: the
    * job's limit would end this tool's run with it, which comes after. `bench/run.ts` records the reason in its place.
    */
@@ -907,6 +913,28 @@ export const targets: Record<string, Target> = {
     // From a `--jobs` copy of ground truth, which has no `.git`, three tests fail with no mutant. Ground truth is made with `--jobs 1`.
     scopes: {
       lib: { mutate: ['lib/*.js'] },
+    },
+  },
+  // Vitest 5: a bundler's front end, each test building fixtures with
+  // rolldown into a `tests/temp` directory that runs of a test share.
+  // Not a target the tool can judge, see docs/limits.md: where two runs of
+  // one test meet, one empties the other's fixture, tsdown takes the
+  // repository's own `package.json` for the fixture's and writes its
+  // `exports` there. `git checkout -- package.json` after a run, and put
+  // StrykerJS back in it with `installStryker`.
+  tsdown: {
+    repo: 'https://github.com/rolldown/tsdown',
+    commit: 'e2e174deff987cf3e0d48eac0ef8b59f68f736c0',
+    // pnpm as `devEngines` names it, 12.18.0, which the pnpm on PATH fetches and hands over to.
+    install: ['pnpm install --frozen-lockfile'],
+    // Tests call `process.chdir()`, which `threads` does not allow, and StrykerJS 10.0.0 takes no pool.
+    installStryker: 'pnpm add -D -w @stryker-mutator/core@10.1.1 @stryker-mutator/vitest-runner@10.1.1',
+    strykerPool: 'forks',
+    strykerForce: true,
+    scopes: {
+      // The modules of `src/features` that write no files. With all of `src`, 4,031 mutants, a hosted run left 2,180 pending:
+      // once the project's own `package.json` had been rewritten, a test of `packages/exe` failed to load.
+      features: { mutate: ['src/features/{deps,entry,target,tsconfig,cjs,node-protocol,shebang,shims,output,report,hooks}.ts'] },
     },
   },
   // Vitest 4: a DOM implementation, tests held to 500 ms each, Node's
