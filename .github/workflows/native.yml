@@ -73,14 +73,14 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Check
         run: node bench/ci.ts run quick linux-x64-gnu
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: check-linux-x64-gnu-quick
           path: build/ci/result-*.json
           if-no-files-found: error
           overwrite: true
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: reports-linux-x64-gnu-quick
@@ -156,7 +156,7 @@ jobs:
           cp "build/fork.$TARGET.node" "npm/$TARGET/"
           cd "npm/$TARGET"
           npm pack --dry-run 2>&1 | grep -F "fork.$TARGET.node"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ matrix.addon }}
         with:
           name: fork.${{ matrix.target }}
@@ -165,14 +165,14 @@ jobs:
             build/addon.${{ matrix.target }}.json
           if-no-files-found: error
           overwrite: true
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: check-${{ matrix.target }}-smoke
           path: build/ci/result-*.json
           if-no-files-found: error
           overwrite: true
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: reports-${{ matrix.target }}-smoke
@@ -239,14 +239,14 @@ jobs:
       - name: Keep available truth sessions
         if: ${{ always() && startsWith(matrix.suite, 'truth') }}
         run: node bench/ci.ts sessions
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: check-${{ matrix.target }}-${{ matrix.suite }}
           path: build/ci/result-*.json
           if-no-files-found: error
           overwrite: true
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: reports-${{ matrix.target }}-${{ matrix.suite }}
