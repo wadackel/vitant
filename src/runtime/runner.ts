@@ -19,6 +19,7 @@ import { Worker } from 'node:worker_threads'
 import {
   createRuntime,
   globalBinding,
+  readGlobalBinding,
   HOOK_GLOBAL,
   type HookObserver,
   MUTANT_KILLED,
@@ -301,9 +302,7 @@ const siteMutants = new Uint32Array(
   0,
   config.siteCount + 1,
 )
-const runtimeBinding = globalBinding<Runtime>(config.runtimeGlobal)
-const runtime: Runtime = runtimeBinding.get() ?? createRuntime(config.siteCount, config.mutantCount)
-runtimeBinding.set(runtime)
+const runtime: Runtime = globalBinding(config.runtimeGlobal, () => createRuntime(config.siteCount, config.mutantCount)).value
 
 const tracked = fs.readFileSync(paths.tracked)
 
@@ -1038,7 +1037,7 @@ function inTime(waited: Promise<unknown>): Promise<boolean> {
 
 /** Ids of the calls this process has sent to the main process and has no answer to. */
 // Read, not declared: a worker the channel watch is not loaded in has no such name, as in the suite.
-const watched = vm.runInThisContext("typeof __vitant_unanswered === 'undefined' ? undefined : __vitant_unanswered") as Set<string> | undefined
+const watched = readGlobalBinding<Set<string>>('__vitant_unanswered')
 const unanswered = watched ?? new Set<string>()
 let listening = false
 
@@ -1490,7 +1489,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
   return class MutationRunner extends Base {
     constructor(...args: any[]) {
       super(...args)
-      const hook = globalBinding<HookObserver>(HOOK_GLOBAL).get()
+      const hook = readGlobalBinding<HookObserver>(HOOK_GLOBAL)
       const observed = hook?.patched
       if (!hook || !observed) throw new Error('Vitest hook deadline observer was not loaded in this worker')
       if (process.env.VITANT_DEBUG) emit({ type: 'hookObserver', module: observed.module, hash: observed.hash })

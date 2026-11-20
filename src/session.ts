@@ -290,23 +290,39 @@ function builtinsCheck(): () => boolean {
     })
 }
 
+/** What the binding of the name in this realm's global scope holds, or undefined where there is none. */
+export function readGlobalBinding<T>(name: string): T | undefined {
+  return vm.runInThisContext(`typeof ${name} === 'undefined' ? undefined : ${name}`) as T | undefined
+}
+
 /**
  * A name in this realm's global scope, as a script's top-level `let` makes
- * one, and what reads and sets it; a second call for the name finds the
- * binding the first made. A property of `globalThis` would do, hidden or
- * not, but a test that walks everything reachable from it, as fast-check's
- * do after every property with `@fast-check/poisoning`, sees the runtime's
- * switches and hits change under it and fails with no mutant on. Instrumented
- * code and Vitest's module runners find such a binding by name all the same.
+ * one, holding what `make` gives unless an earlier call made it already. A
+ * property of `globalThis` would do, hidden or not, but a test that walks
+ * everything reachable from it, as fast-check's do after every property with
+ * `@fast-check/poisoning`, sees the runtime's switches and hits change under
+ * it and fails with no mutant on. Instrumented code and Vitest's module
+ * runners find such a binding by name all the same. It is declared with its
+ * value: V8 folds a binding written once into optimised code and reads one
+ * declared and then set anew every time, which made a loop of such reads a
+ * quarter slower. The value is handed over in a property that is gone before
+ * the call returns, since a script can name nothing else this one holds.
  */
-export function globalBinding<T>(name: string): { get: () => T | undefined; set: (value: T) => void } {
-  try {
-    vm.runInThisContext(`let ${name}`)
-  } catch (error) {
-    // A `var` of the name or a property that cannot be deleted makes the declaration fail as well, and would be read and set in the binding's place.
-    if (!(error instanceof SyntaxError) || Object.getOwnPropertyDescriptor(globalThis, name)) throw error
+export function globalBinding<T>(name: string, make: () => T): { value: T; set: (value: T) => void } {
+  // A `var` of the name or a property that cannot be deleted would be read and set in the binding's place.
+  if (Object.getOwnPropertyDescriptor(globalThis, name)) throw new Error(`${name} is a property of globalThis`)
+  let value = readGlobalBinding<T>(name)
+  if (value === undefined) {
+    const global = globalThis as Record<string, unknown>
+    value = make()
+    global.__vitant_passing = value
+    try {
+      vm.runInThisContext(`let ${name} = globalThis.__vitant_passing`)
+    } finally {
+      delete global.__vitant_passing
+    }
   }
-  return { get: vm.runInThisContext(`() => ${name}`), set: vm.runInThisContext(`(value) => { ${name} = value }`) }
+  return { value, set: vm.runInThisContext(`(value) => { ${name} = value }`) }
 }
 
 /** The binding the hook observer (`writeHookObserver`) makes in a worker, which the runner and Vitest's rewritten `withTimeout` read. */
