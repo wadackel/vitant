@@ -290,6 +290,34 @@ function builtinsCheck(): () => boolean {
     })
 }
 
+/**
+ * A name in this realm's global scope, as a script's top-level `let` makes
+ * one, and what reads and sets it; a second call for the name finds the
+ * binding the first made. A property of `globalThis` would do, hidden or
+ * not, but a test that walks everything reachable from it, as fast-check's
+ * do after every property with `@fast-check/poisoning`, sees the runtime's
+ * switches and hits change under it and fails with no mutant on. Instrumented
+ * code and Vitest's module runners find such a binding by name all the same.
+ */
+export function globalBinding<T>(name: string): { get: () => T | undefined; set: (value: T) => void } {
+  try {
+    vm.runInThisContext(`let ${name}`)
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error
+  }
+  return { get: vm.runInThisContext(`() => ${name}`), set: vm.runInThisContext(`(value) => { ${name} = value }`) }
+}
+
+/** The binding the hook observer (`writeHookObserver`) makes in a worker, which the runner and Vitest's rewritten `withTimeout` read. */
+export const HOOK_GLOBAL = '__vitant_hook'
+
+export interface HookObserver {
+  /** The module of Vitest that was rewritten, once it has loaded. */
+  patched: { module: string; hash: string } | false
+  /** Called as a hook with a deadline begins; what it returns follows the hook, see `MutationRunner`. */
+  start?: (timeout: number) => object | undefined
+}
+
 export function createRuntime(siteCount: number, mutantCount: number): Runtime {
   const runtime: Runtime = {
     a: -1,
@@ -350,7 +378,7 @@ export function createRuntime(siteCount: number, mutantCount: number): Runtime {
  * to a call made later.
  */
 export const channelWatch = `
-const unanswered = globalThis.__vitant_unanswered = new Set()
+const unanswered = require('node:vm').runInThisContext('let __vitant_unanswered = new Set(); __vitant_unanswered')
 const v8 = require('node:v8')
 function envelope(message, depth) {
   if (message === null || typeof message !== 'object' || depth > 3) return undefined
