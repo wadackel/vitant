@@ -290,6 +290,51 @@ function builtinsCheck(): () => boolean {
     })
 }
 
+/** What the binding of the name in this realm's global scope holds, or undefined where there is none. */
+export function readGlobalBinding<T>(name: string): T | undefined {
+  return vm.runInThisContext(`typeof ${name} === 'undefined' ? undefined : ${name}`) as T | undefined
+}
+
+/**
+ * A name in this realm's global scope, as a script's top-level `let` makes
+ * one, holding what `make` gives unless an earlier call made it already. A
+ * property of `globalThis` would do, hidden or not, but a test that walks
+ * everything reachable from it, as fast-check's do after every property with
+ * `@fast-check/poisoning`, sees the runtime's switches and hits change under
+ * it and fails with no mutant on. Instrumented code and Vitest's module
+ * runners find such a binding by name all the same. It is declared with its
+ * value: V8 folds a binding written once into optimised code and reads one
+ * declared and then set anew every time, which made a loop of such reads a
+ * quarter slower. The value is handed over in a property that is gone before
+ * the call returns, since a script can name nothing else this one holds.
+ */
+export function globalBinding<T>(name: string, make: () => T): { value: T; set: (value: T) => void } {
+  // A `var` of the name or a property that cannot be deleted would be read and set in the binding's place.
+  if (Object.getOwnPropertyDescriptor(globalThis, name)) throw new Error(`${name} is a property of globalThis`)
+  let value = readGlobalBinding<T>(name)
+  if (value === undefined) {
+    const global = globalThis as Record<string, unknown>
+    value = make()
+    global.__vitant_passing = value
+    try {
+      vm.runInThisContext(`let ${name} = globalThis.__vitant_passing`)
+    } finally {
+      delete global.__vitant_passing
+    }
+  }
+  return { value, set: vm.runInThisContext(`(value) => { ${name} = value }`) }
+}
+
+/** The binding the hook observer (`writeHookObserver`) makes in a worker, which the runner and Vitest's rewritten `withTimeout` read. */
+export const HOOK_GLOBAL = '__vitant_hook'
+
+export interface HookObserver {
+  /** The module of Vitest that was rewritten, once it has loaded. */
+  patched: { module: string; hash: string } | false
+  /** Called as a hook with a deadline begins; what it returns follows the hook, see `MutationRunner`. */
+  start?: (timeout: number) => object | undefined
+}
+
 export function createRuntime(siteCount: number, mutantCount: number): Runtime {
   const runtime: Runtime = {
     a: -1,
@@ -350,7 +395,7 @@ export function createRuntime(siteCount: number, mutantCount: number): Runtime {
  * to a call made later.
  */
 export const channelWatch = `
-const unanswered = globalThis.__vitant_unanswered = new Set()
+const unanswered = require('node:vm').runInThisContext('let __vitant_unanswered = new Set(); __vitant_unanswered')
 const v8 = require('node:v8')
 function envelope(message, depth) {
   if (message === null || typeof message !== 'object' || depth > 3) return undefined

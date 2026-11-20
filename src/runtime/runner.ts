@@ -18,6 +18,10 @@ import vm from 'node:vm'
 import { Worker } from 'node:worker_threads'
 import {
   createRuntime,
+  globalBinding,
+  readGlobalBinding,
+  HOOK_GLOBAL,
+  type HookObserver,
   MUTANT_KILLED,
   MUTANT_PENDING,
   MUTANT_STALLED,
@@ -298,11 +302,7 @@ const siteMutants = new Uint32Array(
   0,
   config.siteCount + 1,
 )
-const globals = globalThis as Record<string, unknown>
-const runtime: Runtime =
-  (globals[config.runtimeGlobal] as Runtime | undefined) ??
-  createRuntime(config.siteCount, config.mutantCount)
-globals[config.runtimeGlobal] = runtime
+const runtime: Runtime = globalBinding(config.runtimeGlobal, () => createRuntime(config.siteCount, config.mutantCount)).value
 
 const tracked = fs.readFileSync(paths.tracked)
 
@@ -1036,7 +1036,8 @@ function inTime(waited: Promise<unknown>): Promise<boolean> {
 }
 
 /** Ids of the calls this process has sent to the main process and has no answer to. */
-const watched = (globalThis as { __vitant_unanswered?: Set<string> }).__vitant_unanswered
+// Read, not declared: a worker the channel watch is not loaded in has no such name, as in the suite.
+const watched = readGlobalBinding<Set<string>>('__vitant_unanswered')
 const unanswered = watched ?? new Set<string>()
 let listening = false
 
@@ -1488,11 +1489,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
   return class MutationRunner extends Base {
     constructor(...args: any[]) {
       super(...args)
-      const global = globalThis as Record<string, unknown>
-      const observed = global.__vitant_hookPatched as { module?: string; hash?: string } | undefined
-      if (!observed?.module || !observed.hash) throw new Error('Vitest hook deadline observer was not loaded in this worker')
+      const hook = readGlobalBinding<HookObserver>(HOOK_GLOBAL)
+      const observed = hook?.patched
+      if (!hook || !observed) throw new Error('Vitest hook deadline observer was not loaded in this worker')
       if (process.env.VITANT_DEBUG) emit({ type: 'hookObserver', module: observed.module, hash: observed.hash })
-      global.__vitant_hookStart = (timeout: number) => {
+      hook.start = (timeout: number) => {
         if (!this.whole || this.whole.trial !== undefined || !(timeout > 0) || !finiteNumber(timeout)) return undefined
         const scope = { job: this.whole, timeout, active: false, clock: 0, cpu: 0, exceeded: () => false }
         return {

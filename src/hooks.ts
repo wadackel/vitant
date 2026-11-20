@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { parseSync } from 'oxc-parser'
 import { walk, type Node } from './mutate/walk.ts'
+import { HOOK_GLOBAL } from './session.ts'
 
 const named = (node: Node, name: string): boolean => node?.type === 'Identifier' && node.name === name
 const member = (node: Node, object: string, property: string): boolean => node?.type === 'MemberExpression' && !node.computed &&
@@ -164,7 +165,7 @@ export function observeTimeouts(source: string): string | undefined {
   const check = deadlineCheck(parsed.program, wrappers[0], executor, calls[0], source)
   if (!check) return undefined
   const edits: { start: number; end: number; text: string }[] = [
-    { start: body.start + 1, end: body.start + 1, text: '\nconst __vitantHook = isHook ? globalThis.__vitant_hookStart?.(timeout) : undefined;\nconst __vitantInvoke = () => {\n' },
+    { start: body.start + 1, end: body.start + 1, text: `\nconst __vitantHook = isHook && typeof ${HOOK_GLOBAL} !== 'undefined' ? ${HOOK_GLOBAL}.start?.(timeout) : undefined;\nconst __vitantInvoke = () => {\n` },
     { start: body.end - 1, end: body.end - 1, text: '\n};\nreturn __vitantHook ? __vitantHook.run(__vitantInvoke) : __vitantInvoke();\n' },
     { start: calls[0].start, end: calls[0].end, text: `(__vitantHook?.start(() => ${source.slice(check.start, check.end)}), ${source.slice(calls[0].start, calls[0].end)})` },
     ...settlements.map((node) => ({ start: node.start, end: node.end, text: `(__vitantHook?.end(), ${source.slice(node.start, node.end)})` })),
@@ -197,7 +198,7 @@ export function writeHookObserver(vitestPackage: string, directory: string): str
 const { registerHooks } = require('node:module')
 const { createHash } = require('node:crypto')
 const modules = JSON.parse(require('node:fs').readFileSync(${JSON.stringify(data)}, 'utf8'))
-globalThis.__vitant_hookPatched = false
+const hook = require('node:vm').runInThisContext('let ${HOOK_GLOBAL} = { patched: false }; ${HOOK_GLOBAL}')
 registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context)
@@ -205,7 +206,7 @@ registerHooks({
     if (!patch) return loaded
     const source = typeof loaded.source === 'string' ? loaded.source : Buffer.from(loaded.source ?? '').toString('utf8')
     if (createHash('sha256').update(source).digest('hex') !== patch.hash) throw new Error('Vitest hook timeout source changed before worker load')
-    globalThis.__vitant_hookPatched = { module: url, hash: patch.hash }
+    hook.patched = { module: url, hash: patch.hash }
     return { ...loaded, source: patch.source }
   },
 })

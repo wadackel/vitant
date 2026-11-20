@@ -34,9 +34,11 @@ import {
   MUTANT_STALLED,
   MUTANT_TIMEOUT,
   type RoundPlan,
+  type Runtime,
   type WholeJob,
   type SessionConfig,
   channelWatch,
+  globalBinding,
   relative,
   sessionPaths,
 } from './session.ts'
@@ -2449,10 +2451,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const hookObserver = writeHookObserver(vitestPackage, sessionDir)
   process.env.VITANT_SESSION = sessionDir
   // `globalSetup` files load in this process and may import instrumented code.
-  ;(globalThis as Record<string, unknown>)[RUNTIME_GLOBAL] = createRuntime(
-    generated.siteMutants.length,
-    generated.mutants.length,
-  )
+  const fresh = createRuntime(generated.siteMutants.length, generated.mutants.length)
+  const runtimeBinding = globalBinding<Runtime>(RUNTIME_GLOBAL, () => fresh)
+  // A run before this one in the process made the binding with its own runtime.
+  if (runtimeBinding.value !== fresh) runtimeBinding.set(fresh)
 
   // Limits decide what counts as a timeout, so results from other limits do not carry over.
   const limits = [options.timeoutFactor, options.timeoutMs, options.loopFactor, options.loopSlack]
@@ -2788,7 +2790,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       watchedReads = generated.mutants.map((mutant) => mutant.reads)
       watchedAgain = generated.mutants.map((mutant) => mutant.again)
       writeMutants(sessionDir, generated, config)
-      ;(globalThis as Record<string, unknown>)[RUNTIME_GLOBAL] = createRuntime(generated.siteMutants.length, generated.mutants.length)
+      runtimeBinding.set(createRuntime(generated.siteMutants.length, generated.mutants.length))
       if (options.incremental) {
         keys = mutantKeys(generated, options.root)
         hints = hintKeys(generated, options.root)

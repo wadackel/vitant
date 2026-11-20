@@ -269,6 +269,16 @@ describe('running the fixture project', () => {
     expect(statusOf('src/warm.ts', 7, 'x - 1')).toBe('Killed')
   })
 
+  it('keeps what it needs out of reach of a walk from globalThis', () => {
+    // With the runtime a property of globalThis the test saw it change, failed
+    // with no mutant on, and every mutant of the file was reported as one no test covers.
+    expect(result.neverPassedTests).not.toContain('test/sign.test.ts > changes nothing reachable from globalThis')
+    expect(statusOf('src/sign.ts', 3, 'value <= 0')).toBe('Killed')
+    expect(statusOf('src/sign.ts', 4, 'value >= 0')).toBe('Killed')
+    // No test passes NaN. Were the tool's state seen to change while a mutant is on, this one would be counted as Killed.
+    expect(statusOf('src/sign.ts', 2, 'false')).toBe('Survived')
+  })
+
   it('runs the tests with NODE_ENV set to test, as the vitest command does', () => {
     // Otherwise the rejection the module leaves outside a test environment fails every run of the file.
     expect(result.abandonedFiles).toEqual([])

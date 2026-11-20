@@ -31,13 +31,16 @@ function fixture() {
     Date: { now: () => 0 },
     setTimeout(fn: () => void, ms: number) { events.push(`timer:${ms}`); timer = fn; return 1 },
     clearTimeout() {},
-    __vitant_hookStart(timeout: number) {
-      events.push(`scope:${timeout}`)
-      return {
-        run(fn: () => unknown) { events.push('run'); return fn() },
-        start(exceeded: () => boolean) { expect(exceeded()).toBe(false); events.push('start') },
-        end() { events.push('end') },
-      }
+    __vitant_hook: {
+      patched: false,
+      start(timeout: number) {
+        events.push(`scope:${timeout}`)
+        return {
+          run(fn: () => unknown) { events.push('run'); return fn() },
+          start(exceeded: () => boolean) { expect(exceeded()).toBe(false); events.push('start') },
+          end() { events.push('end') },
+        }
+      },
     },
   }) as (fn: (...args: unknown[]) => unknown, timeout: number, hook?: boolean) => (...args: unknown[]) => Promise<unknown>
   return { events, wrap, expire: () => timer() }
