@@ -445,7 +445,7 @@ for (;;) {
     // loading what the file's first test loads once for all for one, and
     // on a slow machine that alone is over the limit, with every mutant in
     // turn: the mutant stays as it is and the file's tests are replayed.
-    // So does a run with no mutant on that what a try left made endless.
+    // A run with no mutant on that what a try left made endless is stopped as such.
     const cold = mutant[1] === 2
     const by = clock ? 'clock' : memory ? 'memory' : 'cpu'
     fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, cold, whole: mutant[1] === 1, by, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
@@ -2545,9 +2545,11 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
      * run only to bring the one after it to where it would be, went on
      * through its thousand chained computeds for hours with nothing to end
      * it. The limit is the test's own time limit with the allowance a try
-     * has over its run: the suite fails the test past that limit. A stop
-     * says nothing of any mutant, so it is marked as a cold one is and the
-     * file's tests are replayed from the first in the rounds that follow.
+     * has over its run, on the processor, and the time limit itself by the
+     * clock, which the suite fails the test past: the probes slow such a run
+     * down, and the collector's threads add to its processor time. A stop
+     * says nothing of any mutant, so it is marked as a cold one is, and the
+     * test is run again in a later round.
      */
     private limitUnmutated(test: TaskLike): void {
       const timeoutMs = deadline((test as { timeout?: number }).timeout ?? this.config.testTimeout)
@@ -2556,7 +2558,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       beatMutant[0] = -1
       beatMutant[1] = 2
       noteTest(test.id)
-      limitStretch(timeoutMs * config.timeoutFactor + config.timeoutMs)
+      limitStretch(timeoutMs * config.timeoutFactor + config.timeoutMs, timeoutMs)
     }
 
     /** The try that has just ended, of this test or of any, when it had a mutant on and is not settled, see `letTurn`. */
@@ -3311,6 +3313,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         runtime.i.fill(0)
         runtime.b.fill(0)
         this.passive = false
+        limitStretch(0)
       }
       if (!this.active) return
       const { test, run } = this.active
