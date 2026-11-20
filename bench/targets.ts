@@ -1006,6 +1006,26 @@ export const targets: Record<string, Target> = {
       agents: { mutate: ['src/pages/AgentsPage/{hooks,utils}/**/*.ts'] },
     },
   },
+  // Vitest 5, jsdom: a Vue component library, its components written as
+  // single-file components and TSX, mounted through @vue/test-utils.
+  'element-plus': {
+    repo: 'https://github.com/element-plus/element-plus',
+    commit: '3b5d0ad35b1d309a3430b49db9be1369f0966321',
+    install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
+    installStryker: `npx -y pnpm@12.18.0 add -D -w ${stryker}`,
+    // In a `--jobs` copy of ground truth, a test that imports a workspace package by its name, `@element-plus/hooks`
+    // or `@element-plus/components`, loads the original's sources through the linked node_modules, and the copy probe
+    // passes all the same where the mutated file's own tests import it by path: 171 killed hooks mutants passed there.
+    // Ground truth is made with `--jobs 1`.
+    scopes: {
+      // This tool leaves out `.vue` files (docs/limits.md), the table's four among them: over the table, select and form
+      // components and the hooks, 15% of the mutants.
+      // One scope of both took over 150 minutes on a hosted runner, where each of these takes about 70.
+      table: { mutate: ['packages/components/table/src/**/*.{ts,tsx}'] },
+      // The components import the hooks: each of four timed is reached by 115 to 118 of the 173 test files.
+      hooks: { mutate: ['packages/hooks/use-*/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */
