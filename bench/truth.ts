@@ -22,7 +22,9 @@
 // next to it, which share its `node_modules`. That is only sound for a
 // project that does not reach its own sources through `node_modules`: a
 // workspace package or a link to itself resolves to the original, where
-// the mutant is not.
+// the mutant is not. Nor through an alias to an absolute path, and the
+// tests may need what a copy lacks, `.git` or a file Vite will not serve
+// from outside the copy: `make` refuses copies that fail its probes.
 
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -222,6 +224,82 @@ function copies(root: string, count: number): string[] {
   })
 }
 
+/**
+ * Throws unless each copy can stand for the checkout. A copy whose tests
+ * cannot run there fails every run, and each mutant the report has killed
+ * agrees with it whatever the mutant does; one whose tests load the
+ * original's sources passes every run, and each survivor agrees. So in a
+ * copy the run for a file has to pass with no mutant and fail with a throw
+ * at the top of the copy's file wherever it fails with one in the
+ * checkout's. With `--related` the runs differ by file, and every mutated
+ * file is probed; otherwise each is the whole suite, and each copy takes
+ * one file in turn.
+ */
+async function probeCopies({ root, copies, files, argsFor, originals }: {
+  root: string
+  copies: string[]
+  files: string[]
+  argsFor: (file: string) => string[]
+  originals: Map<string, string>
+}) {
+  if (files.length === 0) return
+  // Each copy takes its first file before any run ends, so that each is probed.
+  const queue = Array.from({ length: values.related ? Math.max(files.length, copies.length) : copies.length }, (_, at) => files[at % files.length])
+  const failing: { copy: string; file: string }[] = []
+  const unloaded: { copy: string; file: string }[] = []
+  // A test that waits on the clock can fail by itself with other runs beside
+  // it: with the throw, a run that fails by that alone would pass a copy
+  // that loads the original's file, so the file counts as loaded only where
+  // two runs fail. A copy is refused for a run with no mutant only once it
+  // fails with nothing else running, and the copies start no more runs
+  // until then: in a copy that runs nothing, every file fails.
+  const withThrowFails = async (dir: string, file: string) =>
+    (await withThrow(dir, file)).suite !== 'pass' && (await withThrow(dir, file)).suite !== 'pass'
+  while (queue.length > 0) {
+    await Promise.all(
+      copies.map(async (copy) => {
+        while (queue.length > 0 && failing.length === 0) {
+          const file = queue.shift()!
+          let passed = false
+          for (let attempt = 0; attempt < 3 && !passed; attempt++) passed = (await runSuite(copy, argsFor(file), 600_000)).suite === 'pass'
+          if (!passed) failing.push({ copy, file })
+          else if (!(await withThrowFails(copy, file))) unloaded.push({ copy, file })
+        }
+      }),
+    )
+    for (const { copy, file } of failing.splice(0)) {
+      if ((await runSuite(copy, argsFor(file), 600_000)).suite !== 'pass') {
+        refuse(`the probe with no mutant failed in the copy ${copy}: \`vitest ${argsFor(file).join(' ')}\` for ${file} fails there and passes in the checkout`)
+      }
+      if (!(await withThrowFails(copy, file))) unloaded.push({ copy, file })
+    }
+  }
+  // A file that none of the tests loads passes with the throw in the checkout too, and its mutants pass anywhere.
+  for (const { copy, file } of unloaded) {
+    if ((await withThrow(root, file)).suite === 'pass') continue
+    refuse(`the probe with a throw failed in the copy ${copy}: with a throw at the top of its ${file}, \`vitest ${argsFor(file).join(' ')}\` passes there and fails in the checkout, so its tests do not load the copy's file`)
+  }
+
+  function refuse(reason: string): never {
+    throw new Error(`${reason}. Copies cannot stand for this project: make ground truth with --jobs 1`)
+  }
+
+  async function withThrow(dir: string, file: string) {
+    const target = path.join(dir, file)
+    const source = fs.readFileSync(target, 'utf8')
+    // After a first line that starts with `#!`, which has to stay first.
+    const head = source.startsWith('#!') ? source.indexOf('\n') + 1 || source.length : 0
+    originals.set(target, source)
+    fs.writeFileSync(target, `${source.slice(0, head)}throw new Error(${JSON.stringify(`vitant truth: ${file} is loaded`)})\n${source.slice(head)}`)
+    try {
+      return await runSuite(dir, argsFor(file), 600_000)
+    } finally {
+      fs.writeFileSync(target, source)
+      originals.delete(target)
+    }
+  }
+}
+
 async function make(): Promise<Truth> {
   const root = fs.realpathSync(values.root!)
   const command = values.related ? 'related' : 'run'
@@ -267,6 +345,7 @@ async function make(): Promise<Truth> {
     }
     if (!passed) throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant`)
   }
+  if (roots.length > 1) await probeCopies({ root, copies: roots, files: [...new Set(mutants.map((mutant) => mutant.file))], argsFor, originals })
   // The limit is for runs that have others beside them: on a machine with
   // one processor for each, a suite among four takes five times what it
   // takes alone, and a limit from the one alone ends every run. Only the
