@@ -78,8 +78,9 @@ describe('running the fixture project', () => {
     // that happens to one now and then.
     expect(runs.lost).toBeLessThan(3)
     // What is left to workers started for the run: mutants that block or end
-    // the process, and the runs made alone, four of them for `delay.ts`.
-    expect(runs.started).toBeLessThan(17)
+    // the process, and the runs made alone, four of them for `delay.ts` and
+    // three for the loops of `nest.ts`.
+    expect(runs.started).toBeLessThan(20)
   })
 
   it('kills a mutant a test fails on and keeps one no test notices', () => {
@@ -256,6 +257,13 @@ describe('running the fixture project', () => {
 
   it('counts an error nothing handles, which fails a run whose tests all pass', () => {
     expect(statusOf('src/notify.ts', 3, 'strict || listeners.length === 0')).toBe('Killed')
+  })
+
+  // The run would not end: a try of the first test leaves a level open, and
+  // the second test then loops for good with no mutant on.
+  it('ends a test that what an earlier try left makes endless with no mutant on', () => {
+    expect(statusOf('src/nest.ts', 9, 'open++')).toBe('Timeout')
+    expect(statusOf('src/nest.ts', 15, 'true')).toBe('Survived')
   })
 
   it('does not go by what a test reached in a worker a mutant had left its mark on', () => {

@@ -369,7 +369,7 @@ function trying(mutant: number): void {
   fs.writeSync(tryingFd, new Uint8Array(tryingMutant.buffer), 0, 4, 0)
 }
 
-/** In a process's word of the mutant it tries: it was stopped in a test's first try, see `cold` in the watchdog. */
+/** In a process's word of the mutant it tries: it was stopped where that says nothing of a mutant, see `cold` in the watchdog. */
 const STOPPED_COLD = -2
 
 /** The mutant the process with this id had on for a test when it last said, -1 for none. */
@@ -445,6 +445,7 @@ for (;;) {
     // loading what the file's first test loads once for all for one, and
     // on a slow machine that alone is over the limit, with every mutant in
     // turn: the mutant stays as it is and the file's tests are replayed.
+    // So does a run with no mutant on that what a try left made endless.
     const cold = mutant[1] === 2
     const by = clock ? 'clock' : memory ? 'memory' : 'cpu'
     fs.appendFileSync(workerData.resultsPath, JSON.stringify({ type: 'stall', id, mutant: stalled, cold, whole: mutant[1] === 1, by, at: Date.now(), pid: process.pid }) + String.fromCharCode(10))
@@ -468,9 +469,9 @@ for (;;) {
 }
 `
 const shared = new SharedArrayBuffer(24 + 256)
-/** [0] process CPU time at the last heartbeat, [1] how much more it may use, 0 when no mutant is active. */
+/** [0] process CPU time at the last heartbeat, [1] how much more it may use, 0 when no run is held to a limit. */
 const beat = new Float64Array(shared, 0, 2)
-/** [0] the active mutant, [1] 1 in a whole-file run, 2 in a test's first try of a mutant in a worker that skipped the tests before it. */
+/** [0] the active mutant, [1] 1 in a whole-file run, 2 in a test's first try of a mutant in a worker that skipped the tests before it, or in a run with no mutant on after one was (`limitUnmutated`). */
 const beatMutant = new Int32Array(shared, 16, 2)
 const beatTest = new Uint8Array(shared, 24, 256)
 /**
@@ -2536,6 +2537,28 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       limitStretch(0)
     }
 
+    /**
+     * Holds a run with no mutant on to a limit once a mutant has been on in
+     * this process. A try that passed can leave shared state that makes a
+     * later test endless with no mutant on: in vue's `computed.spec.ts` tries
+     * left the depth of batched updates below nought, and the next test,
+     * run only to bring the one after it to where it would be, went on
+     * through its thousand chained computeds for hours with nothing to end
+     * it. The limit is the test's own time limit with the allowance a try
+     * has over its run: the suite fails the test past that limit. A stop
+     * says nothing of any mutant, so it is marked as a cold one is and the
+     * file's tests are replayed from the first in the rounds that follow.
+     */
+    private limitUnmutated(test: TaskLike): void {
+      const timeoutMs = deadline((test as { timeout?: number }).timeout ?? this.config.testTimeout)
+      if (!this.attempted || timeoutMs === 0) return
+      heartbeat()
+      beatMutant[0] = -1
+      beatMutant[1] = 2
+      noteTest(test.id)
+      limitStretch(timeoutMs * config.timeoutFactor + config.timeoutMs)
+    }
+
     /** The try that has just ended, of this test or of any, when it had a mutant on and is not settled, see `letTurn`. */
     private mutantTry(test?: TaskLike): TestRun | undefined {
       const run = this.active && (test === undefined || this.active.test === test) ? this.active.run : undefined
@@ -2577,6 +2600,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         drainStaticHits()
         this.passive = true
         this.passiveApart = this.apart.has(test.id)
+        this.limitUnmutated(test)
         return super.onBeforeTryTask?.(test, options)
       }
 
@@ -2591,6 +2615,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           runtime.l = Infinity
           run.attempts = 1
           run.startedAt = preciseNow()
+          this.limitUnmutated(test)
           return super.onBeforeTryTask?.(test, options)
         }
       } else {
@@ -2646,6 +2671,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         run.startedAt = preciseNow()
         run.reached = undefined
         runtime.a = NO_MUTANT
+        this.limitUnmutated(test)
       }
       // The run without the mutant that follows a failure with it can meet
       // what the mutant left behind: a graph of dependencies that was built
