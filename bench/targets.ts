@@ -1013,8 +1013,15 @@ export const targets: Record<string, Target> = {
     commit: '3b5d0ad35b1d309a3430b49db9be1369f0966321',
     install: ['ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 npx -y pnpm@12.18.0 install --frozen-lockfile'],
     installStryker: `npx -y pnpm@12.18.0 add -D -w ${stryker}`,
+    // In a `--jobs` copy of ground truth, a test that imports a workspace package by its name, `@element-plus/hooks`
+    // or `@element-plus/components`, loads the original's sources through the linked node_modules, and the copy probe
+    // passes all the same where the mutated file's own tests import it by path: 171 killed hooks mutants passed there.
+    // Every entry that passes is made with `--jobs 1`.
     scopes: {
+      // The `.vue` files of both directories, 15% of the project's mutants, are left out by this tool (docs/limits.md).
+      // One scope of both took over 150 minutes on a hosted runner, where each of these takes about 70.
       table: { mutate: ['packages/components/table/src/**/*.{ts,tsx}'] },
+      // The components import the hooks: each of four timed is reached by 115 to 118 of the 173 test files.
       hooks: { mutate: ['packages/hooks/use-*/*.ts'] },
     },
   },
