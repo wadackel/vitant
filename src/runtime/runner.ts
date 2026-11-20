@@ -1037,7 +1037,8 @@ function inTime(waited: Promise<unknown>): Promise<boolean> {
 }
 
 /** Ids of the calls this process has sent to the main process and has no answer to. */
-const watched = globalBinding<Set<string>>('__vitant_unanswered').get()
+// Read, not declared: a worker the channel watch is not loaded in has no such name, as in the suite.
+const watched = vm.runInThisContext("typeof __vitant_unanswered === 'undefined' ? undefined : __vitant_unanswered") as Set<string> | undefined
 const unanswered = watched ?? new Set<string>()
 let listening = false
 

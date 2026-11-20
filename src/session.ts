@@ -303,7 +303,8 @@ export function globalBinding<T>(name: string): { get: () => T | undefined; set:
   try {
     vm.runInThisContext(`let ${name}`)
   } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error
+    // A `var` of the name or a property that cannot be deleted makes the declaration fail as well, and would be read and set in the binding's place.
+    if (!(error instanceof SyntaxError) || Object.getOwnPropertyDescriptor(globalThis, name)) throw error
   }
   return { get: vm.runInThisContext(`() => ${name}`), set: vm.runInThisContext(`(value) => { ${name} = value }`) }
 }
