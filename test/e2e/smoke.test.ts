@@ -83,7 +83,7 @@ describe('copies of a worker made one after another', () => {
   it('read the clock as a run of the suite would, and are not made where a test reads another process or thread\'s', () => {
     const report = reportPath('clock')
     // A worker to each file, whose copies come one after another.
-    const cli = tool(['--root', fixture('clock'), '--report', report, '--max-workers', '3'])
+    const cli = tool(['--root', fixture('clock'), '--report', report, '--max-workers', '4'])
     expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
     const clock: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     // With the clock as it runs, the test that checks how long has passed
@@ -91,6 +91,12 @@ describe('copies of a worker made one after another', () => {
     // and then. With it standing still, the tests that compare it with a
     // child process's or a worker thread's failed in them the same way.
     expect(clock.flakyTests).toEqual([])
+    // `table.test.ts` holds what a test can see of the clocks to what
+    // Vitest's main process sees of Node's. With dates whose constructor
+    // was Node's `Date` and not the one in its place, both of its tests
+    // failed in copies with no mutant on, and 21 mutants were Unconfirmed.
+    expect(clock.failedBaselines).toEqual([])
+    expect(clock.counts.Unconfirmed).toBe(0)
     // The one run made with nothing else running is for the mutant that
     // empties `now`, which fails the hook, where no test tried it.
     expect(clock.quietRuns).toEqual({ failed: 1, passed: 0 })
