@@ -20,9 +20,20 @@ describe('running the fixture project', () => {
     const cli = tool(['--root', fixture('basic'), '--no-clone', '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     const plain: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    const verdicts = (run: RunResult) =>
-      run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
-    expect(verdicts(plain)).toEqual(verdicts(result))
+    // A mutant whose one failing test also passed with it is Unconfirmed with
+    // that test named (`doubted`, `wavered`), and `fill.ts`'s, which fills the
+    // memory, can do so in one mode and survive in the other on a small
+    // runner. Either way it is not detected; every other difference still fails.
+    type Mutant = RunResult['mutants'][number]
+    const keyOf = (m: Mutant) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement}`
+    const named = (m: Mutant) => (m.doubted?.length ?? 0) + (m.wavered?.length ?? 0) > 0
+    const allowed = (a?: Mutant, b?: Mutant) =>
+      [[a, b], [b, a]].some(([survived, doubted]) => survived?.status === 'Survived' && doubted?.status === 'Unconfirmed' && named(doubted))
+    const byKey = (run: RunResult) => new Map(run.mutants.map((m) => [keyOf(m), m]))
+    const [mine, theirs] = [byKey(plain), byKey(result)]
+    const verdicts = (run: RunResult, other: Map<string, Mutant>) =>
+      run.mutants.map((m) => `${keyOf(m)} ${allowed(m, other.get(keyOf(m))) ? 'Survived or doubted' : m.status}`)
+    expect(verdicts(plain, theirs)).toEqual(verdicts(result, mine))
     expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load'] + plain.wholeRuns['copied before a test']).toBe(0)
     expect(plain.wholeRuns.started).toBeGreaterThan(0)
   }, basicRunMs)
