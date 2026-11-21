@@ -1026,6 +1026,31 @@ export const targets: Record<string, Target> = {
       hooks: { mutate: ['packages/hooks/use-*/*.ts'] },
     },
   },
+  // Vitest 5: a property-based testing library tested with its own built
+  // package, one inline project for each directory of the repository.
+  'fast-check': {
+    repo: 'https://github.com/dubzzz/fast-check',
+    commit: '0d28f7bc2d03a622a2298230701e873ce389a502',
+    install: [
+      // pnpm as `devEngines` names it, 12.18.0, which the pnpm on PATH fetches and hands over to.
+      'ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 HUSKY=0 CYPRESS_INSTALL_BINARY=0 pnpm install --frozen-lockfile --filter fast-check...',
+      // The setup file drives every test with the built `fast-check`, and some tests load the built `@fast-check/poisoning`.
+      "pnpm --filter 'fast-check...' run build",
+    ],
+    installStryker: `pnpm add -D -w ${stryker}`,
+    strykerForce: true,
+    // The other projects test the other packages, the examples and the website through the built `fast-check`; none of their files imports these sources.
+    projects: ['fast-check'],
+    // The setup file seeds the built package's runs with it and throws without it under `GITHUB_ACTION`.
+    env: { DEFAULT_SEED: '42' },
+    // The scope's run took 7,137 s on an EPYC 7763 and 6,065 s on a Xeon 6975P-C against the workflow's 150 minutes.
+    limit: 300,
+    // From a `--jobs` copy of ground truth, the related tests of 36 of the scope's 37 modules fail with no mutant and pass in
+    // the checkout, and the copies' probes refuse them. Ground truth is made with `--jobs 1`.
+    scopes: {
+      check: { mutate: ['packages/fast-check/src/check/**/*.ts'] },
+    },
+  },
 }
 
 /** Where the target's project is: its checkout, or the package inside it. */
