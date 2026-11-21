@@ -1684,11 +1684,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           // A copy can end over what a worker started for the file would not
           // meet, a thread it does not have for one. One that a mutant
           // took down says which.
-          // A copy stopped in a test's first try, slow for what the tests
-          // before it would have loaded, is not one of those: marked so, the
-          // file went to started workers for good, and on immich `utils` each
-          // worker's stop for its memory then took a round of its own,
-          // twenty-four rounds and a fifth of the run.
+          // A copy stopped cold is not one of those: in a test's first try,
+          // slow for what the tests before it would have loaded, or in a run
+          // with no mutant on that a try made endless, as a started worker
+          // would be. Marked as one, the file went to started workers for
+          // good, and on immich `utils` each one's stop for its memory took a
+          // round of its own: twenty-four rounds, a fifth of the run.
           const tried = triedBy(pid)
           if (tried === -1) emit({ type: 'unhanded', file })
           // However it ended, it may have done so in the middle of a message

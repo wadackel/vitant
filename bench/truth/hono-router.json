@@ -286,6 +286,7 @@
     {"file":"src/router/reg-exp-router/node.ts","start":[24,11],"end":[24,25],"mutator":"EqualityOperator","replacement":"b.length !== 1","suite":"fail"},
     {"file":"src/router/reg-exp-router/node.ts","start":[24,29],"end":[24,34],"mutator":"EqualityOperator","replacement":"a <= b","suite":"pass"},
     {"file":"src/router/reg-exp-router/node.ts","start":[24,29],"end":[24,34],"mutator":"EqualityOperator","replacement":"a >= b","suite":"pass"},
+    {"file":"src/router/reg-exp-router/node.ts","start":[24,37],"end":[24,39],"mutator":"UnaryOperator","replacement":"+1","suite":"pass"},
     {"file":"src/router/reg-exp-router/node.ts","start":[26,6],"end":[26,20],"mutator":"EqualityOperator","replacement":"b.length !== 1","suite":"fail"},
     {"file":"src/router/reg-exp-router/node.ts","start":[26,6],"end":[26,20],"mutator":"ConditionalExpression","replacement":"true","suite":"fail"},
     {"file":"src/router/reg-exp-router/node.ts","start":[26,6],"end":[26,20],"mutator":"ConditionalExpression","replacement":"false","suite":"pass"},

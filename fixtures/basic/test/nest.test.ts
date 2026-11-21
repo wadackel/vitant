@@ -15,5 +15,5 @@ it(
     while (!closed()) {}
     expect(closed()).toBe(true)
   },
-  100,
+  1000,
 )
