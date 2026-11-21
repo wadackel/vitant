@@ -17,7 +17,7 @@ import { relative } from './session.ts'
  * version of the tool, so results the instrumenter got wrong before a fix
  * would be reused.
  */
-const FORMAT = 13
+const FORMAT = 14
 
 export interface CachedTest {
   name: string
