@@ -107,7 +107,7 @@ function hangReport(seconds: number, out: string): string {
     process.platform === 'darwin'
       ? 'sample "$pid" 1 2>&1 | head -n 120; lsof -p "$pid" 2>/dev/null | awk \'{print $4, $5, $9}\' | grep -vE "dylib|/usr/lib|/System" | head -n 40'
       : 'cat "/proc/$pid/wchan" 2>/dev/null; echo; grep -E "^(State|Threads|VmRSS)" "/proc/$pid/status"; cat /proc/$pid/task/*/comm 2>/dev/null | sort | uniq -c; ls -l "/proc/$pid/fd" 2>/dev/null | tail -n +2 | awk \'{print $NF}\' | sort | uniq -c | sort -rn | head -n 15'
-  // The mutant each process last said it had on for a test, -1 for none.
+  // The mutant each process last said it had on for a test, -1 for none, -2 where its watchdog stopped it cold.
   const trying = path.join(dir, 'node_modules/.vitant/session/trying')
   return [
     `sleep ${seconds}`,
