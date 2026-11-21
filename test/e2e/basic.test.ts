@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { runBasic } from '../helpers/basic.ts'
+import { basicRunMs, runBasic } from '../helpers/basic.ts'
 import { createE2E, root } from '../helpers/e2e.ts'
 import { addonTarget } from '../../src/platform.ts'
 import type { MutantResult, RunResult } from '../../src/run.ts'
@@ -34,7 +34,7 @@ beforeAll(() => {
   const lines = fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n'))
   tests = lines.filter((line) => line.includes('"type":"test"')).map((line) => JSON.parse(line))
   stalls = lines.filter((line) => line.includes('"type":"stall"')).map((line) => JSON.parse(line))
-}, 180_000)
+}, basicRunMs)
 
 describe('running the fixture project', () => {
 
@@ -57,7 +57,7 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(few)).toEqual(verdicts(result))
-  }, 180_000)
+  }, basicRunMs)
 
   it('gives every mutant the same verdict with the runs that confirm a failure one at a time on the machine', () => {
     const report = reportPath('strict')
@@ -67,7 +67,7 @@ describe('running the fixture project', () => {
     const verdicts = (run: RunResult) =>
       run.mutants.map((m) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
     expect(verdicts(strict)).toEqual(verdicts(result))
-  }, 180_000)
+  }, basicRunMs)
 
   // Without this a build that quietly fell back to starting workers would pass every other test.
   it.skipIf(!addonTarget())('makes the whole-file runs in copies of a worker', () => {

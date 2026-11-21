@@ -110,7 +110,8 @@ function truthProject(files: Record<string, string>, unused = false): string {
   const project = fs.mkdtempSync(path.join(import.meta.dirname, '../build/truth-copies-'))
   for (const [file, text] of Object.entries({ 'package.json': '{ "type": "module" }\n', 'vitest.config.mjs': 'export default {}\n', ...files })) {
     fs.mkdirSync(path.dirname(path.join(project, file)), { recursive: true })
-    fs.writeFileSync(path.join(project, file), text.replaceAll('<project>', project))
+    // Inside a string of JavaScript, a Windows path's backslashes would read as escapes.
+    fs.writeFileSync(path.join(project, file), text.replaceAll('<project>', project.split(path.sep).join('/')))
   }
   // `export const value = 1`, its `1` made `2`.
   const mutant = (file: string, status: string) =>

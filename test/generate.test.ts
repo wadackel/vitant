@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { generate } from '../src/mutate/generate.ts'
+import { relative } from '../src/session.ts'
 
 describe('files a glob matches that are not mutated', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-generate-'))
@@ -23,7 +24,7 @@ describe('files a glob matches that are not mutated', () => {
 
   it('are named with why, in file order', () => {
     const languages = '.ts, .tsx, .js, .jsx, .mts, .cts, .mjs, .cjs'
-    expect(generated.skipped.map(({ file, reason }) => `${path.relative(root, file)}: ${reason}`)).toEqual([
+    expect(generated.skipped.map(({ file, reason }) => `${relative(root, file)}: ${reason}`)).toEqual([
       'src/VERSION: a file without an extension is not a language vitant instruments; it mutates ' + languages,
       'src/broken.ts: does not parse: Expected `,` or `)` but found `=>` at 1:34',
       'src/data.json: .json is not a language vitant instruments; it mutates ' + languages,
@@ -32,7 +33,7 @@ describe('files a glob matches that are not mutated', () => {
   })
 
   it('leave the others mutated', () => {
-    expect([...generated.files.keys()].map((file) => path.relative(root, file))).toEqual(['src/sum.ts'])
+    expect([...generated.files.keys()].map((file) => relative(root, file))).toEqual(['src/sum.ts'])
     expect(generated.mutants.length).toBeGreaterThan(0)
   })
 })

@@ -97,9 +97,12 @@ describe('copies of a worker made one after another', () => {
     // failed in copies with no mutant on, and 21 mutants were Unconfirmed.
     expect(clock.failedBaselines).toEqual([])
     expect(clock.counts.Unconfirmed).toBe(0)
-    // The one run made with nothing else running is for the mutant that
-    // empties `now`, which fails the hook, where no test tried it.
-    expect(clock.quietRuns).toEqual({ failed: 1, passed: 0 })
+    // Of the runs made with nothing else running, the one that fails is for
+    // the mutant that empties `now`, which fails the hook, where no test
+    // tried it. Others may pass: before its first test a run waits for
+    // Vitest's main process to answer, as in the suite, and on a four-core
+    // runner starting four workers that took 1.8 s, past what `is fresh` allows.
+    expect(clock.quietRuns.failed).toBe(1)
     const statuses = clock.mutants.filter((mutant) => mutant.file === 'src/asked.ts' && mutant.status !== 'NoCoverage').map((mutant) => `${mutant.replacement} ${mutant.status}`)
     // The suite passes with `now` asking a child process; in a copy that had
     // stood still for the copies before it, the hook failed.

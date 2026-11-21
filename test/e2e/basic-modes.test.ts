@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { runBasic } from '../helpers/basic.ts'
+import { basicRunMs, runBasic } from '../helpers/basic.ts'
 import { createE2E } from '../helpers/e2e.ts'
 import type { RunResult } from '../../src/run.ts'
 
@@ -12,7 +12,7 @@ const { fixture, tool, reportPath } = owner
 let result: RunResult
 beforeAll(() => {
   result = runBasic(owner).result
-}, 180_000)
+}, basicRunMs)
 
 describe('running the fixture project', () => {
   it('gives every mutant the same verdict with a worker started per whole-file run', () => {
@@ -25,7 +25,7 @@ describe('running the fixture project', () => {
     expect(verdicts(plain)).toEqual(verdicts(result))
     expect(plain.wholeRuns['copied before load'] + plain.wholeRuns['copied while loading'] + plain.wholeRuns['copied after load'] + plain.wholeRuns['copied before a test']).toBe(0)
     expect(plain.wholeRuns.started).toBeGreaterThan(0)
-  }, 180_000)
+  }, basicRunMs)
 })
 
 describe('with mutants in code that only runs while a module loads run too', () => {
@@ -71,5 +71,5 @@ describe('with mutants in code that only runs while a module loads run too', () 
     expect(readers).toEqual(expect.arrayContaining(filesOf(1)))
     // One that survives is run with every file that reads it, and with no other.
     expect(filesOf(7)).toEqual(['labels.mock.test.ts', 'labels.names.test.ts', 'labels.patched.test.ts'])
-  }, 180_000)
+  }, basicRunMs)
 })
