@@ -654,12 +654,16 @@ function standClocks(): void {
   const now = Object.getOwnPropertyDescriptor(owner, 'now')!
   Object.defineProperty(owner, 'now', { ...now, value: shifted(now.value, (time: number) => time - stood) })
   // A proxy of Node's `hrtime` would hand on reads of `bigint` to Node's own.
-  // In numbers, as Node's has it: a BigInt throws on the fractions and NaN Node hands back for such a `time`.
+  // Node's own sum on the stood time, in numbers: taking `stood` off Node's
+  // result would borrow a second time where Node's had borrowed once, and a
+  // BigInt throws on the fractions and NaN Node hands back for such a `time`.
+  const borrow = (seconds: number, nanoseconds: number) => (nanoseconds < 0 ? [seconds - 1, nanoseconds + 1e9] : [seconds, nanoseconds])
   const hrtime = function hrtime(this: unknown, time?: [number, number]) {
-    const [seconds, nanoseconds] = Reflect.apply(nativeHrtime, this, [time]) as [number, number]
+    if (time !== undefined) Reflect.apply(nativeHrtime, this, [time])
+    const [seconds, nanoseconds] = nativeHrtime()
     const ms = Math.round(stood)
-    const since = [seconds - Math.floor(ms / 1000), nanoseconds - (ms % 1000) * 1e6]
-    return since[1] < 0 ? [since[0] - 1, since[1] + 1e9] : since
+    const now = borrow(seconds - Math.floor(ms / 1000), nanoseconds - (ms % 1000) * 1e6)
+    return time === undefined ? now : borrow(now[0] - time[0], now[1] - time[1])
   } as typeof process.hrtime
   hrtime.bigint = shifted(nativeHrtime.bigint, (time) => time - stoodNs())
   process.hrtime = hrtime
