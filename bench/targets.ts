@@ -1039,9 +1039,14 @@ export const targets: Record<string, Target> = {
     ],
     installStryker: `pnpm add -D -w ${stryker}`,
     strykerForce: true,
+    // The other projects test the other packages, the examples and the website through the built `fast-check`; none of their files imports these sources.
     projects: ['fast-check'],
     // The setup file seeds the built package's runs with it and throws without it under `GITHUB_ACTION`.
     env: { DEFAULT_SEED: '42' },
+    // The scope's run took 7,137 s on an EPYC 7763 and 6,065 s on a Xeon 6975P-C against the workflow's 150 minutes.
+    limit: 300,
+    // From a `--jobs` copy of ground truth, the related tests of 36 of the scope's 37 modules fail with no mutant and pass in
+    // the checkout, and the copies' probes refuse them. Ground truth is made with `--jobs 1`.
     scopes: {
       check: { mutate: ['packages/fast-check/src/check/**/*.ts'] },
     },
