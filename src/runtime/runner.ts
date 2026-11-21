@@ -621,38 +621,47 @@ let stood = 0
 /**
  * Puts clocks in place of `Date`, `performance.now`, `process.hrtime` and
  * `process.uptime` that leave out `stood`, before the project's code reads
- * them. `Date` is a function returning the engine's own dates, with its
- * prototype, as fake timers make it: a class of its own would give
- * `new Date()` another prototype and fail `instanceof` both ways.
+ * them. A test must see Node's in them in everything but which function
+ * each is and its source (`fixtures/clock`): each is a proxy of Node's, or
+ * of a copy of its properties, where it can be, and every date is the
+ * engine's own. A class of its own would give `new Date()` another
+ * prototype and fail `instanceof` both ways, and `Date.prototype` has to
+ * name the new `Date` as its constructor: fast-check takes a value for a
+ * date only where `value.constructor === Date`.
  */
 function standClocks(): void {
   const NativeDate = Date
-  const nativeNow = NativeDate.now.bind(NativeDate)
-  const nativeBigint = process.hrtime.bigint.bind(process.hrtime)
-  const nativeUptime = process.uptime.bind(process)
-  const nativePerformanceNow = performance.now.bind(performance)
-  function StoodDate(this: unknown, ...args: unknown[]): unknown {
-    if (!new.target) return new NativeDate(nativeNow() - stood).toString()
-    const date = args.length === 0 ? new NativeDate(nativeNow() - stood) : new (NativeDate as unknown as new (...args: unknown[]) => Date)(...args)
-    if (new.target !== StoodDate) Object.setPrototypeOf(date, new.target.prototype)
-    return date
-  }
+  const nativeNow = NativeDate.now
+  const nativeHrtime = process.hrtime
+  const stoodNs = () => BigInt(Math.round(stood * 1e6))
+  const shifted = <T extends (...args: never[]) => unknown>(native: T, shift: (value: ReturnType<T>) => ReturnType<T>): T =>
+    new Proxy(native, { apply: (target, self, args) => shift(Reflect.apply(target, self, args) as ReturnType<T>) })
+  // A proxy of Node's `Date` would hand on reads of `now` to Node's own.
+  function Stood() {}
   for (const key of Reflect.ownKeys(NativeDate)) {
-    if (key === 'now') continue
-    Object.defineProperty(StoodDate, key, Object.getOwnPropertyDescriptor(NativeDate, key)!)
+    const descriptor = Object.getOwnPropertyDescriptor(NativeDate, key)!
+    Object.defineProperty(Stood, key, key === 'now' ? { ...descriptor, value: shifted(nativeNow, (time) => time - stood) } : descriptor)
   }
-  Object.defineProperty(StoodDate, 'now', { value: () => nativeNow() - stood, writable: true, configurable: true })
-  globalThis.Date = StoodDate as unknown as DateConstructor
-  performance.now = () => nativePerformanceNow() - stood
-  const bigint = () => nativeBigint() - BigInt(Math.round(stood * 1e6))
-  const hrtime = ((previous?: [number, number]) => {
-    const now = bigint()
-    const since = previous ? now - (BigInt(previous[0]) * 1_000_000_000n + BigInt(previous[1])) : now
+  const StoodDate = new Proxy(Stood, {
+    apply: () => new NativeDate(nativeNow() - stood).toString(),
+    construct: (_, args, newTarget) => Reflect.construct(NativeDate, args.length === 0 ? [nativeNow() - stood] : args, newTarget),
+  }) as unknown as DateConstructor
+  Object.defineProperty(NativeDate.prototype, 'constructor', { value: StoodDate })
+  globalThis.Date = StoodDate
+  // Node keeps `now` on `Performance.prototype`, where a test may look for it.
+  let owner: object = performance
+  while (!Object.hasOwn(owner, 'now')) owner = Object.getPrototypeOf(owner)
+  const now = Object.getOwnPropertyDescriptor(owner, 'now')!
+  Object.defineProperty(owner, 'now', { ...now, value: shifted(now.value, (time: number) => time - stood) })
+  // A proxy of Node's `hrtime` would hand on reads of `bigint` to Node's own.
+  const hrtime = function hrtime(this: unknown, time?: [number, number]) {
+    const [seconds, nanoseconds] = Reflect.apply(nativeHrtime, this, [time]) as [number, number]
+    const since = BigInt(seconds) * 1_000_000_000n + BigInt(nanoseconds) - stoodNs()
     return [Number(since / 1_000_000_000n), Number(since % 1_000_000_000n)]
-  }) as typeof process.hrtime
-  hrtime.bigint = bigint
+  } as typeof process.hrtime
+  hrtime.bigint = shifted(nativeHrtime.bigint, (time) => time - stoodNs())
   process.hrtime = hrtime
-  process.uptime = () => nativeUptime() - stood / 1000
+  process.uptime = shifted(process.uptime, (seconds) => seconds - stood / 1000)
 }
 // An addon built before it could list threads would leave every check of them to fail in a test.
 if (addon && (typeof addon.threads !== 'function' || typeof addon.poolThreads !== 'function')) {
