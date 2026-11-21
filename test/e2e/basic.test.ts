@@ -81,7 +81,7 @@ describe('running the fixture project', () => {
     expect(runs.lost).toBeLessThan(3)
     // What is left to workers started for the run: mutants that block or end
     // the process, and the runs made alone, four of them for `delay.ts` and
-    // three for the loops of `nest.ts`; the count varies by a few between runs.
+    // three in a run of `nest.ts` alone; the count varies by a few between runs.
     expect(runs.started).toBeLessThan(25)
   })
 
