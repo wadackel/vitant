@@ -257,8 +257,10 @@ function copies(root: string, count: number): string[] {
  * the throw fails at the top of the checkout's; and with the throw in the
  * checkout's file, none. With `--related` the runs differ by file, and
  * every mutated file is probed; otherwise each is the whole suite, and
- * each copy takes one file in turn. With `all` every file is probed, and
- * each probed file comes back with why it is refused, or undefined;
+ * each copy takes one file in turn, which holds for the rest only where
+ * the tests reach every file alike: the throw's runs of every file would
+ * be a whole suite each, in every shard on CI. With `all` every file is
+ * probed, and each comes back with why it is refused, or undefined;
  * without it the first refusal throws.
  */
 async function probeCopies({ root, copies, files, argsFor, originals, all = false }: {
@@ -272,7 +274,7 @@ async function probeCopies({ root, copies, files, argsFor, originals, all = fals
   const outcome = new Map<string, string | undefined>()
   if (files.length === 0) return outcome
   // Each copy takes its first file before any run ends, so that each is probed.
-  const queue = Array.from({ length: values.related ? Math.max(files.length, copies.length) : copies.length }, (_, at) => files[at % files.length])
+  const queue = Array.from({ length: values.related || all ? Math.max(files.length, copies.length) : copies.length }, (_, at) => files[at % files.length])
   const failing: { copy: string; file: string }[] = []
   const probed: { copy: string; file: string; marked: Set<string> }[] = []
   // A copy is refused for a run with no mutant only once it fails with
