@@ -4,11 +4,14 @@
 //   node bench/truth.ts make (--root <project> | --target <name>) [--report <report.json>] [--out <truth.json>]
 //        [--related] [--jobs N] [--sample N] [--timeout seconds] [--statuses Killed,Survived,...]
 //   node bench/truth.ts check --report <report.json> --truth <truth.json>
+//   node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]
 //
 // `make` runs the suite once per mutant and then checks the report against
 // what it saw, running the tool over the whole project first where no
 // report is given; `check` does only the latter, against what an earlier `make`
-// wrote. Both exit with 1 when a verdict and the suite disagree.
+// wrote. Both exit with 1 when a verdict and the suite disagree. `probe`
+// runs no mutant: it probes the copies `make` would run in, for every file
+// it would, and says which files they cannot stand for, exiting with 1 if any.
 //
 // `--related` runs only the test files that import the mutated file
 // (`vitest related`) in place of the whole suite.
@@ -78,10 +81,14 @@ const { values, positionals } = parseArgs({
   },
 })
 const [mode] = positionals
-if ((mode !== 'make' && mode !== 'check') || (mode === 'make' ? !values.root && !values.target : !values.report || !values.truth)) {
+const invalid = mode === 'make' ? !values.root && !values.target
+  : mode === 'probe' ? (!values.root && !values.target) || !values.report || Number(values.jobs) < 2
+  : mode !== 'check' || !values.report || !values.truth
+if (invalid) {
   console.error(
     'usage: node bench/truth.ts make (--root <project> | --target <name>) --report <report.json> [--out <truth.json>] [--related] [--jobs N]\n' +
-      '       node bench/truth.ts check --report <report.json> --truth <truth.json>',
+      '       node bench/truth.ts check --report <report.json> --truth <truth.json>\n' +
+      '       node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]',
   )
   process.exit(2)
 }
@@ -143,11 +150,18 @@ function vitestBin(root: string): string {
 const flaky = new Set<string>()
 let runs = 0
 
+/** Stands for the test files failed by a run that wrote no report. */
+const noReport = '(no report)'
+/** Stands for an error no test handled, which the report puts under no file. */
+const unhandledError = '(an error no test handled)'
+
+/** A run of the suite; `marked` is what failed with an error that says `marker`: test files, `unhandledError`, or `noReport`. */
 function runSuite(
   root: string,
   args: string[],
   limitMs: number,
-): Promise<{ suite: Suite; ms: number; failed: string[] }> {
+  marker?: string,
+): Promise<{ suite: Suite; ms: number; failed: string[]; marked: Set<string> }> {
   return new Promise((resolve) => {
     const startedAt = performance.now()
     const results = path.join(root, 'node_modules', `.truth-${process.pid}-${runs++}.json`)
@@ -175,31 +189,39 @@ function runSuite(
     child.on('exit', (code) => {
       clearTimeout(timer)
       const failed: string[] = []
+      const marked = new Set<string>()
       let known = false
       try {
         const report = JSON.parse(fs.readFileSync(results, 'utf8'))
         known = true
         for (const file of report.testResults) {
+          const name = path.relative(root, file.name).split(path.sep).join('/')
           const tests = file.assertionResults.filter((test: { status: string }) => test.status === 'failed')
-          for (const test of tests) failed.push(`${path.relative(root, file.name).split(path.sep).join('/')} > ${test.fullName}`)
+          for (const test of tests) failed.push(`${name} > ${test.fullName}`)
           // A file that fails without a failing test: an error while it loads, in a hook, or one nothing handled.
           if (file.status === 'failed' && tests.length === 0) known = false
+          const messages = [file.message ?? '', ...tests.flatMap((test: { failureMessages: string[] }) => test.failureMessages)]
+          if (marker && file.status === 'failed' && messages.some((message) => message.includes(marker))) marked.add(name)
         }
         if (report.numFailedTestSuites > 0 && failed.length === 0) known = false
-      } catch {}
+      } catch {
+        if (marker) marked.add(noReport)
+      }
       // Tests that fail by themselves excuse a run only where nothing else
       // failed it: an error nothing handled ends Vitest the same way with
       // every test passing, and is not in the report.
       let clean = false
       try {
-        clean = fs.readFileSync(unhandled, 'utf8') === '0'
+        const errors: string[] = JSON.parse(fs.readFileSync(unhandled, 'utf8'))
+        clean = errors.length === 0
+        if (marker && errors.some((message) => message.includes(marker))) marked.add(unhandledError)
       } catch {}
       fs.rmSync(results, { force: true })
       fs.rmSync(unhandled, { force: true })
       // What failed is known to be only tests that fail by themselves: not a failure of the mutant's.
       const onlyFlaky = known && clean && failed.length > 0 && failed.every((test) => flaky.has(test))
       const suite = timedOut ? 'timeout' : code === 0 || onlyFlaky ? 'pass' : 'fail'
-      resolve({ suite, ms: performance.now() - startedAt, failed })
+      resolve({ suite, ms: performance.now() - startedAt, failed, marked })
     })
   })
 }
@@ -225,36 +247,37 @@ function copies(root: string, count: number): string[] {
 }
 
 /**
- * Throws unless each copy can stand for the checkout. A copy whose tests
+ * Says where a copy cannot stand for the checkout. A copy whose tests
  * cannot run there fails every run, and each mutant the report has killed
- * agrees with it whatever the mutant does; one whose tests load the
- * original's sources passes every run, and each survivor agrees. So in a
- * copy the run for a file has to pass with no mutant and fail with a throw
- * at the top of the copy's file wherever it fails with one in the
- * checkout's. With `--related` the runs differ by file, and every mutated
- * file is probed; otherwise each is the whole suite, and each copy takes
- * one file in turn.
+ * agrees with it whatever the mutant does; a test file of a copy that
+ * loads the checkout's sources, or does not load the copy's file where the
+ * checkout's loads it, passes with every mutant, and each survivor agrees.
+ * So in a copy the run for a file has to pass with no mutant; with a throw
+ * at the top of the copy's file, it has to fail the very test files that
+ * the throw fails at the top of the checkout's; and with the throw in the
+ * checkout's file, none. With `--related` the runs differ by file, and
+ * every mutated file is probed; otherwise each is the whole suite, and
+ * each copy takes one file in turn. With `all` every file is probed, and
+ * each probed file comes back with why it is refused, or undefined;
+ * without it the first refusal throws.
  */
-async function probeCopies({ root, copies, files, argsFor, originals }: {
+async function probeCopies({ root, copies, files, argsFor, originals, all = false }: {
   root: string
   copies: string[]
   files: string[]
   argsFor: (file: string) => string[]
   originals: Map<string, string>
-}) {
-  if (files.length === 0) return
+  all?: boolean
+}): Promise<Map<string, string | undefined>> {
+  const outcome = new Map<string, string | undefined>()
+  if (files.length === 0) return outcome
   // Each copy takes its first file before any run ends, so that each is probed.
   const queue = Array.from({ length: values.related ? Math.max(files.length, copies.length) : copies.length }, (_, at) => files[at % files.length])
   const failing: { copy: string; file: string }[] = []
-  const unloaded: { copy: string; file: string }[] = []
-  // A test that waits on the clock can fail by itself with other runs beside
-  // it: with the throw, a run that fails by that alone would pass a copy
-  // that loads the original's file, so the file counts as loaded only where
-  // two runs fail. A copy is refused for a run with no mutant only once it
-  // fails with nothing else running, and the copies start no more runs
-  // until then: in a copy that runs nothing, every file fails.
-  const withThrowFails = async (dir: string, file: string) =>
-    (await withThrow(dir, file)).suite !== 'pass' && (await withThrow(dir, file)).suite !== 'pass'
+  const probed: { copy: string; file: string; marked: Set<string> }[] = []
+  // A copy is refused for a run with no mutant only once it fails with
+  // nothing else running, and the copies start no more runs until then: in
+  // a copy that runs nothing, every file fails.
   while (queue.length > 0) {
     await Promise.all(
       copies.map(async (copy) => {
@@ -263,36 +286,67 @@ async function probeCopies({ root, copies, files, argsFor, originals }: {
           let passed = false
           for (let attempt = 0; attempt < 3 && !passed; attempt++) passed = (await runSuite(copy, argsFor(file), 600_000)).suite === 'pass'
           if (!passed) failing.push({ copy, file })
-          else if (!(await withThrowFails(copy, file))) unloaded.push({ copy, file })
+          else probed.push({ copy, file, marked: (await withThrow(copy, file, [copy]))[0].marked })
         }
       }),
     )
     for (const { copy, file } of failing.splice(0)) {
-      if ((await runSuite(copy, argsFor(file), 600_000)).suite !== 'pass') {
-        refuse(`the probe with no mutant failed in the copy ${copy}: \`vitest ${argsFor(file).join(' ')}\` for ${file} fails there and passes in the checkout`)
-      }
-      if (!(await withThrowFails(copy, file))) unloaded.push({ copy, file })
+      if ((await runSuite(copy, argsFor(file), 600_000)).suite === 'pass') probed.push({ copy, file, marked: (await withThrow(copy, file, [copy]))[0].marked })
+      else refuse(copy, file, `the probe with no mutant failed in the copy ${copy}: \`vitest ${argsFor(file).join(' ')}\` for ${file} fails there and passes in the checkout`)
     }
   }
-  // A file that none of the tests loads passes with the throw in the checkout too, and its mutants pass anywhere.
-  for (const { copy, file } of unloaded) {
-    if ((await withThrow(root, file)).suite === 'pass') continue
-    refuse(`the probe with a throw failed in the copy ${copy}: with a throw at the top of its ${file}, \`vitest ${argsFor(file).join(' ')}\` passes there and fails in the checkout, so its tests do not load the copy's file`)
+  // Only a test file that fails with the throw's own message counts, so that
+  // one failing by itself, as a test that waits on the clock does beside
+  // other runs, cannot stand in for it. The checkout's file is changed only
+  // here, with no other copy running, since a copy's tests may load it.
+  // Where the copy and the checkout differ, both are run again one at a time
+  // before the copy is refused. A file none of the tests loads, as
+  // lint-staged's `lib/config.js`, fails nothing in either.
+  for (const { copy, file, marked } of probed) {
+    let reason = difference(copy, file, marked, await withThrow(root, file, [root, copy]))
+    if (reason) {
+      const [again] = await withThrow(copy, file, [copy])
+      const [checkout] = await withThrow(root, file, [root])
+      const [beside] = await withThrow(root, file, [copy])
+      reason = difference(copy, file, again.marked, [checkout, beside])
+    }
+    if (reason) refuse(copy, file, reason)
+    else if (!outcome.has(file)) outcome.set(file, undefined)
+  }
+  return outcome
+
+  function difference(copy: string, file: string, inCopy: Set<string>, [checkout, beside]: { marked: Set<string> }[]): string | undefined {
+    const args = `\`vitest ${argsFor(file).join(' ')}\``
+    const list = (names: Iterable<string>) => {
+      const sorted = [...names].sort()
+      return sorted.length > 5 ? `${sorted.slice(0, 5).join(', ')} and ${sorted.length - 5} more` : sorted.join(', ')
+    }
+    if (beside.marked.size > 0) {
+      return `the probe with a throw failed in the copy ${copy}: with a throw at the top of the checkout's ${file}, ${args} fails ${list(beside.marked)} there: the copy's tests load the checkout's file`
+    }
+    const missing = [...checkout.marked].filter((name) => !inCopy.has(name))
+    const extra = [...inCopy].filter((name) => !checkout.marked.has(name))
+    if (missing.length === 0 && extra.length === 0) return undefined
+    const parts = [...(missing.length > 0 ? [`${list(missing)} in the checkout and not there`] : []), ...(extra.length > 0 ? [`${list(extra)} there and not in the checkout`] : [])]
+    return `the probe with a throw failed in the copy ${copy}: with a throw at the top of its ${file}, ${args} fails ${parts.join(', and ')}`
   }
 
-  function refuse(reason: string): never {
-    throw new Error(`${reason}. Copies cannot stand for this project: make ground truth with --jobs 1`)
+  function refuse(copy: string, file: string, reason: string) {
+    if (!all) throw new Error(`${reason}. Copies cannot stand for this project: make ground truth with --jobs 1`)
+    if (outcome.get(file) === undefined) outcome.set(file, reason)
   }
 
-  async function withThrow(dir: string, file: string) {
+  /** Runs the suite for `file` in each of `dirs` at once, with a throw at the top of the file in `dir`. */
+  async function withThrow(dir: string, file: string, dirs: string[]) {
     const target = path.join(dir, file)
     const source = fs.readFileSync(target, 'utf8')
+    const marker = `vitant truth: ${file} is loaded`
     // After a first line that starts with `#!`, which has to stay first.
     const head = source.startsWith('#!') ? source.indexOf('\n') + 1 || source.length : 0
     originals.set(target, source)
-    fs.writeFileSync(target, `${source.slice(0, head)}throw new Error(${JSON.stringify(`vitant truth: ${file} is loaded`)})\n${source.slice(head)}`)
+    fs.writeFileSync(target, `${source.slice(0, head)}throw new Error(${JSON.stringify(marker)})\n${source.slice(head)}`)
     try {
-      return await runSuite(dir, argsFor(file), 600_000)
+      return await Promise.all(dirs.map((at) => runSuite(at, argsFor(file), 600_000, marker)))
     } finally {
       fs.writeFileSync(target, source)
       originals.delete(target)
@@ -345,7 +399,13 @@ async function make(): Promise<Truth> {
     }
     if (!passed) throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant`)
   }
-  if (roots.length > 1) await probeCopies({ root, copies: roots, files: [...new Set(mutants.map((mutant) => mutant.file))], argsFor, originals })
+  const probed = roots.length > 1
+    ? await probeCopies({ root, copies: roots, files: [...new Set(mutants.map((mutant) => mutant.file))], argsFor, originals, all: mode === 'probe' })
+    : new Map()
+  if (mode === 'probe') {
+    for (const [file, reason] of [...probed].sort(([a], [b]) => a.localeCompare(b))) console.log(reason ? `refused: ${file}: ${reason}` : `accepted: ${file}`)
+    process.exit([...probed.values()].some(Boolean) ? 1 : 0)
+  }
   // The limit is for runs that have others beside them: on a machine with
   // one processor for each, a suite among four takes five times what it
   // takes alone, and a limit from the one alone ends every run. Only the
@@ -473,7 +533,7 @@ function check(truth: Truth): boolean {
 }
 
 let truth: Truth
-if (mode === 'make') {
+if (mode === 'make' || mode === 'probe') {
   truth = await make()
   if (values.out) {
     fs.mkdirSync(path.dirname(path.resolve(values.out)), { recursive: true })
