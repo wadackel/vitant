@@ -59,7 +59,7 @@ function elapsedCheck(check: Node, program: Node, wrapper: Node, declarations: N
 
 /**
  * Vitest 3.0.2 and 3.0.3 check the clock only in the `then` of a result
- * that is a thenable: a hook that returns nothing passes however late it
+ * that is a thenable: a hook that returns no promise passes however late it
  * returns, which is not known while its body runs.
  */
 function thenableCheck(program: Node, wrapper: Node, statements: Node[], declarations: Node[], invocation: Node, source: string): boolean {
