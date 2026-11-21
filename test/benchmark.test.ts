@@ -179,9 +179,82 @@ it("refuses copies whose tests load the original's sources", { timeout: 60_000 }
   try {
     const made = makeTruth(project)
     expect(made.status).not.toBe(0)
-    expect(made.stderr).toMatch(/the probe with a throw failed in the copy \S*\.tmp-truth-\d+-[01]: with a throw at the top of its src\/value\.ts, `vitest run` passes there and fails in the checkout/)
+    expect(made.stderr).toMatch(/the probe with a throw failed in the copy \S*\.tmp-truth-\d+-[01]: with a throw at the top of the checkout's src\/value\.ts, `vitest run` fails test\/value\.test\.ts there: the copy's tests load the checkout's file/)
     expect(made.source).toBe('export const value = 1\n')
     expect(made.left).toEqual([])
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+  }
+})
+
+// As element-plus's components import its hooks by their package's name, which a copy's node_modules, the checkout's, links to the checkout's sources.
+function linkedProject(files: Record<string, string>): string {
+  const project = truthProject({ 'src/value.ts': 'export const value = 1\n', ...files })
+  fs.mkdirSync(path.join(project, 'node_modules/@app'), { recursive: true })
+  fs.symlinkSync('../../src', path.join(project, 'node_modules/@app/value'), 'junction')
+  return project
+}
+const relativeTest = "import { expect, it } from 'vitest'\nimport { value } from '../src/value.ts'\nit('is one', () => expect(value).toBe(1))\n"
+
+it("refuses copies where some of the related test files reach the checkout's sources through a package link", { timeout: 60_000 }, () => {
+  const project = linkedProject({
+    'test/value.test.ts': relativeTest,
+    'test/named.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '@app/value/value.ts'\nit('is one', () => expect(value).toBe(1))\n",
+  })
+  try {
+    const made = makeTruth(project, '--related')
+    expect(made.status).not.toBe(0)
+    expect(made.stderr).toMatch(/the probe with a throw failed in the copy \S*\.tmp-truth-\d+-[01]: with a throw at the top of its src\/value\.ts, `vitest related --run src\/value\.ts` fails test\/named\.test\.ts in the checkout and not there/)
+    expect(made.source).toBe('export const value = 1\n')
+    expect(made.left).toEqual([])
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+  }
+})
+
+it("refuses copies where a test file loads both the copy's sources and the checkout's", { timeout: 60_000 }, () => {
+  const project = linkedProject({
+    'test/value.test.ts':
+      "import { expect, it } from 'vitest'\nimport { value } from '../src/value.ts'\nimport { value as named } from '@app/value/value.ts'\n" +
+      "it('is one', () => expect([value, named]).toEqual([1, 1]))\n",
+  })
+  try {
+    const made = makeTruth(project, '--related')
+    expect(made.status).not.toBe(0)
+    expect(made.stderr).toMatch(/the probe with a throw failed in the copy \S*\.tmp-truth-\d+-[01]: with a throw at the top of the checkout's src\/value\.ts, `vitest related --run src\/value\.ts` fails test\/value\.test\.ts there: the copy's tests load the checkout's file/)
+    expect(made.source).toBe('export const value = 1\n')
+    expect(made.left).toEqual([])
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+  }
+})
+
+it('probes the copies for every mutated file without running a mutant, and names each file it refuses', { timeout: 60_000 }, () => {
+  const project = linkedProject({
+    'src/other.ts': 'export const value = 1\n',
+    'test/value.test.ts': relativeTest,
+    'test/named.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '@app/value/value.ts'\nit('is one', () => expect(value).toBe(1))\n",
+    'test/other.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '../src/other.ts'\nit('is one', () => expect(value).toBe(1))\n",
+    // A file more than there are copies.
+    'src/third.ts': 'export const value = 1\n',
+    'test/third.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '../src/third.ts'\nit('is one', () => expect(value).toBe(1))\n",
+  })
+  const report = JSON.parse(fs.readFileSync(path.join(project, 'report.json'), 'utf8'))
+  report.mutants.push({ ...report.mutants[0], file: 'src/other.ts', status: 'Survived' }, { ...report.mutants[0], file: 'src/third.ts', status: 'Survived' })
+  fs.writeFileSync(path.join(project, 'report.json'), JSON.stringify(report))
+  try {
+    const truth = path.join(import.meta.dirname, '../bench/truth.ts')
+    // Without `--related` too, where `make` probes one file a copy.
+    for (const args of [['--related'], []]) {
+      const run = spawnSync(process.execPath, [truth, 'probe', '--root', project, '--report', path.join(project, 'report.json'), '--jobs', '2', ...args], { encoding: 'utf8' })
+      expect(run.status, run.stderr).toBe(1)
+      expect(run.stdout).toContain('accepted: src/other.ts')
+      expect(run.stdout).toContain('accepted: src/third.ts')
+      // In a whole suite, the copy's run of `named.test.ts` fails with the throw in the checkout's file.
+      expect(run.stdout).toMatch(/refused: src\/value\.ts: the probe with a throw failed in the copy \S+: with a throw at the top of (its|the checkout's) src\/value\.ts/)
+      expect(run.stdout).not.toContain('mutants checked against the suite')
+    }
+    expect(fs.readdirSync(path.dirname(project)).filter((name) => name.startsWith('.tmp-truth-'))).toEqual([])
   } finally {
     fs.rmSync(project, { recursive: true, force: true })
   }
