@@ -340,7 +340,7 @@ interface StallRecord {
   type: 'stall'
   id: string
   mutant: number
-  /** The test's first try in a worker that had skipped the tests before it: says nothing of the mutant. */
+  /** The test's first try in a worker that had skipped the tests before it, or its run with no mutant on after one was: says nothing of the mutant. */
   cold?: boolean
   /** In a run of a whole file, which the main process writes the run's own record for. */
   whole?: boolean

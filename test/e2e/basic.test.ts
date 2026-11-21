@@ -14,7 +14,9 @@ let result: RunResult
 /** What that run and its workers wrote. */
 let output = ''
 /** What each worker of that run said of the tests it drove. */
-let tests: { file: string; name: string; baseline?: string; nonRepeatable?: boolean; needsReplay?: boolean }[] = []
+let tests: { file: string; id: string; name: string; baseline?: string; nonRepeatable?: boolean; needsReplay?: boolean }[] = []
+/** Where its workers' watchdogs stopped them. */
+let stalls: { id: string; mutant: number; cold?: boolean }[] = []
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -29,9 +31,9 @@ beforeAll(() => {
   ({ result, output } = runBasic(owner))
   // Read now: the other runs of the fixture below replace them.
   const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
-  tests = fs.readdirSync(records)
-    .flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n').filter((line) => line.includes('"type":"test"')))
-    .map((line) => JSON.parse(line))
+  const lines = fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n'))
+  tests = lines.filter((line) => line.includes('"type":"test"')).map((line) => JSON.parse(line))
+  stalls = lines.filter((line) => line.includes('"type":"stall"')).map((line) => JSON.parse(line))
 }, 180_000)
 
 describe('running the fixture project', () => {
@@ -78,8 +80,9 @@ describe('running the fixture project', () => {
     // that happens to one now and then.
     expect(runs.lost).toBeLessThan(3)
     // What is left to workers started for the run: mutants that block or end
-    // the process, and the runs made alone, four of them for `delay.ts`.
-    expect(runs.started).toBeLessThan(17)
+    // the process, and the runs made alone, four of them for `delay.ts` and
+    // three in a run of `nest.ts` alone; the count varies by a few between runs.
+    expect(runs.started).toBeLessThan(25)
   })
 
   it('kills a mutant a test fails on and keeps one no test notices', () => {
@@ -256,6 +259,15 @@ describe('running the fixture project', () => {
 
   it('counts an error nothing handles, which fails a run whose tests all pass', () => {
     expect(statusOf('src/notify.ts', 3, 'strict || listeners.length === 0')).toBe('Killed')
+  })
+
+  // The run would not end: a try of the first test leaves a level open, and
+  // the second test then loops for good with no mutant on.
+  it('ends a test that what an earlier try left makes endless with no mutant on', () => {
+    const ids = new Set(tests.filter((test) => test.file.endsWith('test/nest.test.ts') && test.name === 'finds every level closed').map((test) => test.id))
+    expect(stalls.filter((stall) => ids.has(stall.id) && stall.mutant === -1 && stall.cold)).not.toHaveLength(0)
+    expect(statusOf('src/nest.ts', 9, 'open++')).toBe('Timeout')
+    expect(statusOf('src/nest.ts', 15, 'true')).toBe('Survived')
   })
 
   it('does not go by what a test reached in a worker a mutant had left its mark on', () => {
