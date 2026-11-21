@@ -11,7 +11,8 @@
 // report is given; `check` does only the latter, against what an earlier `make`
 // wrote. Both exit with 1 when a verdict and the suite disagree. `probe`
 // runs no mutant: it probes the copies `make` would run in, for every file
-// it would, and says which files they cannot stand for, exiting with 1 if any.
+// of the report with or without `--related`, where `make` without it probes
+// one a copy, and says which files they cannot stand for, exiting with 1 if any.
 //
 // `--related` runs only the test files that import the mutated file
 // (`vitest related`) in place of the whole suite.
