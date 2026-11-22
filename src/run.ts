@@ -2431,13 +2431,6 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
   let treeWarned = false
-  // A test can remove the temp directory itself, as a mutant of Shopify's
-  // archiver.ts does; every run after it then finds none, as a run of the
-  // suite would not. Only the directory going is seen, not what is removed from inside it.
-  const tempDir = os.tmpdir()
-  const tempThere = fs.existsSync(tempDir)
-  const tempGone = () => (tempThere && !fs.existsSync(tempDir) ? [tempDir] : [])
-  let tempWarned = false
   const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0, browserTests: 0 }
   judgeStatic = options.static
   confirmFiles = options.confirm
@@ -2773,6 +2766,15 @@ export async function run(options: RunOptions): Promise<RunResult> {
       plugins: [instrumentPlugin, readsPlugin()],
     },
   ))
+
+  // A test can remove the temp directory itself, as a mutant of Shopify's
+  // archiver.ts does; every run after it then finds none, as a run of the
+  // suite would not. Only the directory going is seen, not what is removed
+  // from inside it. Read now, it is the one the config left for the workers.
+  const tempDir = os.tmpdir()
+  const tempThere = fs.existsSync(tempDir)
+  const tempGone = () => (tempThere && !fs.existsSync(tempDir) ? [tempDir] : [])
+  let tempWarned = false
 
   // Reading the worker's configuration loses this main-process-only option.
   config.dangerouslyIgnoreUnhandledErrors = vitest.config.dangerouslyIgnoreUnhandledErrors === true
