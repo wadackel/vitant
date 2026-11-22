@@ -171,6 +171,11 @@ export interface RunResult {
    * how that comes about. Every run after the first such write saw them.
    */
   changedFiles: string[]
+  /**
+   * The temp directory the workers were given, when tests removed it: every
+   * run after that found it gone.
+   */
+  removedTempDirs: string[]
   /** Tests that stopped passing unmutated once they were re-run in the same worker. */
   nonRepeatableTests: string[]
   /** Errors raised outside any test, such as a file that fails to import. */
@@ -2426,6 +2431,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const startedAt = performance.now()
   const treeBefore = workingTree(options.root)
   let treeWarned = false
+  // A test can remove the temp directory itself, as a mutant of Shopify's
+  // archiver.ts does; every run after it then finds none, as a run of the
+  // suite would not. Only the directory going is seen, not what is removed from inside it.
+  const tempDir = os.tmpdir()
+  const tempThere = fs.existsSync(tempDir)
+  const tempGone = () => (tempThere && !fs.existsSync(tempDir) ? [tempDir] : [])
+  let tempWarned = false
   const leftOut: RunResult['leftOut'] = { projects: {}, typeTests: 0, browserTests: 0 }
   judgeStatic = options.static
   confirmFiles = options.confirm
@@ -2966,6 +2978,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
             treeWarned = true
             options.log(`tests left ${changed.length} file(s) under version control changed, ${changed[0]} for one: runs from here on see them`)
           }
+        }
+        if (!tempWarned && tempGone().length > 0) {
+          tempWarned = true
+          options.log(`tests removed the temp directory ${tempDir}: runs from here on find it gone`)
         }
       }
 
@@ -3609,6 +3625,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     exclusiveFiles: [...status.exclusive].map((file) => relative(options.root, file)),
     unsureFiles: [...status.unsure].map((file) => relative(options.root, file)),
     changedFiles: changedSince(treeBefore, options.root),
+    removedTempDirs: tempWarned ? [tempDir] : tempGone(),
     flakyTests: [...status.flaky].flatMap((id) => {
       const test = status.tests.get(id)
       return test ? [label(test)] : []

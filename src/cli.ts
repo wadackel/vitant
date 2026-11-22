@@ -49,12 +49,13 @@ for each one whether the suite detects it.
   --help, --version
 
 The exit code is 1 when a test file had to be given up on, and its mutants are left pending,
-when no test ran at all, and when files under version control are not as they were before the run.
+when no test ran at all, when files under version control are not as they were before the run,
+and when tests removed the temp directory they were given.
 For \`merge\`, when any share's run would have exited with 1.`
 
 /** A run whose exit code is 1, see the usage. */
 const unsoundRun = (result: RunResult) =>
-  result.abandonedFiles.length > 0 || (result.tests === 0 && result.mutants.length > 0) || result.changedFiles.length > 0
+  result.abandonedFiles.length > 0 || (result.tests === 0 && result.mutants.length > 0) || result.changedFiles.length > 0 || result.removedTempDirs.length > 0
 
 if (process.argv[2] === 'merge') {
   const { values: options, positionals: files } = (() => {
@@ -358,6 +359,9 @@ if (result.unsureFiles.length > 0) {
 if (result.changedFiles.length > 0) {
   console.log(`${result.changedFiles.length} file(s) under version control differ from before the run; the verdicts may rest on them:`)
   for (const file of result.changedFiles.slice(0, 10)) console.log(`  ${file}`)
+}
+for (const dir of result.removedTempDirs) {
+  console.log(`tests removed the temp directory they were given, ${dir}; the verdicts may rest on it`)
 }
 if (result.nonRepeatableTests.length > 0) {
   console.log(`${result.nonRepeatableTests.length} test(s) do not pass when re-run in the same worker`)

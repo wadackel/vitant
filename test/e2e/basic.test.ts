@@ -314,28 +314,24 @@ describe('running the fixture project', () => {
     expect(statusOf('src/sequence.ts', 5, 'next -= 1')).toBe('Killed')
   })
 
-  it('keeps the modules Vitest hands its workers out of reach of a test that empties the temp directory', () => {
+  it('keeps the modules Vitest hands its workers out of reach of a test that removes the temp directory, and says it was removed', () => {
     // `sweep.test.ts` lets the mutant at the temp directory only where this file marks it.
     const temp = fs.mkdtempSync(path.join(owner.directory, 'temp-'))
-    const marker = path.join(temp, 'vitant-sweep-sandbox')
-    fs.writeFileSync(marker, '')
+    fs.writeFileSync(path.join(temp, 'vitant-sweep-sandbox'), '')
     const report = reportPath('sweep')
     const cli = tool(['--root', fixture('basic'), '--mutate', 'src/sweep.ts', '--report', report], {
       env: { ...process.env, TMPDIR: temp, TMP: temp, TEMP: temp },
     })
-    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
-    expect(fs.readFileSync(marker, 'utf8'), 'the mutant emptied the temp directory').toBe('swept')
+    expect(fs.existsSync(temp), 'the mutant removed the temp directory').toBe(false)
+    // The runs after it have no temp directory to make one in, which the suite never sees.
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(1)
+    expect(cli.stdout).toContain(`tests removed the temp directory they were given, ${temp}; the verdicts may rest on it`)
     const swept: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(swept.removedTempDirs).toEqual([temp])
+    // Vitest's files for the workers were not in it: every later run still loaded its modules.
     expect(swept.abandonedFiles).toEqual([])
-    const verdicts = Object.fromEntries(swept.mutants.map((m) => [`${m.location.start.line}:${m.location.start.column} ${m.replacement}`, m.status]))
-    expect(verdicts['6:28 ``']).toBe('Killed')
-    // Every other mutant of the file is given the verdict the run over the whole fixture gave it, or
-    // is left Unconfirmed: here all runs of the test share the temp directory the mutant empties, and
-    // a run of another mutant fails when the directory is emptied under it.
+    expect(swept.suiteErrors).toEqual([])
+    // What the verdicts are rests on the removal: the test fails with no mutant on from then on.
     expect(swept.mutants.map((m) => m.status)).not.toContain('Pending')
-    for (const mutant of swept.mutants) {
-      const whole = result.mutants.find((m) => m.file === mutant.file && m.location.start.line === mutant.location.start.line && m.location.start.column === mutant.location.start.column && m.replacement === mutant.replacement)
-      if (mutant.status !== 'Unconfirmed') expect(`${mutant.replacement} ${mutant.status}`).toBe(`${mutant.replacement} ${whole?.status}`)
-    }
   }, 180_000)
 })

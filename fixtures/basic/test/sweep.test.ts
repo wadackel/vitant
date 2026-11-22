@@ -13,7 +13,6 @@ const marker = path.join(os.tmpdir(), 'vitant-sweep-sandbox')
 
 it('removes the file it is asked to and nothing beside it', () => {
   const own = fs.existsSync(marker)
-  fs.mkdirSync(os.tmpdir(), { recursive: true })
   const root = own ? os.tmpdir() : fs.mkdtempSync(path.join(os.tmpdir(), 'vitant-sweep-'))
   const name = `left-${process.pid}-${Math.random().toString(36).slice(2)}`
   const keep = path.join(root, `${name}.keep`)
@@ -24,15 +23,6 @@ it('removes the file it is asked to and nothing beside it', () => {
     expect(fs.existsSync(path.join(root, `${name}.tmp`))).toBe(false)
     expect(fs.existsSync(keep)).toBe(true)
   } finally {
-    if (own) {
-      fs.rmSync(keep, { force: true })
-      // The run that asked for this reads `swept` as the sign that the mutant emptied it.
-      if (!fs.existsSync(marker)) {
-        fs.mkdirSync(os.tmpdir(), { recursive: true })
-        fs.writeFileSync(marker, 'swept')
-      }
-    } else {
-      fs.rmSync(root, { recursive: true, force: true })
-    }
+    fs.rmSync(own ? keep : root, { recursive: true, force: true })
   }
 })
