@@ -11,6 +11,9 @@ afterAll(() => owner.cleanup())
 const versions = ['vitest3', 'vitest', 'vitest51'].map((name) => [name, path.join(root, 'node_modules', name)])
 if (process.env.VITANT_TEST_VITEST) versions.push(['external', path.resolve(process.env.VITANT_TEST_VITEST)])
 
+/** The quiet test's path as a glob: a backslash of a Windows path would read as an escape there. */
+const quietGlob = (project: string) => path.join(project, 'test/quiet.test.ts').split(path.sep).join('/')
+
 /**
  * How a project gives the workers of a pool a flag, in the form the version
  * reads, and the fixture's test that needs it: Node refuses `--expose-gc` for
@@ -55,7 +58,7 @@ const shapes: Shape[] = [
     // these projects are made in, whose name starts with a dot.
     name: 'a file sent to threads',
     config: (major, _minor, project) => major < 4
-      ? { test: { poolMatchGlobs: [[path.join(project, 'test/quiet.test.ts'), 'threads']], poolOptions: { forks: { execArgv: ['--no-deprecation'] }, threads: { execArgv: ['--no-deprecation'] } } } }
+      ? { test: { poolMatchGlobs: [[quietGlob(project), 'threads']], poolOptions: { forks: { execArgv: ['--no-deprecation'] }, threads: { execArgv: ['--no-deprecation'] } } } }
       : { test: { projects: [{ test: { name: 'threads', pool: 'threads', execArgv: ['--no-deprecation'] } }] } },
     needs: 'quiet',
   },
@@ -94,7 +97,7 @@ it('names the pools whose arguments the workers were not given, on vitest3', () 
   for (const directory of ['src', 'test', 'node_modules']) fs.mkdirSync(path.join(project, directory), { recursive: true })
   fs.symlinkSync(path.join(root, 'node_modules/vitest3'), path.join(project, 'node_modules/vitest'), 'junction')
   fs.writeFileSync(path.join(project, 'package.json'), '{"type":"module"}')
-  const config = { test: { poolMatchGlobs: [[path.join(project, 'test/quiet.test.ts'), 'threads']], poolOptions: { threads: { execArgv: ['--no-deprecation'] } } } }
+  const config = { test: { poolMatchGlobs: [[quietGlob(project), 'threads']], poolOptions: { threads: { execArgv: ['--no-deprecation'] } } } }
   fs.writeFileSync(path.join(project, 'vitest.config.mjs'), `export default ${JSON.stringify(config)}\n`)
   for (const file of ['src/quiet.ts', 'test/quiet.test.ts']) fs.copyFileSync(path.join(root, 'fixtures/basic', file), path.join(project, file))
   const plain = spawnSync(process.execPath, [path.join(root, 'node_modules/vitest3/vitest.mjs'), 'run'], { cwd: project, encoding: 'utf8', env: { ...process.env, CI: 'true' } })

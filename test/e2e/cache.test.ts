@@ -3,6 +3,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createE2E, root } from '../helpers/e2e.ts'
 import type { RunResult } from '../../src/run.ts'
+import { relative } from '../../src/session.ts'
 
 const owner = createE2E('cache')
 afterAll(() => owner.cleanup())
@@ -98,11 +99,11 @@ describe('reusing a run that gave up on a test file', () => {
     fs.rmSync(copy, { recursive: true, force: true })
     fs.cpSync(fixture('basic'), copy, { recursive: true, filter: (source) => !source.includes('node_modules') })
     const first = runCopy()
-    expect(first.result.abandonedFiles.map((file) => path.relative(copy, file))).toEqual(['test/reserve.test.ts'])
+    expect(first.result.abandonedFiles.map((file) => relative(copy, file))).toEqual(['test/reserve.test.ts'])
     expect(fs.existsSync(path.join(copy, 'node_modules/.vitant/cache.json'))).toBe(false)
     const second = runCopy()
     expect(second.reused).toBe(0)
-    expect(second.result.abandonedFiles.map((file) => path.relative(copy, file))).toEqual(['test/reserve.test.ts'])
+    expect(second.result.abandonedFiles.map((file) => relative(copy, file))).toEqual(['test/reserve.test.ts'])
     expect(second.result.counts.Pending).toBe(second.result.mutants.length)
   }, 180_000)
 })

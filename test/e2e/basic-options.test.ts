@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { runBasic } from '../helpers/basic.ts'
+import { basicRunMs, runBasic } from '../helpers/basic.ts'
 import { createE2E } from '../helpers/e2e.ts'
 import type { RunResult } from '../../src/run.ts'
 
@@ -11,7 +11,7 @@ const { fixture, tool, reportPath } = owner
 let result: RunResult
 beforeAll(() => {
   result = runBasic(owner).result
-}, 180_000)
+}, basicRunMs)
 
 describe('with a limit on the test files a mutant is run against', () => {
   it('reports a mutant with files left as unconfirmed, and no other verdict differently', () => {
@@ -33,7 +33,7 @@ describe('with a limit on the test files a mutant is run against', () => {
     const lost = limited.mutants.filter((m) => m.status === 'Unconfirmed' && result.mutants[m.id].status !== 'Survived').length
     expect(result.nearest!.detected.slice(1).reduce((sum, count) => sum + count, 0)).toBeGreaterThanOrEqual(lost)
     expect(limited.nearest).toBeUndefined()
-  }, 180_000)
+  }, basicRunMs)
 })
 
 describe('with leads taken at their word', () => {
@@ -60,7 +60,7 @@ describe('with leads taken at their word', () => {
     // run after it to say the test passes without the mutant: no lead.
     const delayed = led.mutants.find((m) => m.file === 'src/delay.ts' && m.location.start.line === 2 && m.replacement === 'false')!
     expect(`${delayed.status} ${delayed.besideOnly}`).toBe('Unconfirmed test/delay.test.ts')
-  }, 180_000)
+  }, basicRunMs)
 })
 
 describe('with --fast', () => {
@@ -87,7 +87,7 @@ describe('with --fast', () => {
     const score = ((Killed + Timeout + Led) / (Killed + Timeout + Led + Survived + Unconfirmed + NoCoverage)) * 100
     expect(cli.stdout).toContain(`score ${score.toFixed(2)}%`)
     expect(cli.stdout).toMatch(/--fast: \d+ mutant\(s\) failed a test with its file to itself/)
-  }, 180_000)
+  }, basicRunMs)
 })
 
 describe('in shares', () => {

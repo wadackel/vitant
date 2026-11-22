@@ -1793,7 +1793,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
           return super.onBeforeCollect?.(paths)
         }
       } else {
-        const job = jobs.find((job) => !job.control && this.open(job) && claim(`whole.${job.id}`))
+        // A control that checks a copy against a worker says nothing here, but
+        // where no process is copied a calm run is made only here: untaken, a
+        // file that fails by itself is never found to, and a mutant only its
+        // failing hook's tests reach reads as survived. Where copies are made,
+        // a file gets a worker or two, which would spend them on calm runs.
+        const job = jobs.find((job) => (!job.control || (job.calm && !addon)) && this.open(job) && claim(`whole.${job.id}`))
         if (job) {
           this.takeRoom(file)
           this.begin(job, true)

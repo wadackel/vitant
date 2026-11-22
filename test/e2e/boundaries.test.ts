@@ -4,6 +4,7 @@ import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createE2E, root } from '../helpers/e2e.ts'
 import type { RunResult } from '../../src/run.ts'
+import { relative } from '../../src/session.ts'
 
 const owner = createE2E('boundaries')
 afterAll(() => owner.cleanup())
@@ -118,10 +119,15 @@ describe('test files whose runs do not stand each other, or that fail now and th
   }, 120_000)
 })
 
+// Where whole-file runs start a worker each, as on a platform without the
+// addon, the runs of a file with no mutant on and nothing else running are
+// made in such workers too, and these checks hold there as well.
+const startedOnly = ['--no-clone']
+
 describe('a test file that fails outside its tests with no mutant on', () => {
-  it('is given up on, and the run ends', () => {
-    const report = reportPath('restless')
-    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/reserve.ts', '--report', report, 'test/reserve.test.ts'], {
+  const givenUp = (name: string, options: string[]) => {
+    const report = reportPath(name)
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/reserve.ts', '--report', report, ...options, 'test/reserve.test.ts'], {
       env: { ...process.env, RESERVE_SERVER_DOWN: '1' },
       timeout: 110_000,
     })
@@ -129,12 +135,16 @@ describe('a test file that fails outside its tests with no mutant on', () => {
     expect(cli.status, cli.stdout.slice(-2000)).toBe(1)
     expect(cli.stdout).toContain('gave up on 1 test file(s)')
     const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    expect(result.abandonedFiles.map((file) => path.relative(fixture('basic'), file))).toEqual(['test/reserve.test.ts'])
+    expect(result.abandonedFiles.map((file) => relative(fixture('basic'), file))).toEqual(['test/reserve.test.ts'])
     expect(result.counts.Pending).toBe(result.mutants.length)
     // Runs planned again and again in the file give up too, at the cap of 200
     // rounds: here in a minute, on mikro-orm in some ten hours.
     expect(result.rounds).toBeLessThan(20)
-  }, 120_000)
+  }
+
+  it('is given up on, and the run ends', () => givenUp('restless', []), 120_000)
+
+  it('is given up on, and the run ends, with a worker started per whole-file run', () => givenUp('restless-started', startedOnly), 120_000)
 })
 
 describe('a test that fails in every run with no mutant on', () => {
@@ -164,11 +174,11 @@ describe('a test that fails in every run with no mutant on', () => {
     for (const mutant of open) expect([mutant.replacement, mutant.status, mutant.leftOut]).toEqual([mutant.replacement, 'Unconfirmed', [test]])
   }, 120_000)
 
-  it('leaves open, for a test left out after it passed, a mutant of a value its file made while loading', () => {
-    const report = reportPath('postage-quota')
+  const leftOpen = (name: string, options: string[]) => {
+    const report = reportPath(name)
     const quota = report.replace(/\.json$/, '.quota')
     fs.rmSync(quota, { force: true })
-    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, 'test/postage-quota.test.ts'], {
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/postage.ts', '--static', '--report', report, ...options, 'test/postage-quota.test.ts'], {
       env: { ...process.env, POSTAGE_RATES_QUOTA: quota },
     })
     expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
@@ -176,7 +186,11 @@ describe('a test that fails in every run with no mutant on', () => {
     expect(result.neverPassedTests).toEqual([])
     const loaded = result.mutants.find((mutant) => mutant.replacement === '50 / 2')!
     expect([loaded.status, loaded.leftOut]).toEqual(['Unconfirmed', ['test/postage-quota.test.ts > charges more for a parcel within the quota']])
-  }, 120_000)
+  }
+
+  it('leaves open, for a test left out after it passed, a mutant of a value its file made while loading', () => leftOpen('postage-quota', []), 120_000)
+
+  it('leaves open, for a test left out after it passed, a mutant of a value its file made while loading, with a worker started per whole-file run', () => leftOpen('postage-quota-started', startedOnly), 120_000)
 })
 
 describe('a run in which no test runs', () => {

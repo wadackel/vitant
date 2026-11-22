@@ -1,7 +1,8 @@
 // A stand-in for a compiler such as React's: it rewrites a function only where
 // it can tell what the function does, and imports its runtime only then. The
-// function it can tell is one that returns an object of its parameter.
-const understood = /^export function (\w+)\((\w+)\) \{\n {2}return \{ \2 \}\n\}$/m
+// function it can tell is one that returns an object of its parameter. A
+// checkout on Windows can end its lines with `\r\n`.
+const understood = /^export function (\w+)\((\w+)\) \{\r?\n {2}return \{ \2 \}\r?\n\}\r?$/m
 
 function memo() {
   return {
