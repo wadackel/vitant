@@ -124,6 +124,29 @@ export interface WholeRuns {
   lost: number
 }
 
+/** A test file the run gave up on. */
+export interface AbandonedFile {
+  file: string
+  /**
+   * `restless`: a run of it with no mutant on and nothing else running
+   * failed with no test to name, so none of its failures can count.
+   * `round cap`: runs of it were still to be made after `--max-rounds` rounds.
+   * `no headway`: runs of it were still to be made after three rounds in a
+   * row that added nothing to what the runs had found, which `rounds` lists.
+   */
+  cause: 'restless' | 'round cap' | 'no headway'
+  rounds?: StalledRound[]
+}
+
+/** What a round that added nothing had planned for a file, and how it went. */
+export interface StalledRound {
+  round: number
+  /** The tests that were to try mutants, or to run again with none, and what each came to. */
+  tries: { test: string; mutants: number[]; ended: string }[]
+  /** The runs of the whole file, and how each ended. */
+  runs: { kind: string; mutant?: number; test?: string; ended: string }[]
+}
+
 export interface RunResult {
   mutants: MutantResult[]
   counts: Record<MutantStatus, number>
@@ -180,8 +203,8 @@ export interface RunResult {
   nonRepeatableTests: string[]
   /** Errors raised outside any test, such as a file that fails to import. */
   suiteErrors: string[]
-  /** Test files whose worker kept dying; their mutants stay `Pending`. */
-  abandonedFiles: string[]
+  /** Test files the run gave up on, with why; the mutants that waited on their runs stay `Pending`. */
+  abandonedFiles: AbandonedFile[]
   /** How many times Vitest was asked to run files. */
   rounds: number
   wholeRuns: WholeRuns
@@ -797,8 +820,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
       if (!record.sole && record.timedOut.includes(mutant)) besideLoops.add(mutant)
     }
+    // A test that passed without reaching the mutant has said what it can as
+    // well: tried with the file to itself again it goes the same way, and in
+    // excalidraw one test did so round after round until the file was given up on.
     if (record.sole) {
-      for (const mutant of [...record.survived, ...record.killed, ...record.timedOut, ...(record.suspected ?? [])]) {
+      for (const mutant of [...record.survived, ...record.killed, ...record.timedOut, ...(record.suspected ?? []), ...(record.unreached ?? [])]) {
         triedSole.set(mutant, (triedSole.get(mutant) ?? new Set()).add(record.id))
       }
     }
@@ -2360,6 +2386,77 @@ export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<num
   return { work: count, marked }
 }
 
+/** What a run of a whole file is for, in a word. */
+function jobKind(job: WholeJob): string {
+  return job.calm ? 'calm' : job.trial !== undefined ? 'trial' : job.control ? 'control' : job.pair ? 'pair' : job.quiet ? 'quiet' : job.exclusive ? 'exclusive' : job.plain ? 'plain' : 'whole'
+}
+
+/**
+ * What `plan` gave `file` to do in round `round`, and how each of those runs
+ * ended as the records from `from` to `to` have it.
+ */
+export function stalledRound(
+  { plan, round, from, to }: { plan: RoundPlan; round: number; from: number; to: number },
+  file: string,
+  records: SessionRecord[],
+  tests: Map<string, { file: string; name: string }>,
+): StalledRound {
+  const name = (id: string | undefined) => (id === undefined ? undefined : (tests.get(id)?.name ?? id))
+  const own = records.filter((record) => record.at >= from && record.at < to && (!('file' in record) || record.file === file))
+  const tried = (test: string, mutant?: number) => {
+    const runs = own.filter((record): record is TestRecord & { at: number } => record.type === 'test' && record.id === test)
+    const said = (label: string, list: (record: TestRecord) => number[] | undefined) => {
+      const mutants = [...new Set(runs.flatMap((record) => list(record) ?? []))].filter((each) => mutant === undefined || each === mutant)
+      return mutants.length > 0 ? [`${label} ${mutants.join(', ')}`] : []
+    }
+    const ended = [
+      ...said('killed', (record) => record.killed),
+      ...said('timed out', (record) => record.timedOut),
+      ...said('survived', (record) => record.survived),
+      ...said('unreached', (record) => record.unreached),
+      ...said('unverified', (record) => record.unverified),
+      ...said('suspected', (record) => record.suspected),
+    ]
+    return runs.length === 0 ? 'no word' : ended.length > 0 ? ended.join('; ') : 'ran with no mutant'
+  }
+  const taken = new Set<SessionRecord>()
+  const take = <T extends SessionRecord>(match: (record: SessionRecord) => record is T): T | undefined => {
+    const found = own.find((record): record is T => !taken.has(record) && match(record))
+    if (found) taken.add(found)
+    return found
+  }
+  const verdict = (record: { verdict: string; test?: string } | undefined) =>
+    !record ? 'no word' : record.verdict === 'failed' && record.test !== undefined ? `failed in ${name(record.test)}` : record.verdict
+  const tries = Object.entries(plan.tests)
+    .filter(([id]) => tests.get(id)?.file === file)
+    .map(([id, planned]) => ({ test: name(id)!, mutants: planned.mutants ?? [], ended: tried(id) }))
+  const runs = (plan.whole[file] ?? []).map((job) => {
+    const kind = jobKind(job)
+    const of = { kind, ...(job.control || job.calm || job.pair || job.mutant < 0 ? {} : { mutant: job.mutant }), ...(job.trial !== undefined ? { test: name(job.trial) } : {}) }
+    if (job.calm) return { ...of, ended: verdict(take((record): record is CalmRecord & { at: number } => record.type === 'calm')) }
+    if (job.control) return { ...of, ended: verdict(take((record): record is ControlRecord & { at: number } => record.type === 'control')) }
+    if (job.pair) {
+      const pair = take((record): record is PairRecord & { at: number } => record.type === 'pair')
+      return { ...of, ended: pair && !pair.met ? 'its other half never came' : verdict(pair) }
+    }
+    if (job.trial !== undefined) {
+      if (job.mutant < 0) return { ...of, ended: verdict(take((record): record is ApartRecord & { at: number } => record.type === 'apart' && record.test === job.trial)) }
+      return { ...of, ended: tried(job.trial, job.mutant) }
+    }
+    const whole = take((record): record is WholeRecord & { at: number } => record.type === 'whole' && record.mutant === job.mutant)
+    if (whole) return { ...of, ended: whole.died ? 'its worker died' : verdict(whole) }
+    const stall = take(
+      (record): record is StallRecord & { at: number } =>
+        record.type === 'stall' && record.whole === true && record.mutant === job.mutant && (record.id === '' || tests.get(record.id)?.file === file),
+    )
+    if (stall) return { ...of, ended: `stopped on ${stall.by ?? 'cpu'}` }
+    const plain = take((record): record is PlainRecord & { at: number } => record.type === 'plain' && record.mutant === job.mutant)
+    if (plain) return { ...of, ended: plain.memory ? 'stopped for its memory' : 'left no word, to be made again in a worker started for it' }
+    return { ...of, ended: 'no word' }
+  })
+  return { round, tries, runs }
+}
+
 /**
  * The list of projects in the root config that Vitest of this version runs:
  * `projects` from 3.2, where a `workspace` given with it is ignored, and
@@ -2809,7 +2906,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   }
 
   const readRecords = recordReader(paths.results)
-  const abandonedFiles: string[] = []
+  const abandonedFiles: AbandonedFile[] = []
   const suiteErrors: string[] = []
   let rounds = 0
   try {
@@ -2901,6 +2998,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     let planned: { id: number; mutant: number; file: string; had: number; plain: boolean; roomy: boolean; alone: boolean; quiet: boolean; knew: boolean }[] = []
     let plannedAt = 0
     let stalled = 0
+    /** The plans of the last rounds, for saying what a file given up on had been given to do. */
+    const lastPlans: { plan: RoundPlan; round: number; from: number }[] = []
     // Round one runs every test once, unmutated, and lets only fast tests try
     // their mutants. Later rounds follow a plan: first each mutant in the one
     // test most likely to kill it, then in every test that may still see it.
@@ -3163,7 +3262,15 @@ export async function run(options: RunOptions): Promise<RunResult> {
       stalled = judged.work === progress?.work && judged.marked === progress?.marked ? stalled + 1 : 0
       progress = judged
       if (stalled >= 3 || rounds >= options.maxRounds) {
-        abandonedFiles.push(...next.workByFile.keys())
+        const records = readRecords()
+        const ran = lastPlans.slice(-stalled).map((entry, index, all) => ({ ...entry, to: all[index + 1]?.from ?? Infinity }))
+        for (const file of next.workByFile.keys()) {
+          abandonedFiles.push(
+            stalled >= 3
+              ? { file, cause: 'no headway', rounds: ran.map((entry) => stalledRound(entry, file, records, status.tests)) }
+              : { file, cause: 'round cap' },
+          )
+        }
         break
       }
       if (next.alternatives.length > 0) {
@@ -3310,6 +3417,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const driven = new Set(Object.keys(next.plan.tests).map((id) => status.tests.get(id)?.file))
       next.plan.wholeOnly = [...unitsOf.keys()].filter((file) => !driven.has(file) && !(file in next.plan.probe))
       fs.writeFileSync(paths.plan, JSON.stringify(next.plan))
+      lastPlans.push({ plan: next.plan, round: rounds + 1, from: plannedAt })
+      if (lastPlans.length > 3) lastPlans.shift()
       const totalWork = units.reduce((sum, unit) => sum + unit.workMs, 0)
       options.log(
         `round ${rounds + 1}: ${next.workByFile.size} file(s), ${plan.length} worker run(s), ` +
@@ -3318,10 +3427,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       // What the round is made of, for reading a slow run from its log.
       if (process.env.VITANT_DEBUG) {
         const kinds: Record<string, number> = {}
-        for (const job of Object.values(next.plan.whole).flat()) {
-          const kind = job.calm ? 'calm' : job.trial !== undefined ? 'trial' : job.control ? 'control' : job.pair ? 'pair' : job.quiet ? 'quiet' : job.exclusive ? 'exclusive' : job.plain ? 'plain' : 'whole'
-          kinds[kind] = (kinds[kind] ?? 0) + 1
-        }
+        for (const job of Object.values(next.plan.whole).flat()) kinds[jobKind(job)] = (kinds[jobKind(job)] ?? 0) + 1
         const trying = Object.values(next.plan.tests).filter((test) => test.mutants)
         options.log(
           `  ${trying.length} test(s) with ${trying.reduce((sum, test) => sum + test.mutants!.length, 0)} tries, ` +
@@ -3363,7 +3469,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   // name leaves no way to tell what a mutant does to it. Counted before the
   // cache is written: a run that stored such a file's results would have the
   // next `--incremental` run reuse them and give the file up no more.
-  for (const file of status.restless) if (!abandonedFiles.includes(file)) abandonedFiles.push(file)
+  for (const file of status.restless) if (!abandonedFiles.some((entry) => entry.file === file)) abandonedFiles.push({ file, cause: 'restless' })
   const coveredBy = new Uint32Array(generated.mutants.length)
   const killedBy = new Uint32Array(generated.mutants.length)
   const staticSites = new Set<number>()

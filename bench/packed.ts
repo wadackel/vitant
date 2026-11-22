@@ -63,13 +63,13 @@ const detected = (status: string | undefined) => (status === 'Killed' || status 
 const wrong = installed.mutants.filter((mutant) => detected(expected.get(key(mutant))) !== detected(mutant.status))
 const problems = [...exits, ...wrong.map((mutant) => `${key(mutant)}: ${expected.get(key(mutant))} from the sources, ${mutant.status} installed`)]
 for (const [name, run] of [['installed', installed], ['from the sources', sources]] as const) {
-  if (run.abandonedFiles.length > 0 && run === sources) problems.push(`${name}: gave up on ${run.abandonedFiles.join(', ')}`)
+  if (run.abandonedFiles.length > 0 && run === sources) problems.push(`${name}: gave up on ${run.abandonedFiles.map(({ file, cause }) => `${file} (${cause})`).join(', ')}`)
   if (run.tests === 0) problems.push(`${name}: no test was found`)
   if (run.changedFiles.length > 0) problems.push(`${name}: tests changed ${run.changedFiles.join(', ')}`)
   if (run.removedTempDirs.length > 0) problems.push(`${name}: tests removed the temp directory ${run.removedTempDirs.join(', ')}`)
 }
 if (installed.mutants.length !== sources.mutants.length) problems.push(`${installed.mutants.length} mutants installed, ${sources.mutants.length} from the sources`)
-if (installed.abandonedFiles.length > 0) problems.push(`gave up on ${installed.abandonedFiles.join(', ')}`)
+if (installed.abandonedFiles.length > 0) problems.push(`gave up on ${installed.abandonedFiles.map(({ file, cause }) => `${file} (${cause})`).join(', ')}`)
 const copies = installed.wholeRuns['copied before load'] + installed.wholeRuns['copied while loading'] + installed.wholeRuns['copied after load'] + installed.wholeRuns['copied before a test']
 if (tarballs.length > 1 && copies === 0) problems.push('no run was made in a copy: the addon was not found through its package')
 

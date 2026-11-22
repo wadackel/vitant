@@ -261,7 +261,7 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
     work: unknown
     quietRuns: { failed: number; passed: number }
     rounds: number
-    abandonedFiles: string[]
+    abandonedFiles: unknown[]
     mutants: Reported[]
   }
   reports[tool] = { counts, wholeRuns, work, quiet: quietRuns.failed + quietRuns.passed, rounds, abandonedFiles: abandonedFiles.length }
