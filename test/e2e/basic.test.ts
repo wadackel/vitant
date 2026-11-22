@@ -313,4 +313,26 @@ describe('running the fixture project', () => {
     // running the file once shows the mutant breaks it.
     expect(statusOf('src/sequence.ts', 5, 'next -= 1')).toBe('Killed')
   })
+
+  it('keeps the modules Vitest hands its workers out of reach of a test that empties the temp directory', () => {
+    // `sweep.test.ts` lets the mutant at the temp directory only where this file marks it.
+    const temp = fs.mkdtempSync(path.join(owner.directory, 'temp-'))
+    const marker = path.join(temp, 'vitant-sweep-sandbox')
+    fs.writeFileSync(marker, '')
+    const report = reportPath('sweep')
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/sweep.ts', '--report', report], {
+      env: { ...process.env, TMPDIR: temp, TMP: temp, TEMP: temp },
+    })
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    expect(fs.readFileSync(marker, 'utf8'), 'the mutant emptied the temp directory').toBe('swept')
+    const swept: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(swept.abandonedFiles).toEqual([])
+    const verdicts = Object.fromEntries(swept.mutants.map((m) => [`${m.location.start.line}:${m.location.start.column} ${m.replacement}`, m.status]))
+    expect(verdicts['6:28 ``']).toBe('Killed')
+    // Every other mutant of the file is given the verdict the run over the whole fixture gave it.
+    for (const mutant of swept.mutants) {
+      const whole = result.mutants.find((m) => m.file === mutant.file && m.location.start.line === mutant.location.start.line && m.location.start.column === mutant.location.start.column && m.replacement === mutant.replacement)
+      expect(`${mutant.replacement} ${mutant.status}`).toBe(`${mutant.replacement} ${whole?.status}`)
+    }
+  }, 180_000)
 })

@@ -2090,6 +2090,23 @@ function writeMutants(dir: string, generated: Generated, config: SessionConfig):
   fs.writeFileSync(paths.state, new Uint8Array(generated.mutants.length))
 }
 
+/** Runs `make` with `dir` as this process's temp directory, where Node reads it on every platform. */
+async function withTempDir<T>(dir: string | undefined, make: () => T): Promise<Awaited<T>> {
+  if (dir === undefined) return await make()
+  const names = ['TMPDIR', 'TMP', 'TEMP']
+  const kept = names.map((name) => process.env[name])
+  fs.mkdirSync(dir, { recursive: true })
+  for (const name of names) process.env[name] = dir
+  try {
+    return await make()
+  } finally {
+    names.forEach((name, i) => {
+      if (kept[i] === undefined) delete process.env[name]
+      else process.env[name] = kept[i]
+    })
+  }
+}
+
 function writeSession(
   dir: string,
   generated: Generated,
@@ -2707,7 +2724,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
   process.env.TEST = 'true'
   process.env.VITEST = 'true'
   process.env.NODE_ENV ??= 'test'
-  const vitest = await createVitest(
+  // Vitest 4 hands the workers each module as a file it writes once in a
+  // directory under os.tmpdir(), and a test that empties the temp directory
+  // takes them from every worker that loads after it: a mutant of Shopify's
+  // archiver.ts removes `tmpdir()` for its own temp file. Vitest fixes that
+  // directory while it is created, so it goes in the session then, out of
+  // the tests' reach; the workers start later, with the tool's temp directory.
+  const vitest = await withTempDir(major < 4 ? undefined : paths.temp, () => createVitest(
     'test',
     {
       root: options.root,
@@ -2735,7 +2758,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     {
       plugins: [instrumentPlugin, readsPlugin()],
     },
-  )
+  ))
 
   // Reading the worker's configuration loses this main-process-only option.
   config.dangerouslyIgnoreUnhandledErrors = vitest.config.dangerouslyIgnoreUnhandledErrors === true
