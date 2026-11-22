@@ -329,10 +329,13 @@ describe('running the fixture project', () => {
     expect(swept.abandonedFiles).toEqual([])
     const verdicts = Object.fromEntries(swept.mutants.map((m) => [`${m.location.start.line}:${m.location.start.column} ${m.replacement}`, m.status]))
     expect(verdicts['6:28 ``']).toBe('Killed')
-    // Every other mutant of the file is given the verdict the run over the whole fixture gave it.
+    // Every other mutant of the file is given the verdict the run over the whole fixture gave it, or
+    // is left Unconfirmed: here all runs of the test share the temp directory the mutant empties, and
+    // a run of another mutant fails when the directory is emptied under it.
+    expect(swept.mutants.map((m) => m.status)).not.toContain('Pending')
     for (const mutant of swept.mutants) {
       const whole = result.mutants.find((m) => m.file === mutant.file && m.location.start.line === mutant.location.start.line && m.location.start.column === mutant.location.start.column && m.replacement === mutant.replacement)
-      expect(`${mutant.replacement} ${mutant.status}`).toBe(`${mutant.replacement} ${whole?.status}`)
+      if (mutant.status !== 'Unconfirmed') expect(`${mutant.replacement} ${mutant.status}`).toBe(`${mutant.replacement} ${whole?.status}`)
     }
   }, 180_000)
 })

@@ -2100,7 +2100,9 @@ async function withTempDir<T>(dir: string | undefined, make: () => T): Promise<A
   try {
     return await make()
   } finally {
+    // What the project's config set meanwhile reaches the workers, as in the suite.
     names.forEach((name, i) => {
+      if (process.env[name] !== dir) return
       if (kept[i] === undefined) delete process.env[name]
       else process.env[name] = kept[i]
     })
@@ -2724,7 +2726,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
   process.env.TEST = 'true'
   process.env.VITEST = 'true'
   process.env.NODE_ENV ??= 'test'
-  // Vitest 4 hands the workers each module as a file it writes once in a
+  // Vitest from 4 on hands the workers each module as a file it writes in a
   // directory under os.tmpdir(), and a test that empties the temp directory
   // takes them from every worker that loads after it: a mutant of Shopify's
   // archiver.ts removes `tmpdir()` for its own temp file. Vitest fixes that
