@@ -379,13 +379,15 @@ if (result.abandonedFiles.length > 0) {
   }
   for (const { file, cause, rounds } of result.abandonedFiles) {
     console.log(`  ${relative(root, file)}: ${why[cause]}`)
-    for (const round of rounds ?? []) {
-      for (const tried of round.tries) console.log(`    round ${round.round}: ${tried.test} tried ${tried.mutants.join(', ') || 'no mutant'}: ${tried.ended}`)
-      for (const run of round.runs) {
+    const lines = (rounds ?? []).flatMap((round) => [
+      ...round.tries.map((tried) => `round ${round.round}: ${tried.test} tried ${tried.mutants.join(', ') || 'no mutant'}: ${tried.ended}`),
+      ...round.runs.map((run) => {
         const of = [run.mutant === undefined ? 'no mutant' : `mutant ${run.mutant}`, ...(run.test === undefined ? [] : [`for ${run.test}`])].join(' ')
-        console.log(`    round ${round.round}: ${run.kind} run of the file, ${of}: ${run.ended}`)
-      }
-    }
+        return `round ${round.round}: ${run.kind} run of the file, ${of}: ${run.ended}`
+      }),
+    ])
+    for (const line of lines.slice(0, 10)) console.log(`    ${line}`)
+    if (lines.length > 10) console.log(`    and ${lines.length - 10} more in the report`)
   }
 }
 

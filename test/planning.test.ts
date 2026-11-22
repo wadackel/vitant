@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inspect, planRound, type SessionRecord, stalledRound } from '../src/run.ts'
+import { headway, inspect, planRound, type SessionRecord, stalledRound } from '../src/run.ts'
 
 const loading = '/project/loading.test.ts'
 const others = Array.from({ length: 6 }, (_, i) => `/project/other-${i}.test.ts`)
@@ -173,6 +173,8 @@ describe('a test that, with its file to itself, does not reach the mutant it is 
     expect(next.tests).toEqual({})
     expect(next.quiet).toBe(true)
     expect(next.whole[file]?.some((job) => job.mutant === 0 && job.quiet)).toBe(true)
+    const state = new Uint8Array(1)
+    expect(headway(inspect([...records, unreached]), state).work).toBeGreaterThan(headway(inspect(records), state).work)
   })
 
   it('says, for a round that came to nothing, what the file was given and how it went', () => {

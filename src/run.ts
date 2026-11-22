@@ -677,6 +677,13 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const besideLoops = new Set<number>()
   /** Per mutant, the tests that tried it with their file to themselves. */
   const triedSole = new Map<number, Set<string>>()
+  /**
+   * Per mutant, the tests that passed with it with their file to themselves
+   * without its code having run. Tried that way again they go the same way:
+   * in excalidraw one did so round after round until the file was given up
+   * on. A run in a copy that went through the tests before it may still reach it.
+   */
+  const missedSole = new Map<number, Set<string>>()
   const wholeRecords: (WholeRecord & { at: number })[] = []
   /** Per file, the pairs of unmutated runs asked for, the runs that met their other half, and those of them that failed. */
   const pairs = new Map<string, { asked: number; met: number; failed: number }>()
@@ -820,12 +827,12 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
       if (!record.sole) beside.set(mutant, (beside.get(mutant) ?? new Set()).add(record.id))
       if (!record.sole && record.timedOut.includes(mutant)) besideLoops.add(mutant)
     }
-    // A test that passed without reaching the mutant has said what it can as
-    // well: tried with the file to itself again it goes the same way, and in
-    // excalidraw one test did so round after round until the file was given up on.
     if (record.sole) {
-      for (const mutant of [...record.survived, ...record.killed, ...record.timedOut, ...(record.suspected ?? []), ...(record.unreached ?? [])]) {
+      for (const mutant of [...record.survived, ...record.killed, ...record.timedOut, ...(record.suspected ?? [])]) {
         triedSole.set(mutant, (triedSole.get(mutant) ?? new Set()).add(record.id))
+      }
+      for (const mutant of [...(record.unreached ?? []), ...record.unverified]) {
+        missedSole.set(mutant, (missedSole.get(mutant) ?? new Set()).add(record.id))
       }
     }
     // A copy that did not get to say what the test did left a record so that the test is not asked again, and no more.
@@ -1137,7 +1144,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, clocked, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, refuted }
+  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, clocked, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, missedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -1217,7 +1224,7 @@ function besideLeft(status: ReturnType<typeof inspect>, mutant: number): string[
   if (status.evidence.get(mutant)?.some((entry) => entry.kind !== 'lead')) return []
   return [...(status.beside.get(mutant) ?? [])].filter((id) => {
     const test = status.tests.get(id)
-    return test !== undefined && !test.done && !test.failed && test.coverage !== undefined && !status.flaky.has(id) && !status.triedSole.get(mutant)?.has(id)
+    return test !== undefined && !test.done && !test.failed && test.coverage !== undefined && !status.flaky.has(id) && !status.triedSole.get(mutant)?.has(id) && !status.missedSole.get(mutant)?.has(id)
   })
 }
 /** With `--fast`, the mutants pending until such a test has tried them alone. */
@@ -1347,7 +1354,8 @@ function planPhase(
     settling &&
     status.tests.get(id)?.file === settledIn.get(mutant) &&
     status.beside.get(mutant)?.has(id) === true &&
-    !status.triedSole.get(mutant)?.has(id)
+    !status.triedSole.get(mutant)?.has(id) &&
+    !status.missedSole.get(mutant)?.has(id)
   // A mutant a test failed with while its file then passed with it is one
   // tests say nothing reliable about: every test that had not tried it got
   // it again, one of them failed with it, its file passed, and so on round
@@ -2378,6 +2386,7 @@ export function headway(status: ReturnType<typeof inspect>, state: ArrayLike<num
   for (const passes of status.measured.values()) count += passes
   for (const runs of status.calms.values()) count += runs
   for (const tried of status.triedSole.values()) count += tried.size
+  for (const missed of status.missedSole.values()) count += missed.size
   for (const asked of status.alternatives.values()) count += asked.size
   let marked = 0
   for (let mutant = 0; mutant < state.length; mutant++) if (state[mutant] !== MUTANT_PENDING) marked++
@@ -2447,7 +2456,7 @@ export function stalledRound(
     if (whole) return { ...of, ended: whole.died ? 'its worker died' : verdict(whole) }
     const stall = take(
       (record): record is StallRecord & { at: number } =>
-        record.type === 'stall' && record.whole === true && record.mutant === job.mutant && (record.id === '' || tests.get(record.id)?.file === file),
+        record.type === 'stall' && record.whole === true && record.mutant === job.mutant && tests.get(record.id)?.file === file,
     )
     if (stall) return { ...of, ended: `stopped on ${stall.by ?? 'cpu'}` }
     const plain = take((record): record is PlainRecord & { at: number } => record.type === 'plain' && record.mutant === job.mutant)
