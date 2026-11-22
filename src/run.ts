@@ -678,10 +678,11 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   /** Per mutant, the tests that tried it with their file to themselves. */
   const triedSole = new Map<number, Set<string>>()
   /**
-   * Per mutant, the tests that passed with it with their file to themselves
-   * without its code having run. Tried that way again they go the same way:
-   * in excalidraw one did so round after round until the file was given up
-   * on. A run in a copy that went through the tests before it may still reach it.
+   * Per mutant, the tests whose try of it with their file to themselves said
+   * nothing: they passed without its code having run, or Vitest 3 left the
+   * try part-way. Tried that way again they go the same way: in excalidraw
+   * one passed so round after round until the file was given up on. A run in
+   * a copy that went through the tests before it may still reach it.
    */
   const missedSole = new Map<number, Set<string>>()
   const wholeRecords: (WholeRecord & { at: number })[] = []
