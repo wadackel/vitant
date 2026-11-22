@@ -2797,7 +2797,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
       watch()
       if (options.related) {
-        for (const project of [vitest, ...(vitest.projects ?? [])]) project.config.related = [...generated.files.keys()]
+        // In the form Vitest resolves the option to and keys its modules by: a
+        // Windows path as written matched no module, and no test file ran.
+        const related = [...generated.files.keys()].map((file) => file.split(path.sep).join('/'))
+        for (const project of [vitest, ...(vitest.projects ?? [])]) project.config.related = [...related]
       }
       options.log(`${leave.size} file(s) left out, which the project's plugins do not compile instrumented as they compile them: ${generated.mutants.length} mutants in ${generated.files.size} files`)
     }
