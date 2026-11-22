@@ -192,7 +192,7 @@ Each adds a shape the targets above do not have. Their commits, installation com
 | [tailwindcss](https://github.com/tailwindlabs/tailwindcss) `parsers` | 4.1.10 | node, 45 files in `packages/tailwindcss`, 1,151 inline snapshots among some 5,400 tests, a native CSS parser (lightningcss) | `src/{attribute-selector-parser,selector-parser,value-parser}.ts` |
 | [sentry-javascript](https://github.com/getsentry/sentry-javascript) `packages/core`, scope `utils` | 4.1.12 | node, 166 files; state shared through `globalThis`, wrapped globals, a transform plugin of the project's that runs first, coverage turned on by the shared config | the 25 modules of `src/utils` that four or fewer of the package's sources import |
 | [lobehub](https://github.com/lobehub/lobehub) `packages/database`, scope `topic` | 5.0.0 | happy-dom and node, 582 files; each file restores a PGlite (Postgres in WebAssembly) database from a snapshot that a global setup writes and names through the environment; 37 files reach the scope | `src/models/topic/**` and `src/repositories/topic*/**` |
-| [Shopify CLI](https://github.com/Shopify/cli) `packages/cli-kit`, scope `node` | 4.1.10 | node, 181 files in a `threads` pool, with real temporary directories and `git`; 14 files reach the scope | ten modules of `src/public/node` that one or two others import |
+| [Shopify CLI](https://github.com/Shopify/cli) `packages/cli-kit`, scope `node` | 4.1.10 | node, 181 files in a `threads` pool, with real temporary directories and `git`; 14 files reach the scope | nine modules of `src/public/node` that one or two others import; not `archiver.ts`, a mutant of which makes a test remove the temp directory itself ([Limits](limits.md)) |
 | [promptfoo](https://github.com/promptfoo/promptfoo) `assertions` | 5.1.0 | node, 1,107 files in a `forks` pool, in an order shuffled with no fixed seed; 157 files reach the scope | the scoring modules of `src/assertions` (`bleu`, `gleu`, `rouge`, `ngrams`, `levenshtein`, `meteor`, `toolCallF1`, `trajectory`) |
 | [ComfyUI_frontend](https://github.com/Comfy-Org/ComfyUI_frontend) `stores` | 5.0.5 | happy-dom and node, 2,550 files in three inline projects, with test tags under `strictTags`, a setup that stops real network requests, two retries of a failing test under `CI`; 106 files reach the scope | the 13 modules of `src/stores` that the fewest test files reach |
 | [freelens](https://github.com/freelensapp/freelens) `utils`, project `@freelensapp/core` | 5.0.5 | jsdom, 402 files in a `threads` pool, in projects the config makes as it loads, through a plugin of the project's for standard decorators, with snapshots; 327 files reach the scope | the modules of `src/common/utils` that are not injectables or their registration |
@@ -220,7 +220,7 @@ On the machine above, with Node 24.22.2 and six workers, one run each, with anot
 | tailwindcss `parsers` | 843 | 453 s | 843 checked, the 18 timeouts among them: all agree |
 | sentry `utils` | 2,136 | 273 s, and the same verdicts in 273 s with `CI` set | 883 checked, every survivor among them: all agree |
 | lobehub `topic` | 1,577 | 1,294 s | 502 checked, every survivor among them: all 489 judged agree, 13 unconfirmed |
-| Shopify CLI `node` | 1,796 | 266 s | 718 checked, every survivor among them: all agree |
+| Shopify CLI `node` | 1,796 | 266 s | 718 checked, every survivor among them: all agree (with `archiver.ts`, since left out: 77 of the mutants and 43 of the checked) |
 | promptfoo `assertions` | 1,760 | 281 s with `CI` set | 480 checked, every survivor among them: all agree |
 | ComfyUI_frontend `stores` | 1,059 | 1,336 s | 1,041 checked, all but the 18 that only run while a module loads: all 1,040 judged agree, 1 unconfirmed |
 | freelens `utils` | 429 | 2,042 s | 410 checked, all but the 19 that only run while a module loads: all agree |
@@ -298,7 +298,7 @@ The targets of [Targets added in November 2026](#targets-added-in-november-2026)
 | tailwindcss `parsers` | EPYC 7763 | 3,494 s, not comparable | 4,485 s | all 843 agree |
 | sentry `utils` | EPYC 9V45 | 392 s | 371 s | all 883 agree |
 | lobehub `topic` | Xeon 8370C | 2,746 s, not comparable | 4,056 s | all 502 agree |
-| Shopify CLI `node` | Xeon 8573C | does not start | 256 s | all 718 agree |
+| Shopify CLI `node` | Xeon 8573C | does not start | 256 s | all 718 agree (with `archiver.ts`, since left out: 43 of them) |
 | promptfoo `assertions` | Xeon 6975P-C | does not start | 713 s | all 480 agree |
 | ComfyUI_frontend `stores` | EPYC 9V74 | 1,348 s, not comparable | 2,987 s | all 1,041 agree |
 | freelens `utils` | Xeon 6975P-C | 15,994 s on an EPYC 7763, not comparable | 7,824 s | all 410 agree |
