@@ -451,6 +451,8 @@ export function sessionPaths(dir: string) {
     runner: path.join(dir, 'runner.mjs'),
     /** Loaded by a worker that is to be copied before anything else, see `channelWatch`. */
     preload: path.join(dir, 'preload.cjs'),
+    /** The temp directory of this process while Vitest is created, where Vitest from version 4 keeps the modules it hands the workers. */
+    temp: path.join(dir, 'temp'),
   }
 }
 

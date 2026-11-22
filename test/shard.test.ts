@@ -46,6 +46,7 @@ const report = (index: number, count: number, mutants: MutantResult[]): RunResul
     exclusiveFiles: [`test/${index}.test.ts`],
     unsureFiles: [],
     changedFiles: [],
+    removedTempDirs: [],
     nonRepeatableTests: [],
     suiteErrors: [],
     abandonedFiles: [],

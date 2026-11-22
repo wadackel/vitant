@@ -66,6 +66,7 @@ for (const [name, run] of [['installed', installed], ['from the sources', source
   if (run.abandonedFiles.length > 0 && run === sources) problems.push(`${name}: gave up on ${run.abandonedFiles.join(', ')}`)
   if (run.tests === 0) problems.push(`${name}: no test was found`)
   if (run.changedFiles.length > 0) problems.push(`${name}: tests changed ${run.changedFiles.join(', ')}`)
+  if (run.removedTempDirs.length > 0) problems.push(`${name}: tests removed the temp directory ${run.removedTempDirs.join(', ')}`)
 }
 if (installed.mutants.length !== sources.mutants.length) problems.push(`${installed.mutants.length} mutants installed, ${sources.mutants.length} from the sources`)
 if (installed.abandonedFiles.length > 0) problems.push(`gave up on ${installed.abandonedFiles.join(', ')}`)

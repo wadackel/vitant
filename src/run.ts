@@ -171,6 +171,11 @@ export interface RunResult {
    * how that comes about. Every run after the first such write saw them.
    */
   changedFiles: string[]
+  /**
+   * The temp directory the workers were given, when tests removed it: every
+   * run after that found it gone.
+   */
+  removedTempDirs: string[]
   /** Tests that stopped passing unmutated once they were re-run in the same worker. */
   nonRepeatableTests: string[]
   /** Errors raised outside any test, such as a file that fails to import. */
@@ -2090,6 +2095,25 @@ function writeMutants(dir: string, generated: Generated, config: SessionConfig):
   fs.writeFileSync(paths.state, new Uint8Array(generated.mutants.length))
 }
 
+/** Runs `make` with `dir` as this process's temp directory, where Node reads it on every platform. */
+async function withTempDir<T>(dir: string | undefined, make: () => T): Promise<Awaited<T>> {
+  if (dir === undefined) return await make()
+  const names = ['TMPDIR', 'TMP', 'TEMP']
+  const kept = names.map((name) => process.env[name])
+  fs.mkdirSync(dir, { recursive: true })
+  for (const name of names) process.env[name] = dir
+  try {
+    return await make()
+  } finally {
+    // What the project's config set meanwhile reaches the workers, as in the suite.
+    names.forEach((name, i) => {
+      if (process.env[name] !== dir) return
+      if (kept[i] === undefined) delete process.env[name]
+      else process.env[name] = kept[i]
+    })
+  }
+}
+
 function writeSession(
   dir: string,
   generated: Generated,
@@ -2707,7 +2731,13 @@ export async function run(options: RunOptions): Promise<RunResult> {
   process.env.TEST = 'true'
   process.env.VITEST = 'true'
   process.env.NODE_ENV ??= 'test'
-  const vitest = await createVitest(
+  // Vitest from 4 on hands the workers each module as a file it writes in a
+  // directory under os.tmpdir(), and a test that empties the temp directory
+  // takes them from every worker that loads after it: a mutant of Shopify's
+  // archiver.ts removes `tmpdir()` for its own temp file. Vitest fixes that
+  // directory while it is created, so it goes in the session then, out of
+  // the tests' reach; the workers start later, with the tool's temp directory.
+  const vitest = await withTempDir(major < 4 ? undefined : paths.temp, () => createVitest(
     'test',
     {
       root: options.root,
@@ -2735,7 +2765,16 @@ export async function run(options: RunOptions): Promise<RunResult> {
     {
       plugins: [instrumentPlugin, readsPlugin()],
     },
-  )
+  ))
+
+  // A test can remove the temp directory itself, as a mutant of Shopify's
+  // archiver.ts does; every run after it then finds none, as a run of the
+  // suite would not. Only the directory going is seen, not what is removed
+  // from inside it. Read now, it is the one the config left for the workers.
+  const tempDir = os.tmpdir()
+  const tempThere = fs.existsSync(tempDir)
+  const tempGone = () => (tempThere && !fs.existsSync(tempDir) ? [tempDir] : [])
+  let tempWarned = false
 
   // Reading the worker's configuration loses this main-process-only option.
   config.dangerouslyIgnoreUnhandledErrors = vitest.config.dangerouslyIgnoreUnhandledErrors === true
@@ -2944,6 +2983,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
             treeWarned = true
             options.log(`tests left ${changed.length} file(s) under version control changed, ${changed[0]} for one: runs from here on see them`)
           }
+        }
+        if (!tempWarned && tempGone().length > 0) {
+          tempWarned = true
+          options.log(`tests removed the temp directory ${tempDir}: runs from here on find it gone`)
         }
       }
 
@@ -3587,6 +3630,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     exclusiveFiles: [...status.exclusive].map((file) => relative(options.root, file)),
     unsureFiles: [...status.unsure].map((file) => relative(options.root, file)),
     changedFiles: changedSince(treeBefore, options.root),
+    removedTempDirs: tempWarned ? [tempDir] : tempGone(),
     flakyTests: [...status.flaky].flatMap((id) => {
       const test = status.tests.get(id)
       return test ? [label(test)] : []

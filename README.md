@@ -18,7 +18,7 @@ Mutation testing for Vitest. Every verdict is what your own test suite would giv
 - Your tests do not run on Vitest.
 - You cannot run Node 24.
 - You are on Windows: every run starts a worker of its own there, since copying one needs `fork()`. One scope has been run on Windows, none timed.
-- Your tests rewrite files they share. vitant names such files and ends with exit code 1.
+- Your tests rewrite files they share, or remove the temp directory. vitant names such files, or the directory, and ends with exit code 1.
 - You rely on type tests. They are not run.
 - You rely on StrykerJS directives. `// Stryker disable` is ignored.
 
@@ -61,7 +61,7 @@ Positional arguments are passed to Vitest as test file filters.
 
 ### In CI
 
-The score never fails the run: there is no threshold option. The exit code is 1 when a test file had to be given up on and its mutants are left pending, when no test ran at all, or when files under version control are not as they were before the run. Bad arguments exit with 2. For a pull request check, `--changed <ref>` keeps the run to the lines changed since that git ref, compared with the working tree, so pass the merge base rather than a branch that has moved on. `--incremental` reuses the last run's results for test files that loaded nothing that changed; the results live in `node_modules/.vitant/`, which a fresh runner starts without, so keep that directory in the CI cache.
+The score never fails the run: there is no threshold option. The exit code is 1 when a test file had to be given up on and its mutants are left pending, when no test ran at all, when files under version control are not as they were before the run, or when tests removed the temp directory they were given. Bad arguments exit with 2. For a pull request check, `--changed <ref>` keeps the run to the lines changed since that git ref, compared with the working tree, so pass the merge base rather than a branch that has moved on. `--incremental` reuses the last run's results for test files that loaded nothing that changed; the results live in `node_modules/.vitant/`, which a fresh runner starts without, so keep that directory in the CI cache.
 
 A run can be split across jobs. `--shard <i>/<n>` mutates only the i-th of n shares of the files, dealt so that each has about as many mutants, and every machine deals the same sources the same way. `vitant merge` makes one report of the shares' reports, and refuses a share left out, given twice or with another count:
 

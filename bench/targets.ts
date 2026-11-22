@@ -671,7 +671,9 @@ export const targets: Record<string, Target> = {
     env: { SHOPIFY_CLI_ENV: 'development', npm_config_user_agent: 'pnpm/10.11.1' },
     scopes: {
       // Modules of `src/public/node` that one or two others import: `fs.ts` and `path.ts` are loaded by most of the 181 test files.
-      node: { mutate: ['src/public/node/{git,dot-env,liquid,json-schema,dev-instance,import-extractor,archiver,github,store-auth-session,upgrade}.ts'] },
+      // Not `archiver.ts`: its mutant `${randomUUID()}.tar` -> `` at line 157 makes a test remove `os.tmpdir()` itself,
+      // which on a hosted macOS runner fails every later run that makes a temp directory (docs/limits.md).
+      node: { mutate: ['src/public/node/{git,dot-env,liquid,json-schema,dev-instance,import-extractor,github,store-auth-session,upgrade}.ts'] },
     },
   },
   promptfoo: {

@@ -313,4 +313,25 @@ describe('running the fixture project', () => {
     // running the file once shows the mutant breaks it.
     expect(statusOf('src/sequence.ts', 5, 'next -= 1')).toBe('Killed')
   })
+
+  it('keeps the modules Vitest hands its workers out of reach of a test that removes the temp directory, and says it was removed', () => {
+    // `sweep.test.ts` lets the mutant at the temp directory only where this file marks it.
+    const temp = fs.mkdtempSync(path.join(owner.directory, 'temp-'))
+    fs.writeFileSync(path.join(temp, 'vitant-sweep-sandbox'), '')
+    const report = reportPath('sweep')
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/sweep.ts', '--report', report], {
+      env: { ...process.env, TMPDIR: temp, TMP: temp, TEMP: temp },
+    })
+    expect(fs.existsSync(temp), 'the mutant removed the temp directory').toBe(false)
+    // The runs after it have no temp directory to make one in, which the suite never sees.
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(1)
+    expect(cli.stdout).toContain(`tests removed the temp directory they were given, ${temp}; the verdicts may rest on it`)
+    const swept: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
+    expect(swept.removedTempDirs).toEqual([temp])
+    // Vitest's files for the workers were not in it: every later run still loaded its modules.
+    expect(swept.abandonedFiles).toEqual([])
+    expect(swept.suiteErrors).toEqual([])
+    // What the verdicts are rests on the removal: the test fails with no mutant on from then on.
+    expect(swept.mutants.map((m) => m.status)).not.toContain('Pending')
+  }, 180_000)
 })

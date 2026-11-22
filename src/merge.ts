@@ -80,6 +80,7 @@ export function mergeReports(reports: RunResult[]): RunResult {
     exclusiveFiles: union(reports.map((report) => report.exclusiveFiles)),
     unsureFiles: union(reports.map((report) => report.unsureFiles)),
     changedFiles: union(reports.map((report) => report.changedFiles)),
+    removedTempDirs: union(reports.map((report) => report.removedTempDirs)),
     nonRepeatableTests: union(reports.map((report) => report.nonRepeatableTests)),
     suiteErrors: union(reports.map((report) => report.suiteErrors)),
     abandonedFiles: union(reports.map((report) => report.abandonedFiles)),
