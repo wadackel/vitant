@@ -120,9 +120,8 @@ describe('test files whose runs do not stand each other, or that fail now and th
 })
 
 // Where whole-file runs start a worker each, as on a platform without the
-// addon, the runs of a file with no mutant on and nothing else running were
-// never made: a file failing by itself was never found to, and a mutant only
-// its failing hook's tests reach survived.
+// addon, the runs of a file with no mutant on and nothing else running are
+// made in such workers too, and these checks hold there as well.
 const startedOnly = ['--no-clone']
 
 describe('a test file that fails outside its tests with no mutant on', () => {
