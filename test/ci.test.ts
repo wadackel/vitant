@@ -166,7 +166,9 @@ describe('native artifact identity', () => {
   })
 })
 
-describe('CI command boundaries', () => {
+// Each test starts node and git several times, which on a darwin-x64 runner took
+// longer than Vitest's 5 s for a test.
+describe('CI command boundaries', { timeout: 30_000 }, () => {
   let work: string
   let source: string
   const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com',

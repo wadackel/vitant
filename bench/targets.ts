@@ -69,8 +69,9 @@ export interface Target {
   /**
    * Minutes after which `bench/run.ts` ends a run of this tool as one that
    * hangs, where they are more than its `--limit`: for a scope whose run
-   * takes most of the workflow's limit on the fastest runners, so that one
-   * on a runner half as fast is still let finish.
+   * takes most of the workflow's limit, or more, on a runner it uses. On
+   * the three-core macOS runner some scopes take most of this one too, and
+   * headlamp's does not always end within it.
    */
   limit?: number
   scopes: Record<string, Scope>
@@ -415,6 +416,8 @@ export const targets: Record<string, Target> = {
     dir: 'packages/loot-core',
     install: ['corepack yarn install --immutable'],
     installStryker: `corepack yarn workspace @actual-app/core add -D ${stryker}`,
+    // The scope's run took 7,623 s on an EPYC 9V74, 11,072 s on an EPYC 7763 and 8,183 s on a macOS runner against the workflow's 150 minutes.
+    limit: 300,
     scopes: {
       server: { mutate: ['src/server/budget/**/*.ts', 'src/server/aql/**/*.ts'] },
     },
@@ -435,6 +438,8 @@ export const targets: Record<string, Target> = {
       `echo "export { default } from './test/vitest.config.mjs'" > server/vitest.config.mjs`,
     ],
     installStryker: `cd server && npx -y pnpm@11.28.5 add -D ${stryker}`,
+    // The services scope's run took 11,564 s on a macOS runner against the workflow's 150 minutes, and 1,773 s on a Xeon 6975P-C.
+    limit: 300,
     scopes: {
       utils: { mutate: ['src/utils/**/*.ts'] },
       services: { mutate: ['src/services/**/*.ts'] },
