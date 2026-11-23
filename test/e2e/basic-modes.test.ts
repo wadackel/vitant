@@ -25,7 +25,7 @@ describe('running the fixture project', () => {
     // which fills the memory, can be so in one mode and survive in the other
     // on a small runner. Either way it is not detected; any other difference fails.
     type Mutant = RunResult['mutants'][number]
-    const keyOf = (m: Mutant) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.mutator} ${m.replacement}`
+    const keyOf = (m: Mutant) => `${m.file}:${m.location.start.line}:${m.location.start.column}-${m.location.end.line}:${m.location.end.column} ${m.mutator} ${m.replacement}`
     const named = (m: Mutant) => (m.doubted?.length ?? 0) + (m.wavered?.length ?? 0) > 0
     const allowed = (a?: Mutant, b?: Mutant) =>
       [[a, b], [b, a]].some(([survived, doubted]) => survived?.status === 'Survived' && doubted?.status === 'Unconfirmed' && named(doubted))
