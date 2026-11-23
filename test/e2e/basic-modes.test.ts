@@ -20,10 +20,10 @@ describe('running the fixture project', () => {
     const cli = tool(['--root', fixture('basic'), '--no-clone', '--report', report])
     expect(cli.status, cli.stderr).toBe(0)
     const plain: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    // A mutant whose one failing test also passed with it is Unconfirmed with
-    // that test named (`doubted`, `wavered`), and `fill.ts`'s, which fills the
-    // memory, can do so in one mode and survive in the other on a small
-    // runner. Either way it is not detected; every other difference still fails.
+    // A mutant whose failing test also passed with it (`wavered`) or fails by
+    // chance (`doubted`) is Unconfirmed with that test named, and `fill.ts`'s,
+    // which fills the memory, can be so in one mode and survive in the other
+    // on a small runner. Either way it is not detected; any other difference fails.
     type Mutant = RunResult['mutants'][number]
     const keyOf = (m: Mutant) => `${m.file}:${m.location.start.line}:${m.location.start.column} ${m.replacement}`
     const named = (m: Mutant) => (m.doubted?.length ?? 0) + (m.wavered?.length ?? 0) > 0

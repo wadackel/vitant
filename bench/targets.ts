@@ -69,8 +69,9 @@ export interface Target {
   /**
    * Minutes after which `bench/run.ts` ends a run of this tool as one that
    * hangs, where they are more than its `--limit`: for a scope whose run
-   * takes most of the workflow's limit on the fastest runners, so that one
-   * on a runner half as fast is still let finish.
+   * takes most of the workflow's limit on the fastest runners of a platform
+   * the workflow runs on, macOS' included, so that one on a runner half as
+   * fast is still let finish.
    */
   limit?: number
   scopes: Record<string, Scope>
