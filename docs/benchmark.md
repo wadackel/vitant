@@ -289,7 +289,7 @@ fast-check's tests drive the code under test with the package's own build, `lib/
 
 ### Every target on main, 21 November 2026
 
-The targets of [Targets added in November 2026](#targets-added-in-november-2026), StrykerJS and this tool one after the other in a job, one run each, at [c853c54](https://github.com/wadackel/vitant/commit/c853c54208a102dc587aa925d484efe347b58275) on four-core Ubuntu 24.04 runners with Node 24.22.3 ([run](https://github.com/wadackel/vitant/actions/runs/44902363147); fast-check, added after it, at [516c9ac](https://github.com/wadackel/vitant/commit/516c9ac951df2d964035027c741cb1a4288c9f69) ([run](https://github.com/wadackel/vitant/actions/runs/44936867476))), every report of this tool held against the stored ground truth:
+The targets of [Targets added in November 2026](#targets-added-in-november-2026), StrykerJS and this tool one after the other in a job, one run each, at [c853c54](https://github.com/wadackel/vitant/commit/c853c54208a102dc587aa925d484efe347b58275) on four-core Ubuntu 24.04 runners with Node 24.22.3 ([run](https://github.com/wadackel/vitant/actions/runs/44902363147); fast-check, added after it, at [516c9ac](https://github.com/wadackel/vitant/commit/516c9ac951df2d964035027c741cb1a4288c9f69) ([run](https://github.com/wadackel/vitant/actions/runs/44936867476))), every report of this tool held against the stored ground truth. The tool has changed since, in #68 and #70 to #72 (fast-check's commit has #68), so its column is of those versions, not of the commit the runs below are of:
 
 | Target and scope | Processor | StrykerJS | This tool | Against the suite |
 |---|---|---|---|---|
