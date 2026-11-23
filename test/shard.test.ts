@@ -94,6 +94,17 @@ describe('merging the reports of shares', () => {
     expect(merged.skippedFiles).toEqual([broken, vue])
   })
 
+  it('names each file given up on once, with the cause of the first report that gave it up', () => {
+    const merged = mergeReports([
+      { ...first, abandonedFiles: [{ file: 'test/b.test.ts', cause: 'round cap' }, { file: 'test/a.test.ts', cause: 'restless' }] },
+      { ...second, abandonedFiles: [{ file: 'test/b.test.ts', cause: 'no headway', rounds: [] }] },
+    ])
+    expect(merged.abandonedFiles).toEqual([
+      { file: 'test/a.test.ts', cause: 'restless' },
+      { file: 'test/b.test.ts', cause: 'round cap' },
+    ])
+  })
+
   it('refuses a mutant that two shares both have', () => {
     expect(() => mergeReports([first, report(2, 2, [mutant('src/b.ts', 1, 'Killed')])])).toThrow('a mutant is in two shares: src/b.ts:1:1')
   })

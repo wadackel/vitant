@@ -114,7 +114,7 @@ Shares are of whole files, so a file with most of the mutants makes its share th
 | Led | Only with `--led`: a test failed with the mutant while trying it, and no run of the whole file was made to confirm it. Counted as survived in the score. |
 | NoCoverage | No test runs the mutated code. |
 | Static | Reached only while loading and left unjudged. `--static` requests verdicts for these mutants. |
-| Pending | The run gave up on a test file before the mutant was settled. |
+| Pending | The run gave up on a test file before the mutant was settled. The report's `abandonedFiles` says why for each file: it failed with no mutant on and nothing else running, with no test to name (`restless`); it still had runs to make after `--max-rounds` rounds (`round cap`); or after three rounds in a row that added nothing to what the runs had found (`no headway`), with what those rounds gave it to do and how each run ended. |
 
 The exact definitions are in [docs/design.md](docs/design.md#statuses).
 

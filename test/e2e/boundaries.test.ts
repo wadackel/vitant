@@ -134,8 +134,9 @@ describe('a test file that fails outside its tests with no mutant on', () => {
     expect(cli.error, 'the run did not end in time').toBeUndefined()
     expect(cli.status, cli.stdout.slice(-2000)).toBe(1)
     expect(cli.stdout).toContain('gave up on 1 test file(s)')
+    expect(cli.stdout).toContain('test/reserve.test.ts: failed with no mutant on and nothing else running, with no test to name')
     const result: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    expect(result.abandonedFiles.map((file) => relative(fixture('basic'), file))).toEqual(['test/reserve.test.ts'])
+    expect(result.abandonedFiles.map(({ file, cause }) => [relative(fixture('basic'), file), cause])).toEqual([['test/reserve.test.ts', 'restless']])
     expect(result.counts.Pending).toBe(result.mutants.length)
     // Runs planned again and again in the file give up too, at the cap of 200
     // rounds: here in a minute, on mikro-orm in some ten hours.
@@ -145,6 +146,35 @@ describe('a test file that fails outside its tests with no mutant on', () => {
   it('is given up on, and the run ends', () => givenUp('restless', []), 120_000)
 
   it('is given up on, and the run ends, with a worker started per whole-file run', () => givenUp('restless-started', startedOnly), 120_000)
+})
+
+describe('a test that, tried with its file to itself, does not reach the mutant it is given', () => {
+  const weigh = (name: string, options: string[]) => {
+    const report = reportPath(name)
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/weigh.ts', '--report', report, ...options, 'test/weigh.test.ts'], { timeout: 110_000 })
+    expect(cli.error, 'the run did not end in time').toBeUndefined()
+    return { cli, result: JSON.parse(fs.readFileSync(report, 'utf8')) as RunResult }
+  }
+
+  // Where it was given that try round after round, three rounds that came to
+  // nothing gave the file up with every mutant still waiting on it pending.
+  it('leaves the file to a run with nothing else running, and every mutant gets its verdict', () => {
+    const { cli, result } = weigh('weigh', [])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    expect(result.abandonedFiles).toEqual([])
+    // The test weighs 420 g, which neither of these changes.
+    const survived = result.mutants.filter((mutant) => mutant.status === 'Survived').map((mutant) => mutant.replacement)
+    expect(survived.sort()).toEqual(['false', 'grams >= 1000'])
+    expect(result.counts.Killed).toBe(result.mutants.length - 2)
+  }, 120_000)
+
+  it('is given up on at the cap of rounds, which the report names as the cause', () => {
+    const { cli, result } = weigh('weigh-cap', ['--max-rounds', '2'])
+    expect(cli.status).toBe(1)
+    expect(cli.stdout).toContain('test/weigh.test.ts: still had runs to make after 2 rounds')
+    expect(result.abandonedFiles.map(({ file, cause }) => [relative(fixture('basic'), file), cause])).toEqual([['test/weigh.test.ts', 'round cap']])
+    expect(result.counts.Pending).toBeGreaterThan(0)
+  }, 120_000)
 })
 
 describe('a test that fails in every run with no mutant on', () => {

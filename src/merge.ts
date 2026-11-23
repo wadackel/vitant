@@ -83,7 +83,8 @@ export function mergeReports(reports: RunResult[]): RunResult {
     removedTempDirs: union(reports.map((report) => report.removedTempDirs)),
     nonRepeatableTests: union(reports.map((report) => report.nonRepeatableTests)),
     suiteErrors: union(reports.map((report) => report.suiteErrors)),
-    abandonedFiles: union(reports.map((report) => report.abandonedFiles)),
+    // One entry a file, the first report's, where two shares gave it up.
+    abandonedFiles: [...new Map(reports.flatMap((report) => report.abandonedFiles).reverse().map((entry) => [entry.file, entry])).values()].sort((a, b) => (a.file < b.file ? -1 : 1)),
     rounds: Math.max(...reports.map((report) => report.rounds)),
     wholeRuns,
     work: {

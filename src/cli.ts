@@ -372,7 +372,23 @@ if (result.suiteErrors.length > 0) {
 }
 if (result.abandonedFiles.length > 0) {
   console.log(`gave up on ${result.abandonedFiles.length} test file(s):`)
-  for (const file of result.abandonedFiles) console.log(`  ${relative(root, file)}`)
+  const why = {
+    restless: 'failed with no mutant on and nothing else running, with no test to name',
+    'round cap': `still had runs to make after ${result.rounds} rounds`,
+    'no headway': 'still had runs to make after three rounds in a row that added nothing',
+  }
+  for (const { file, cause, rounds } of result.abandonedFiles) {
+    console.log(`  ${relative(root, file)}: ${why[cause]}`)
+    const lines = (rounds ?? []).flatMap((round) => [
+      ...round.tries.map((tried) => `round ${round.round}: ${tried.test} tried ${tried.mutants.join(', ') || 'no mutant'}: ${tried.ended}`),
+      ...round.runs.map((run) => {
+        const of = [run.mutant === undefined ? 'no mutant' : `mutant ${run.mutant}`, ...(run.test === undefined ? [] : [`for ${run.test}`])].join(' ')
+        return `round ${round.round}: ${run.kind} run of the file, ${of}: ${run.ended}`
+      }),
+    ])
+    for (const line of lines.slice(0, 10)) console.log(`    ${line}`)
+    if (lines.length > 10) console.log(`    and ${lines.length - 10} more in the report`)
+  }
 }
 
 if (values.report) {

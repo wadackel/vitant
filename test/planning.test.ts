@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inspect, planRound, type SessionRecord } from '../src/run.ts'
+import { headway, inspect, planRound, type SessionRecord, stalledRound } from '../src/run.ts'
 
 const loading = '/project/loading.test.ts'
 const others = Array.from({ length: 6 }, (_, i) => `/project/other-${i}.test.ts`)
@@ -144,5 +144,47 @@ describe('files whose tests read a clock other than the process\'s', () => {
     expect(job([])).toMatchObject({ early: true, loading: true })
     const clock = { type: 'early', file: loading, site: -1, clock: true, at: 4 } as SessionRecord
     expect(job([clock])).toMatchObject({ early: true, loading: false })
+  })
+})
+
+describe('a test that, with its file to itself, does not reach the mutant it is given', () => {
+  // As in excalidraw's `textWysiwyg.test.tsx`: a test failed with the mutant
+  // next to other runs of its file, the file failed in it with the mutant on,
+  // and tried again with the file to itself it passed without reaching the
+  // mutant's code. Given that try round after round, the file was given up on.
+  const file = '/project/canvas.test.ts'
+  const records: SessionRecord[] = [
+    { type: 'file', file, tests: [file], staticSites: [], complete: true, at: 0 } as SessionRecord,
+    probe(file),
+    probe(file, file, { mode: 'planned', sole: false, killed: [0], attempts: 3, at: 2 }),
+    { type: 'whole', file, mutant: 0, verdict: 'failed', test: file, tests: [file], by: 'copied before a test', at: 3 } as SessionRecord,
+  ]
+  const unreached = probe(file, file, { mode: 'planned', sole: true, unreached: [0], attempts: 1, at: 4 })
+  const plan = (more: SessionRecord[]) => planRound(inspect([...records, ...more]), new Uint8Array([0]), [file], new Map(), [0], [0]).plan
+
+  it('is given the mutant once with the file to itself', () => {
+    const first = plan([])
+    expect(first.settling).toBe(true)
+    expect(first.tests[file]?.mutants).toEqual([0])
+  })
+
+  it('is not given it again, and the file is run with nothing else running instead', () => {
+    const next = plan([unreached])
+    expect(next.tests).toEqual({})
+    expect(next.quiet).toBe(true)
+    expect(next.whole[file]?.some((job) => job.mutant === 0 && job.quiet)).toBe(true)
+    const state = new Uint8Array(1)
+    expect(headway(inspect([...records, unreached]), state).work).toBeGreaterThan(headway(inspect(records), state).work)
+  })
+
+  it('says, for a round that came to nothing, what the file was given and how it went', () => {
+    const round = { plan: plan([]), round: 7, from: 3.5, to: 5 }
+    const status = inspect([...records, unreached])
+    expect(stalledRound(round, file, [...records, unreached], status.tests)).toEqual({
+      round: 7,
+      tries: [{ test: file, mutants: [0], ended: 'unreached 0' }],
+      runs: [],
+    })
+    expect(stalledRound({ ...round, to: 4 }, file, [...records, unreached], status.tests).tries[0].ended).toBe('no word')
   })
 })
