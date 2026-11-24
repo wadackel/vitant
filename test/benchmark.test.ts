@@ -4,7 +4,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { assertStrykerRestored, prepareStrykerSandbox } from '../bench/sandbox.ts'
-import { type Target, targetEnv, targets, vitestArgs } from '../bench/targets.ts'
+import { type Target, targetEnv, targets, toolWorkers, vitestArgs } from '../bench/targets.ts'
 
 let root: string
 beforeEach(() => {
@@ -95,6 +95,14 @@ it('gives a target its config, projects and filters on the command line', () => 
   const target: Target = { ...targets.ufo, config: 'config/unit.config.ts', projects: ['unit'], filters: ['sqlite.test.ts'] }
   expect(vitestArgs(target)).toEqual(['--config', 'config/unit.config.ts', '--project', 'unit', 'sqlite.test.ts'])
   expect(vitestArgs(targets.ufo)).toEqual([])
+})
+
+it('gives this tool two workers on three processors and its own default otherwise, unless told', () => {
+  expect(toolWorkers(3)).toBe(2)
+  expect(toolWorkers(4)).toBeUndefined()
+  expect(toolWorkers(2)).toBeUndefined()
+  expect(toolWorkers(3, '3')).toBe(3)
+  expect(toolWorkers(4, '1')).toBe(1)
 })
 
 it("sets and removes a target's variables over the environment it is given", () => {

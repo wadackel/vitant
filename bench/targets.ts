@@ -71,7 +71,8 @@ export interface Target {
    * hangs, where they are more than its `--limit`: for a scope whose run
    * takes most of the workflow's limit, or more, on a runner it uses. On
    * the three-core macOS runner some scopes take most of this one too, and
-   * headlamp's does not always end within it.
+   * headlamp's, with the two workers `toolWorkers` gives there, ended within
+   * it in two runs of three.
    */
   limit?: number
   scopes: Record<string, Scope>
@@ -84,6 +85,21 @@ export function vitestArgs(target: Target): string[] {
     ...(target.projects ?? []).flatMap((project) => ['--project', project]),
     ...(target.filters ?? []),
   ]
+}
+
+/**
+ * How many workers this tool is given on a machine with `processors`, where
+ * `--workers` gave none: its own default, one a processor, but for three.
+ * There, on the macOS runner, three runs of headlamp's `storybook.test.tsx`
+ * at once took every processor, tests that take a second or two passed
+ * Vitest's 5 s limit beside each other, and the file was run one process at
+ * a time from then on, in all five runs: 16,054 and 19,186 s where they
+ * finished, the job's limit in three. With two it stayed side by side in
+ * two runs of three, 13,862 and 15,418 s ([benchmark](../docs/benchmark.md)).
+ */
+export function toolWorkers(processors: number, given?: string): number | undefined {
+  if (given) return Number(given)
+  return processors === 3 ? 2 : undefined
 }
 
 /** `base` with the target's variables set and removed, and with `node_modules/.bin` of the project in `dir` first on PATH where the target asks for it. */

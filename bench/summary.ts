@@ -11,7 +11,7 @@ const summary = JSON.parse(fs.readFileSync(file, 'utf8'))
 const { machine } = summary
 
 console.log(`### ${target} \`${scope}\``)
-console.log(`${machine.platform}, ${machine.cores} × ${machine.cpu}, Node ${machine.node}\n`)
+console.log(`${machine.platform}, ${machine.cores} × ${machine.cpu}, Node ${machine.node}${machine.workers ? `, this tool with ${machine.workers} workers` : ''}\n`)
 console.log('| Tool | Time | Verdicts | Whole-file runs | Against the suite |')
 console.log('|---|---|---|---|---|')
 for (const [tool, timing] of Object.entries<{ seconds: number[]; exitCodes: number[] }>(summary.timings)) {
