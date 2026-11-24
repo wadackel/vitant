@@ -96,28 +96,53 @@ describe('copies of a worker made one after another', () => {
     // was Node's `Date` and not the one in its place, both of its tests
     // failed in copies with no mutant on, and 21 mutants were Unconfirmed.
     expect(clock.failedBaselines).toEqual([])
-    expect(clock.counts.Unconfirmed).toBe(0)
     // Of the runs made with nothing else running, the one that fails is for
     // the mutant that empties `now`, which fails the hook, where no test
     // tried it. Others may pass: before its first test a run waits for
     // Vitest's main process to answer, as in the suite, and on a four-core
     // runner starting four workers that took 1.8 s, past what `is fresh` allows.
     expect(clock.quietRuns.failed).toBe(1)
-    const statuses = clock.mutants.filter((mutant) => mutant.file === 'src/asked.ts' && mutant.status !== 'NoCoverage').map((mutant) => `${mutant.replacement} ${mutant.status}`)
-    // The suite passes with `now` asking a child process; in a copy that had
-    // stood still for the copies before it, the hook failed.
-    expect(statuses).toEqual(['{} Killed', 'true Survived', 'false Survived'])
-    if (!addonTarget()) return
-    expect(clock.wholeRuns['copied before load']).toBeGreaterThan(0)
-    // libuv's pool, which a worker starts before it copies itself and a copy starts again, is no such thread.
     const results = path.join(fixture('clock'), 'node_modules/.vitant/session/results')
-    const clocked = fs
+    const records = fs
       .readdirSync(results)
       .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
       .filter((line) => line.startsWith('{'))
-      .map((line) => JSON.parse(line) as { type: string; file: string; clock?: boolean })
-      .filter((record) => record.type === 'early' && record.clock)
-      .map((record) => path.basename(record.file))
+      .map((line) => JSON.parse(line) as { type: string; file: string; clock?: boolean; id?: string; name?: string; mutant?: number; verdict?: string; tests?: string[] })
+    const names = new Map(records.filter((record) => record.type === 'test').map((record) => [record.id, record.name] as const))
+    // The suite fails only the two mutants that empty a function's body.
+    const suite = (mutant: RunResult['mutants'][number]) => (mutant.mutator === 'BlockStatement' ? 'Killed' : 'Survived')
+    const passing = new Set(clock.mutants.filter((mutant) => mutant.status !== 'NoCoverage' && suite(mutant) === 'Survived').map((mutant) => mutant.id))
+    // With a mutant the suite passes, a run of a file may fail only as on a
+    // machine that stalls: out of the time a test is given, or past `is
+    // fresh`'s bound. A clock a test can tell from the suite's fails the
+    // hook, the table or `apart` in a copy, where a worker passes them; one
+    // that runs on in copies fails `is fresh` with no mutant on as well,
+    // which `flakyTests` holds. A copy that only times out some runs passes.
+    const chance = records.filter((record) => record.type === 'whole' && record.verdict !== 'passed' && passing.has(record.mutant!))
+    const fresh = (record: (typeof records)[number]) => record.tests?.length && record.tests.every((id) => names.get(id) === 'is fresh')
+    expect(chance.filter((record) => record.verdict !== 'timeout' && !fresh(record)).map((record) => `${path.basename(record.file)} ${record.mutant} ${record.tests?.map((id) => names.get(id))}`)).toEqual([])
+    // A stall of 7.7 s on a four-core runner timed `labels` out with a mutant
+    // the suite passes, and the run of the file alone then passed: that
+    // settles nothing, and the mutant is Unconfirmed for a test that wavered
+    // with it or a file such a failure left failing by chance, never for a
+    // test left out.
+    const unsettled = clock.mutants.filter((mutant) => mutant.status === 'Unconfirmed')
+    const byChance = (mutant: RunResult['mutants'][number]) =>
+      chance.some((record) => record.mutant === mutant.id || mutant.doubted?.some((doubt) => record.file.endsWith(doubt.split(' > ')[0])))
+    expect(unsettled.filter((mutant) => mutant.leftOut || !(mutant.wavered || mutant.doubted) || !byChance(mutant)).map((mutant) => mutant.id)).toEqual([])
+    // A stall leaves the few copies under way then open: 1 on that runner,
+    // 3 or 4 of the 23 with the whole run stopped for 7 s. A copy that times
+    // out with every mutant, as a defect in its timers would, leaves most.
+    expect(unsettled.length).toBeLessThan(clock.mutants.filter((mutant) => mutant.status !== 'NoCoverage').length / 2)
+    const verdicts = clock.mutants.filter((mutant) => mutant.status !== 'NoCoverage').map((mutant) => `${mutant.file} ${mutant.replacement} ${mutant.status === 'Unconfirmed' ? suite(mutant) : mutant.status}`)
+    // The suite passes with `now` asking a child process; in a copy that had
+    // stood still for the copies before it, the hook failed.
+    expect(verdicts.filter((verdict) => verdict.startsWith('src/asked.ts'))).toEqual(['src/asked.ts {} Killed', 'src/asked.ts true Survived', 'src/asked.ts false Survived'])
+    expect(verdicts.filter((verdict) => verdict.startsWith('src/stamp.ts') && !verdict.endsWith(' Survived'))).toEqual(['src/stamp.ts {} Killed'])
+    if (!addonTarget()) return
+    expect(clock.wholeRuns['copied before load']).toBeGreaterThan(0)
+    // libuv's pool, which a worker starts before it copies itself and a copy starts again, is no such thread.
+    const clocked = records.filter((record) => record.type === 'early' && record.clock).map((record) => path.basename(record.file))
     expect([...new Set(clocked)].sort()).toEqual(['apart.test.ts', 'asked.test.ts'])
   }, 120_000)
 })
