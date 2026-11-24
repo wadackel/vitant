@@ -316,7 +316,9 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
 }
 
 const summaryPath = path.join(outDir, 'summary.json')
-const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version, ...(workers && (values.workers || [...tools].some((tool) => tool.startsWith('vitant'))) ? { workers, workersOf: values.workers ? 'both tools' : 'this tool' } : {}) }
+// The target's setting is recorded on a run of StrykerJS alone as well: recorded only where this tool ran, the
+// machine would differ between the two halves of a scope run one tool at a time, and the second would drop the first.
+const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version, ...(workers ? { workers, workersOf: values.workers ? 'both tools' : 'this tool' } : {}) }
 // Times taken on another machine do not belong next to these.
 const earlier = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
 const previous = JSON.stringify(earlier.machine) === JSON.stringify(machine) ? earlier : {}
