@@ -72,7 +72,7 @@ export interface Target {
    * takes most of the workflow's limit, or more, on a runner it uses. On
    * the three-core macOS runner some scopes take most of this one too, and
    * headlamp's, with the two workers `toolWorkers` gives there, ended within
-   * it in two runs of three.
+   * it in two runs of four.
    */
   limit?: number
   scopes: Record<string, Scope>
@@ -95,7 +95,7 @@ export function vitestArgs(target: Target): string[] {
  * Vitest's 5 s limit beside each other, and the file was run one process at
  * a time from then on, in all five runs: 16,054 and 19,186 s where they
  * finished, the job's limit in three. With two it stayed side by side in
- * two runs of three, 13,862 and 15,418 s ([benchmark](../docs/benchmark.md)).
+ * two runs of four, 13,862 and 15,418 s ([benchmark](../docs/benchmark.md)).
  */
 export function toolWorkers(processors: number, given?: string): number | undefined {
   if (given) return Number(given)
