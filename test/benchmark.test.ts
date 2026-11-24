@@ -97,12 +97,13 @@ it('gives a target its config, projects and filters on the command line', () => 
   expect(vitestArgs(targets.ufo)).toEqual([])
 })
 
-it('gives this tool two workers on three processors and its own default otherwise, unless told', () => {
-  expect(toolWorkers(3)).toBe(2)
-  expect(toolWorkers(4)).toBeUndefined()
-  expect(toolWorkers(2)).toBeUndefined()
-  expect(toolWorkers(3, '3')).toBe(3)
-  expect(toolWorkers(4, '1')).toBe(1)
+it("gives this tool the target's workers for the machine's processors, its default otherwise, unless told", () => {
+  expect(toolWorkers(targets.headlamp, 3)).toBe(2)
+  expect(toolWorkers(targets.headlamp, 4)).toBeUndefined()
+  expect(toolWorkers(targets.shopify, 3)).toBeUndefined()
+  expect(toolWorkers(targets.headlamp, 3, '3')).toBe(3)
+  expect(toolWorkers(targets.shopify, 4, '1')).toBe(1)
+  expect(Object.entries(targets).filter(([, target]) => target.workers).map(([name]) => name)).toEqual(['headlamp'])
 })
 
 it("sets and removes a target's variables over the environment it is given", () => {

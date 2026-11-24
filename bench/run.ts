@@ -13,7 +13,7 @@
 // `vitant-confirm4`, `vitant-led` and `vitant-fast` are it with `--confirm 4`, `--led` and `--fast`, held against the scope's report of `vitant`.
 // `--workers N` gives both tools N processes at once, as a CI runner with N
 // cores would; where it is left out each takes its own default, but this tool
-// takes two on a machine with three processors (`toolWorkers` in targets.ts).
+// takes what the target's `workers` says for the machine's processors.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
@@ -51,7 +51,7 @@ const outDir = path.join(import.meta.dirname, 'results', `${targetName}-${scopeN
 fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
 const tools = new Set(values.tool === 'both' ? ['stryker', 'vitant'] : values.tool.split(','))
-const workers = toolWorkers(os.availableParallelism(), values.workers)
+const workers = toolWorkers(targets[targetName], os.availableParallelism(), values.workers)
 
 interface Timing {
   tool: string

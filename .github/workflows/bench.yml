@@ -175,7 +175,7 @@ jobs:
           VITANT_BASE: ${{ inputs.base && format('{0}/base', github.workspace) || '' }}
           TOOLS: ${{ inputs.tools || 'vitant' }}
           RUNS: ${{ inputs.runs || '1' }}
-          # On Linux, the longest run of this tool but actual's, freelens's, headlamp's and fast-check's, one that starts a worker for every run of a file, took 106 minutes; actual's took 185 on an EPYC 7763, freelens's 133, headlamp's 131 and fast-check's 119. On macOS immich services' took 193, freelens's 200, and headlamp's 268 to past 345 with three workers and 231 and 257, twice past 345, with the two bench/run.ts gives this tool on three processors. Each of these sets a limit of its own; on macOS headlamp's run does not always end within its 300 minutes, nor within a job's six hours with a longer one.
+          # On Linux, the longest run of this tool but actual's, freelens's, headlamp's and fast-check's, one that starts a worker for every run of a file, took 106 minutes; actual's took 185 on an EPYC 7763, freelens's 133, headlamp's 131 and fast-check's 119. On macOS immich services' took 193, freelens's 200, and headlamp's 268 to past 345 with three workers and 231 and 257, twice past 345, with the two its target gives this tool on three processors. Each of these sets a limit of its own; on macOS headlamp's run does not always end within its 300 minutes, nor within a job's six hours with a longer one.
           LIMIT: ${{ inputs.limit || '150' }}
         run: |
           # Identical runs on two runners can differ twofold, the work in copies
