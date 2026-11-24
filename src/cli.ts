@@ -230,6 +230,7 @@ for (const mutant of result.mutants) {
     ...(mutant.leftOut ? [`${mutant.leftOut.length} test(s) that may reach it fail by themselves and were left out`] : []),
     ...(mutant.wavered ? [`failed in one run of their file and not in another: ${some(mutant.wavered)}`] : []),
     ...(mutant.doubted ? [`failed only in ${mutant.doubted.join(', ')}, which fails by chance`] : []),
+    ...(mutant.scattered ? [`failed runs of a test file in no one test twice: ${some(mutant.scattered)}`] : []),
   ]
   const label = mutant.status === 'Unconfirmed' ? `Unconfirmed (${why.join('; ')})` : 'Survived'
   console.log(
@@ -311,7 +312,7 @@ if (result.failedBaselines.length > 0) {
 if (result.neverPassedTests.length > 0) {
   const never = new Set(result.neverPassedTests)
   const only = result.mutants.filter(
-    (mutant) => mutant.status === 'Unconfirmed' && mutant.leftOut?.every((test) => never.has(test)) && !mutant.wavered && !mutant.doubted && !mutant.confirmed && !mutant.besideOnly,
+    (mutant) => mutant.status === 'Unconfirmed' && mutant.leftOut?.every((test) => never.has(test)) && !mutant.wavered && !mutant.doubted && !mutant.scattered && !mutant.confirmed && !mutant.besideOnly,
   ).length
   console.log(`${result.neverPassedTests.length} of them never passed, and ${only} mutant(s) in the sources their files load are unconfirmed for that alone:`)
   for (const test of result.neverPassedTests.slice(0, 10)) console.log(`  ${test}`)
@@ -331,6 +332,10 @@ if (doubted > 0) {
 const wavering = result.mutants.filter((mutant) => mutant.wavered).length
 if (wavering > 0) {
   console.log(`${wavering} mutant(s) failed a run of a test file in a test that reaches them and passed another, and are unconfirmed; they count as survived in the score`)
+}
+const scattered = result.mutants.filter((mutant) => mutant.scattered).length
+if (scattered > 0) {
+  console.log(`${scattered} mutant(s) failed runs of a test file in a different test each time, one more run with nothing else running included, and are unconfirmed; they count as survived in the score`)
 }
 const leftOut = Object.entries(result.leftOut.projects)
 if (result.leftOut.typeCheck) {

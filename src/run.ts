@@ -83,6 +83,12 @@ export interface MutantResult {
   /** For an unconfirmed mutant, the tests and test files that failed with it and fail by chance: with another mutant, or with none, they failed one run and passed another. */
   doubted?: string[]
   /**
+   * For an unconfirmed mutant, the failures of the runs of a test file that
+   * failed with it in no one test twice, with one more run made with nothing
+   * else running to repeat one: each test, and how it failed.
+   */
+  scattered?: string[]
+  /**
    * For a led mutant, the tests that failed with it while trying it in a
    * worker and passed again without it, and whether one of them did so with
    * no other run of its file under way, and whether every one of them ran
@@ -420,22 +426,51 @@ interface WholeState {
   doubted: number
   /** Of those, the ones in runs made with nothing else running. */
   quietDoubted: number
+  /** The failures counted, each by what failed in it, see `failureKeys`. */
+  failures: { keys: string[]; quiet: boolean; how: string }[]
 }
 
 const wholeKey = (mutant: number, file: string) => `${mutant}\n${file}`
 
 /**
- * A failure counts once it has been seen twice: in the same test that failed
- * with the mutant while trying it, or in a second run of the file made with
- * nothing else running. A lead from another test does not do: trying a
- * mutant in a worker can fail a test for good reasons that a whole run does
- * not share, and then one test of the file failing by chance would settle it.
- * Nor does a second run made at once next to the first: of 3,184 such runs
- * over twenty projects 8 passed, and those that failed settled nothing, the
- * test that had failed trying the mutant or the run with nothing else
- * running being what did.
+ * What a failure of a run of a whole file was in: the tests that failed that
+ * `counts` lets count, a timeout under the test under way. A hook that failed
+ * or a run stopped with no test under way is a key of its own, and so is a
+ * worker that died.
  */
-function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | 'doubted' | undefined {
+function failureKeys(record: WholeRecord, counts: (test: string) => boolean): string[] {
+  if (record.died) return ['\0died']
+  const failing = record.tests ?? (record.test === undefined ? [] : [record.test])
+  return failing.length > 0 ? failing.filter(counts) : [`\0${record.verdict}`]
+}
+
+/** Some test, or the death of a worker, failed in two of the runs, one made with nothing else running. */
+function failedTwice(state: WholeState): boolean {
+  const seen = new Map<string, { runs: number; quiet: boolean }>()
+  for (const failure of state.failures) {
+    for (const key of new Set(failure.keys)) {
+      const entry = seen.get(key) ?? { runs: 0, quiet: false }
+      entry.runs++
+      entry.quiet ||= failure.quiet
+      seen.set(key, entry)
+    }
+  }
+  return [...seen.values()].some((entry) => entry.runs >= 2 && entry.quiet)
+}
+
+/**
+ * A failure counts once it has been seen twice: in the same test that failed
+ * with the mutant while trying it, or in the same test in a second run of the
+ * file, one of the two made with nothing else running. A lead from another
+ * test does not do: trying a mutant in a worker can fail a test for good
+ * reasons that a whole run does not share, and then one test of the file
+ * failing by chance would settle it. Nor does a second run made at once next
+ * to the first: of 3,184 such runs over twenty projects 8 passed, and those
+ * that failed settled nothing, the test that had failed trying the mutant or
+ * the run with nothing else running being what did. `scattered` is a file
+ * whose runs failed in no one test twice, a third run included.
+ */
+function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | 'doubted' | 'scattered' | undefined {
   if (!state) return undefined
   if (state.passed > 0) return 'passed'
   // Nothing but failures that say nothing: another run would add one more
@@ -447,9 +482,8 @@ function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | '
   if (state.repeated === 0 && state.quiet === 0 && state.quietDoubted > 0) return 'doubted'
   // A worker can die of something other than the mutant, and nothing a
   // test saw says otherwise: that counts when it has happened twice.
-  const settled =
-    state.repeated > 0 || state.failed + state.timedOut >= 2 || state.failed + state.timedOut + state.died >= 2
-  if (!settled) return undefined
+  const failures = state.failed + state.timedOut + state.died
+  if (state.repeated === 0 && failures < 2) return undefined
   // Two failures in a row are made within milliseconds of each other, and
   // on a machine that is busy at that moment both can be the machine's: a
   // test that sleeps a second and checks the time it logged failed twice
@@ -458,6 +492,14 @@ function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | '
   // all there is, and one of them has to be made with nothing else running.
   // A lead from another test of the file does not vouch for this one.
   if (state.repeated === 0 && state.quiet === 0) return undefined
+  // Nor does a failure of another test of the file: in excalidraw one test
+  // timed out next to other runs and another failed with nothing else
+  // running, and the suite passes with the mutant ten times in ten. One more
+  // run with nothing else running gets the chance to repeat either. One
+  // that fails only in a test that fails by chance has had it as well.
+  if (state.repeated === 0 && !failedTwice(state)) {
+    return state.quiet + state.quietDoubted >= 2 && failures + state.doubted >= 3 ? 'scattered' : undefined
+  }
   return state.failed + state.died > 0 ? 'failed' : 'timeout'
 }
 
@@ -1061,7 +1103,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   }
   for (const record of wholeRecords) {
     const key = wholeKey(record.mutant, record.file)
-    const entry = whole.get(key) ?? { runs: 0, repeated: 0, beside: 0, quiet: 0, knowing: 0, died: 0, failed: 0, timedOut: 0, passed: 0, doubted: 0, quietDoubted: 0 }
+    const entry = whole.get(key) ?? { runs: 0, repeated: 0, beside: 0, quiet: 0, knowing: 0, died: 0, failed: 0, timedOut: 0, passed: 0, doubted: 0, quietDoubted: 0, failures: [] }
     whole.set(key, entry)
     entry.runs++
     if (uncopied.has(record.file) && record.by && record.by !== 'started') plain.add(key)
@@ -1091,6 +1133,10 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.verdict === 'passed') continue
     if (record.quiet) entry.quiet++
     if (record.knew) entry.knowing++
+    // A test that fails by chance, or is left out for it, is no test to have
+    // failed twice, but where it failed trying the mutant and passed without.
+    const keys = failureKeys(record, (test) => !flaky.has(test) && (!shaky.has(test) || witnessed.includes(test)))
+    entry.failures.push({ keys, quiet: record.quiet === true, how: record.died ? 'died' : record.verdict === 'failed' ? 'failed' : 'timed out' })
     // Where the run had failed before any test did, an error nothing handled for one, the test named is the first that then failed.
     note(record.mutant, { kind: record.died ? 'died' : record.verdict, quiet: record.quiet || undefined, file: record.file, test: record.test ?? record.tests?.[0], by: record.by })
     if (record.died) continue
@@ -1100,12 +1146,15 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   // Several workers may share a file, and one that reached its end says
   // nothing about a test another had taken and died on.
   const completeFiles = new Set<string>()
+  /** Per mutant, the runs of a file it failed in no one test twice, see `wholeVerdict`. */
+  const scattered = new Map<number, { file: string; failures: WholeState['failures'] }[]>()
   for (const [key, entry] of whole) {
     const [id, file] = key.split('\n')
     const mutant = Number(id)
     const verdict = wholeVerdict(entry)
     if (verdict === 'failed') detected.set(mutant, MUTANT_KILLED)
     else if (verdict === 'timeout' && !detected.has(mutant)) detected.set(mutant, MUTANT_TIMEOUT)
+    else if (verdict === 'scattered') scattered.set(mutant, [...(scattered.get(mutant) ?? []), { file, failures: entry.failures }])
   }
   for (const [file, runs] of finished) {
     if (runs.some((ids) => ids.every((id) => tests.has(id)))) completeFiles.add(file)
@@ -1145,7 +1194,7 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const bystander = (id: string) => tests.get(id)?.coverage?.sites === 0 && !flaky.has(id) && !triedAndFailed.get(record.mutant)?.has(id)
     if (failing.some(bystander)) pairWanted.add(record.file)
   }
-  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, taints, staticMutants, staticSites, hookSites, sharing, unpaused, clocked, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, missedSole, refuted }
+  return { besideLoops, order, unwalked, fileWall, led, tests, replay, retried, completeFiles, detected, scattered, taints, staticMutants, staticSites, hookSites, sharing, unpaused, clocked, plain, roomy, whole, reached, measured, suspects, alternatives, blocked, flaky, wholeTook, exercised, unsure, leftOut, apart, restless, calms, evidence, witnesses, controls, uncopied, exclusive, lost, unhanded, doubted, pairWanted, pairs, beside, triedSole, missedSole, refuted }
 }
 
 /** The list rotated by an offset derived from `key`, so that lists are walked from different points. */
@@ -2214,7 +2263,7 @@ interface SuiteTask {
  * hooks, and every mutant in the sources it loads or at a site it reached.
  */
 export function doubts(
-  status: { flaky: Set<string>; tests: Map<string, TestState> },
+  status: { flaky: Set<string>; tests: Map<string, TestState>; scattered?: Map<number, { file: string }[]> },
   records: SessionRecord[],
   label: (test: TestState) => string,
   reach: (file: string) => { loading: Iterable<number>; reached: Iterable<number> },
@@ -2260,9 +2309,11 @@ export function doubts(
   // taken out and three requests at once for one: the file then fails in
   // most runs and passes in some, and the suite fails with the mutant all
   // the same.
+  // A file whose runs failed in a different test each time passed none, and says so itself.
   const waveredIn = new Map<number, Set<string>>()
   for (const record of records) {
     if (record.type !== 'whole' || !record.by || record.verdict === 'passed') continue
+    if (status.scattered?.get(record.mutant)?.some(({ file }) => file === record.file)) continue
     for (const id of record.tests ?? (record.test === undefined ? [] : [record.test])) {
       const test = status.tests.get(id)
       if (!test?.coverage) continue
@@ -3556,7 +3607,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       for (const [key, entryState] of status.whole) {
         const [mutant, wholeFile] = key.split('\n')
         const verdict = wholeVerdict(entryState)
-        if (wholeFile === file && verdict && verdict !== 'doubted') entry.whole[keys[Number(mutant)]] = verdict
+        if (wholeFile === file && verdict && verdict !== 'doubted' && verdict !== 'scattered') entry.whole[keys[Number(mutant)]] = verdict
       }
       for (const dep of [file, snapshot, ...pass.modules!]) {
         entry.deps[relative(options.root, dep)] = hashFile(dep)
@@ -3647,7 +3698,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     nearest.ms = nearest.ms.map(Math.round)
   }
   const pending = abandonedFiles.length > 0
-  const { detected, doubted: doubtedIn, tests: known, led: ledBy } = status
+  const { detected, doubted: doubtedIn, scattered: scatteredIn, tests: known, led: ledBy } = status
   const proof = (mutant: number): Evidence[] =>
     (status.evidence.get(mutant) ?? []).map((entry) => ({
       ...entry,
@@ -3700,13 +3751,27 @@ export async function run(options: RunOptions): Promise<RunResult> {
       const test = known.get(id)
       return test ? label(test) : relative(options.root, id)
     })
+    // Where a test it names is doubted or left out, that is what is said of it.
+    const named = new Set([...leftOut, ...doubted])
+    const scattered = [...new Set((scatteredIn.get(mutant.id) ?? []).flatMap(({ file, failures }) =>
+      failures.flatMap(({ keys, quiet, how }) => {
+        const alone = quiet ? ' with nothing else running' : ''
+        return keys.flatMap((key) => {
+          if (key === '\0died') return [`${relative(options.root, file)}: the worker died${alone}`]
+          if (key.startsWith('\0')) return [`${relative(options.root, file)}: ${how} with no test under way${alone}`]
+          const test = known.get(key)
+          const name = test ? label(test) : key
+          return named.has(name) ? [] : [`${name}: ${how}${alone}`]
+        })
+      }),
+    ))]
     let status: MutantStatus
     // Only what runs of whole files found counts; what a test found while trying a mutant led to them.
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
     else if (detected.has(mutant.id)) status = 'Timeout'
     else if (pending || retryAlone.has(mutant.id)) status = 'Pending'
     else if (takeLeads && (state[mutant.id] === MUTANT_KILLED || state[mutant.id] === MUTANT_TIMEOUT)) status = ledBy.has(mutant.id) ? 'Led' : 'Pending'
-    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || besideOnly.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
+    else if (coveredBy[mutant.id] > 0 || (isStatic && judgeStatic)) status = unconfirmed.has(mutant.id) || besideOnly.has(mutant.id) || scatteredIn.has(mutant.id) || leftOut.length + wavered.length + doubted.length > 0 ? 'Unconfirmed' : 'Survived'
     else status = isStatic ? 'Static' : 'NoCoverage'
     counts[status]++
     return {
@@ -3724,6 +3789,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       leftOut: status === 'Unconfirmed' && leftOut.length > 0 ? leftOut : undefined,
       wavered: status === 'Unconfirmed' && wavered.length > 0 ? wavered : undefined,
       doubted: status === 'Unconfirmed' && doubted.length > 0 ? doubted : undefined,
+      scattered: status === 'Unconfirmed' && scattered.length > 0 ? scattered : undefined,
       besideOnly: status === 'Unconfirmed' && besideOnly.has(mutant.id) ? relative(options.root, besideOnly.get(mutant.id)!) : undefined,
       led: status === 'Led' ? { tests: [...ledBy.get(mutant.id)!.tests].map((id) => (known.get(id) ? label(known.get(id)!) : id)), sole: ledBy.get(mutant.id)!.sole } : undefined,
       evidence: detected.has(mutant.id) ? proof(mutant.id) : undefined,

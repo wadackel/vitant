@@ -107,10 +107,10 @@ Shares are of whole files, so a file with most of the mutants makes its share th
 
 | Status | Meaning |
 |---|---|
-| Killed | A test file failed when run whole, in a fresh worker, with the mutant on from before the file was imported. |
+| Killed | A test file failed when run whole, in a fresh worker, with the mutant on from before the file was imported: in a test that had failed with the mutant while trying it, or in the same test in a second such run. |
 | Timeout | The same, with the file running into a loop or a hang instead of failing. Counted as detected. |
 | Survived | Every test file the mutant can change anything in passed, run that way. |
-| Unconfirmed | No run settled the mutant: a test that reaches it was left out for failing with no mutant on (one that never passed, every mutant in the sources its file loads), failed in one run of its file and passed in another, or has failed and passed with another mutant; or the files beyond the `--confirm` limit were not run. Or, with `--led`, a file failed with the mutant next to other runs, or its run was stopped for its memory, and no run made with nothing else running was made to settle it; the report names the file. Counted as survived in the score. |
+| Unconfirmed | No run settled the mutant: a test that reaches it was left out for failing with no mutant on (one that never passed, every mutant in the sources its file loads), failed in one run of its file and passed in another, or has failed and passed with another mutant; or three runs of a file failed in a different test each time; or the files beyond the `--confirm` limit were not run. Or, with `--led`, a file failed with the mutant next to other runs, or its run was stopped for its memory, and no run made with nothing else running was made to settle it; the report names the file. Counted as survived in the score. |
 | Led | Only with `--led`: a test failed with the mutant while trying it, and no run of the whole file was made to confirm it. Counted as survived in the score. |
 | NoCoverage | No test runs the mutated code. |
 | Static | Reached only while loading and left unjudged. `--static` requests verdicts for these mutants. |
