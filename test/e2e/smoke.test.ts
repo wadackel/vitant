@@ -115,17 +115,21 @@ describe('copies of a worker made one after another', () => {
     // With a mutant the suite passes, a run of a file may fail only as on a
     // machine that stalls: out of the time a test is given, or past `is
     // fresh`'s bound. A clock a test can tell from the suite's fails the
-    // hook, the table or `apart` in a copy, where a worker passes them.
+    // hook, the table or `apart` in a copy, where a worker passes them; one
+    // that runs on in copies fails `is fresh` with no mutant on as well,
+    // which `flakyTests` holds. A copy that only times out some runs passes.
     const chance = records.filter((record) => record.type === 'whole' && record.verdict !== 'passed' && passing.has(record.mutant!))
     const fresh = (record: (typeof records)[number]) => record.tests?.length && record.tests.every((id) => names.get(id) === 'is fresh')
     expect(chance.filter((record) => record.verdict !== 'timeout' && !fresh(record)).map((record) => `${path.basename(record.file)} ${record.mutant} ${record.tests?.map((id) => names.get(id))}`)).toEqual([])
     // A stall of 7.7 s on a four-core runner timed `labels` out with a mutant
     // the suite passes, and the run of the file alone then passed: that
     // settles nothing, and the mutant is Unconfirmed for a test that wavered
-    // or a file that failed by chance, never for a test left out.
+    // with it or a file such a failure left failing by chance, never for a
+    // test left out.
     const unsettled = clock.mutants.filter((mutant) => mutant.status === 'Unconfirmed')
-    expect(unsettled.filter((mutant) => mutant.leftOut || mutant.confirmed || mutant.besideOnly || !(mutant.wavered || mutant.doubted))).toEqual([])
-    if (unsettled.length > 0) expect(chance.length).toBeGreaterThan(0)
+    const byChance = (mutant: RunResult['mutants'][number]) =>
+      chance.some((record) => record.mutant === mutant.id || mutant.doubted?.some((doubt) => record.file.endsWith(doubt.split(' > ')[0])))
+    expect(unsettled.filter((mutant) => mutant.leftOut || !(mutant.wavered || mutant.doubted) || !byChance(mutant)).map((mutant) => mutant.id)).toEqual([])
     const verdicts = clock.mutants.filter((mutant) => mutant.status !== 'NoCoverage').map((mutant) => `${mutant.file} ${mutant.replacement} ${mutant.status === 'Unconfirmed' ? suite(mutant) : mutant.status}`)
     // The suite passes with `now` asking a child process; in a copy that had
     // stood still for the copies before it, the hook failed.
