@@ -1933,8 +1933,9 @@ function planPhase(
   // Every file of such a round has one worker, see the main loop.
   plan.settling = settling && workByFile.size > 0
   if (settling && workByFile.size === 0 && Object.keys(plan.whole).length === 0) {
-    // One failure made this way settles a mutant, so one file each, the
-    // cheapest, and another only once that one has passed.
+    // A failure made this way in the test of the one before settles a
+    // mutant, so one file each, the cheapest, and another only once that one
+    // has passed or failed in no one test twice.
     quietJobs.sort((a, b) => (fileMs.get(a[1]) ?? 0) - (fileMs.get(b[1]) ?? 0))
     const asked = new Set<number>()
     for (const [mutant, file] of quietJobs) {
@@ -3753,7 +3754,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
     })
     // Where a test it names is doubted or left out, that is what is said of it.
     const named = new Set([...leftOut, ...doubted])
-    const scattered = [...new Set((scatteredIn.get(mutant.id) ?? []).flatMap(({ file, failures }) =>
+    // One entry a failure of a run, in the order of the runs: a test can have failed twice next to other runs.
+    const scattered = (scatteredIn.get(mutant.id) ?? []).flatMap(({ file, failures }) =>
       failures.flatMap(({ keys, quiet, how }) => {
         const alone = quiet ? ' with nothing else running' : ''
         return keys.flatMap((key) => {
@@ -3764,7 +3766,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
           return named.has(name) ? [] : [`${name}: ${how}${alone}`]
         })
       }),
-    ))]
+    )
     let status: MutantStatus
     // Only what runs of whole files found counts; what a test found while trying a mutant led to them.
     if (detected.get(mutant.id) === MUTANT_KILLED) status = 'Killed'
