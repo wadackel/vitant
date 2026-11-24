@@ -472,8 +472,6 @@ function failedTwice(state: WholeState): boolean {
  */
 function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | 'doubted' | 'scattered' | undefined {
   if (!state) return undefined
-  // A run that passes after failures makes their tests ones that fail by
-  // chance, which leaves the mutant Unconfirmed with them named (`doubted`).
   if (state.passed > 0) return 'passed'
   // Nothing but failures that say nothing: another run would add one more
   // of them or pass by the same chance, so the file is left at that.
