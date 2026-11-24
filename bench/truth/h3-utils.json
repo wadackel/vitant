@@ -794,6 +794,6 @@
     {"file":"src/utils/body.ts","start":[66,10],"end":[66,34],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},
     {"file":"src/utils/body.ts","start":[66,36],"end":[68,7],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
     {"file":"src/utils/session.ts","start":[163,6],"end":[163,21],"mutator":"ConditionalExpression","replacement":"false","suite":"fail","note":"the suite failed 15 runs in 25 with the mutant written in and passed 10: three calls at once each make a session of their own, and whether the test finds them loaded is a race"},
-    {"file":"src/utils/session.ts","start":[163,23],"end":[165,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail"}
+    {"file":"src/utils/session.ts","start":[163,23],"end":[165,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail","note":"the related suite failed 5 runs in 10 with the mutant written in on an Apple M6 and passed 5: the same race as `false` for the condition above it"}
   ]
 }
