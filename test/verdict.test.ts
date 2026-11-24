@@ -124,6 +124,60 @@ describe('what the runs of whole files settle', () => {
     expect(passed.whole.get(`0\n${file}`)?.passed).toBe(1)
   })
 
+  it('wants the same test to fail twice where no lead vouches for either failure', () => {
+    // As in excalidraw: one test timed out next to other runs, another failed with nothing else running.
+    const runs = [whole(0, 'timeout', { test: 't1' }), whole(0, 'failed', { test: 't2', alone: true, quiet: true })]
+    const two = inspect(runs)
+    expect(two.detected.has(0)).toBe(false)
+    expect(two.scattered.has(0)).toBe(false)
+    // One more run with nothing else running that repeats either settles it.
+    expect(inspect([...runs, whole(0, 'timeout', { test: 't1', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+    expect(inspect([...runs, whole(0, 'failed', { test: 't2', alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+    // A run that failed in more tests repeats each of them.
+    expect(inspect([...runs, whole(0, 'failed', { test: 't3', tests: ['t3', 't1'], alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+    // One that fails in yet another test leaves the mutant open in that file, with every failure named.
+    const third = inspect([...runs, whole(0, 'failed', { test: 't3', alone: true, quiet: true })])
+    expect(third.detected.has(0)).toBe(false)
+    expect(third.scattered.get(0)).toEqual([{
+      file,
+      failures: [
+        { keys: ['t1'], quiet: false, how: 'timed out' },
+        { keys: ['t2'], quiet: true, how: 'failed' },
+        { keys: ['t3'], quiet: true, how: 'failed' },
+      ],
+    }])
+    // Where that run passes, the tests that failed are ones that fail by chance, and named for it.
+    const passed = inspect([...runs, whole(0, 'passed', { alone: true, quiet: true })])
+    expect([passed.detected.has(0), passed.scattered.has(0), [...(passed.doubted.get(0) ?? [])]]).toEqual([false, false, ['t2']])
+    const apart = [whole(0, 'timeout', { test: 't1', alone: true }), whole(0, 'failed', { test: 't2', alone: true, quiet: true })]
+    expect([...(inspect([...apart, whole(0, 'passed', { alone: true, quiet: true })]).doubted.get(0) ?? [])]).toEqual(['t1', 't2'])
+    // Where neither failure was made with nothing else running, a run made so that passes settles it, as before.
+    const busy = inspect([whole(0, 'timeout', { test: 't1' }), whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })])
+    expect([busy.detected.has(0), busy.scattered.has(0), busy.whole.get(`0\n${file}`)?.passed]).toEqual([false, false, 1])
+    // Two failures of one test next to other runs want one with nothing else running among them still.
+    const beside = [whole(1, 'failed', { test: 't1' }), whole(1, 'failed', { test: 't1' }), whole(1, 'failed', { test: 't2', alone: true, quiet: true })]
+    expect(inspect(beside).detected.has(1)).toBe(false)
+    expect(inspect(beside).scattered.has(1)).toBe(false)
+    expect(inspect([...beside, whole(1, 'failed', { test: 't1', alone: true, quiet: true })]).detected.get(1)).toBe(MUTANT_KILLED)
+    expect(inspect([...beside, whole(1, 'failed', { test: 't3', alone: true, quiet: true })]).scattered.has(1)).toBe(true)
+  })
+
+  it('takes a worker dying twice, or a file failing twice with no test named, as the same failure, and neither for a test failing', () => {
+    const died = (more: object = {}) => whole(0, 'failed', { died: true, ...more })
+    expect(inspect([died(), died({ alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+    expect(inspect([died(), whole(0, 'failed', { test: 't1', alone: true, quiet: true })]).detected.has(0)).toBe(false)
+    const unnamed = (verdict: 'failed' | 'timeout', more: object = {}) => whole(0, verdict, { tests: [], ...more })
+    expect(inspect([unnamed('timeout'), unnamed('timeout', { alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_TIMEOUT)
+    expect(inspect([unnamed('failed'), unnamed('failed', { alone: true, quiet: true })]).detected.get(0)).toBe(MUTANT_KILLED)
+    expect(inspect([unnamed('timeout'), died({ alone: true, quiet: true })]).detected.has(0)).toBe(false)
+    expect(inspect([unnamed('timeout'), whole(0, 'timeout', { test: 't1', alone: true, quiet: true })]).detected.has(0)).toBe(false)
+  })
+
+  it('takes a lead\'s failure of its own test as before, whatever else failed', () => {
+    expect(inspect([lead(0, 't1'), whole(0, 'failed', { test: 't2', tests: ['t2', 't1'] })]).detected.get(0)).toBe(MUTANT_KILLED)
+    expect(inspect([lead(0, 't1'), whole(0, 'failed', { test: 't1' }), whole(0, 'failed', { test: 't2', alone: true, quiet: true })]).scattered.size).toBe(0)
+  })
+
   it('does not count the failures of a test that failed and passed with another mutant', () => {
     // With mutant 0 the test failed a run of its file and not the next: it can fail by chance.
     const chance = [whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })]

@@ -188,3 +188,29 @@ describe('a test that, with its file to itself, does not reach the mutant it is 
     expect(stalledRound({ ...round, to: 4 }, file, [...records, unreached], status.tests).tries[0].ended).toBe('no word')
   })
 })
+
+describe('runs of a file that failed in a different test each time', () => {
+  const file = '/project/text.test.ts'
+  const [t1, t2, t3] = ['t1', 't2', 't3']
+  const records: SessionRecord[] = [
+    { type: 'file', file, tests: [t1, t2, t3], staticSites: [], complete: true, at: 0 } as SessionRecord,
+    ...[t1, t2, t3].map((id) => probe(file, id)),
+    ...[t1, t2, t3].map((id) => probe(file, id, { mode: 'planned', survived: [0], attempts: 1, at: 2 })),
+    ...[3, 4].map((at) => ({ type: 'pair', file, verdict: 'passed', met: true, at }) as SessionRecord),
+    { type: 'whole', file, mutant: 0, verdict: 'timeout', test: t1, tests: [t1], by: 'copied before a test', at: 5 } as SessionRecord,
+    { type: 'whole', file, mutant: 0, verdict: 'failed', test: t2, tests: [t2], alone: true, quiet: true, by: 'started', at: 6 } as SessionRecord,
+  ]
+  const plan = (more: SessionRecord[] = []) => planRound(inspect([...records, ...more]), new Uint8Array([0]), [file], new Map(), [0], [0]).plan
+
+  it('get one more run with nothing else running', () => {
+    const next = plan()
+    expect(next.quiet).toBe(true)
+    expect(next.whole[file]?.filter((job) => job.mutant === 0).map((job) => job.quiet)).toEqual([true])
+  })
+
+  it('are given no further run once that one failed in yet another test', () => {
+    const third = { type: 'whole', file, mutant: 0, verdict: 'failed', test: t3, tests: [t3], alone: true, quiet: true, by: 'started', at: 7 } as SessionRecord
+    expect(inspect([...records, third]).scattered.has(0)).toBe(true)
+    expect(plan([third]).whole[file]).toBeUndefined()
+  })
+})

@@ -117,6 +117,32 @@ describe('test files whose runs do not stand each other, or that fail now and th
     expect(fs.readFileSync(reportPath('clash-lever').replace(/\.json$/, '.log'), 'utf8')).toContain('failed in one run of their file and not in another: test/lever.test.ts > pulls the lever')
     expect(verdicts(run).filter((line) => !line.includes('turns / 2'))).toEqual(verdicts(plain).filter((line) => !line.includes('turns / 2')))
   }, 120_000)
+
+  it('takes a detection no lead vouches for only from one test failing twice, or the worker dying twice', () => {
+    const run = runClash('clash-scatter', { CLASH_SCATTER: `${process.pid}-${Date.now()}` })
+    const judged = (result: RunResult, source: string) =>
+      result.mutants.filter((mutant) => mutant.file === source && mutant.status !== 'Static')
+    for (const source of ['src/drift.ts', 'src/scatter.ts', 'src/steady.ts', 'src/alive.ts']) expect(judged(run, source).length, source).toBeGreaterThan(0)
+    // Without the variable nothing fails with the mutants of drift.ts and scatter.ts, as in the suite.
+    for (const source of ['src/drift.ts', 'src/scatter.ts']) expect(judged(plain, source).map((mutant) => mutant.status)).toEqual(judged(plain, source).map(() => 'Survived'))
+    // Two tests failed once each, in two runs: neither is a detection.
+    for (const mutant of judged(run, 'src/drift.ts')) expect(['Survived', 'Unconfirmed']).toContain(mutant.status)
+    // A third test failed the third run: open, with each named.
+    for (const mutant of judged(run, 'src/scatter.ts')) {
+      expect(mutant.status).toBe('Unconfirmed')
+      expect(mutant.scattered?.map((entry) => entry.replace(/: (failed|timed out).*$/, ''))).toEqual(
+        ['first', 'second', 'third'].map((ordinal) => `test/scatter.test.ts > scatters on the ${ordinal} run`),
+      )
+    }
+    expect(fs.readFileSync(reportPath('clash-scatter').replace(/\.json$/, '.log'), 'utf8')).toContain('failed runs of a test file in no one test twice: test/scatter.test.ts > scatters on the first run: failed')
+    // One test failing every run, and a worker dying every run, are detections with the variable or without.
+    for (const result of [run, plain]) {
+      for (const source of ['src/steady.ts', 'src/alive.ts']) expect(judged(result, source).map((mutant) => mutant.status)).toEqual(judged(result, source).map(() => 'Killed'))
+    }
+    expect(judged(run, 'src/alive.ts').flatMap((mutant) => mutant.evidence?.map((entry) => entry.kind) ?? [])).toContain('died')
+    const others = (result: RunResult) => verdicts(result).filter((line) => !line.startsWith('src/drift.ts') && !line.startsWith('src/scatter.ts'))
+    expect(others(run)).toEqual(others(plain))
+  }, 120_000)
 })
 
 // Where whole-file runs start a worker each, as on a platform without the
