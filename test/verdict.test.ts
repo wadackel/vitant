@@ -146,6 +146,14 @@ describe('what the runs of whole files settle', () => {
         { keys: ['t3'], quiet: true, how: 'failed' },
       ],
     }])
+    // Where that run passes, the tests that failed are ones that fail by chance, and named for it.
+    const passed = inspect([...runs, whole(0, 'passed', { alone: true, quiet: true })])
+    expect([passed.detected.has(0), passed.scattered.has(0), [...(passed.doubted.get(0) ?? [])]]).toEqual([false, false, ['t2']])
+    const apart = [whole(0, 'timeout', { test: 't1', alone: true }), whole(0, 'failed', { test: 't2', alone: true, quiet: true })]
+    expect([...(inspect([...apart, whole(0, 'passed', { alone: true, quiet: true })]).doubted.get(0) ?? [])]).toEqual(['t1', 't2'])
+    // Where neither failure was made with nothing else running, a run made so that passes settles it, as before.
+    const busy = inspect([whole(0, 'timeout', { test: 't1' }), whole(0, 'failed', { test: 't2' }), whole(0, 'passed', { alone: true, quiet: true })])
+    expect([busy.detected.has(0), busy.scattered.has(0), busy.whole.get(`0\n${file}`)?.passed]).toEqual([false, false, 1])
     // Two failures of one test next to other runs want one with nothing else running among them still.
     const beside = [whole(1, 'failed', { test: 't1' }), whole(1, 'failed', { test: 't1' }), whole(1, 'failed', { test: 't2', alone: true, quiet: true })]
     expect(inspect(beside).detected.has(1)).toBe(false)

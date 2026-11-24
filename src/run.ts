@@ -472,6 +472,8 @@ function failedTwice(state: WholeState): boolean {
  */
 function wholeVerdict(state: WholeState | undefined): WholeRecord['verdict'] | 'doubted' | 'scattered' | undefined {
   if (!state) return undefined
+  // A run that passes after failures makes their tests ones that fail by
+  // chance, which leaves the mutant Unconfirmed with them named (`doubted`).
   if (state.passed > 0) return 'passed'
   // Nothing but failures that say nothing: another run would add one more
   // of them or pass by the same chance, so the file is left at that.
@@ -3758,6 +3760,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     const scattered = (scatteredIn.get(mutant.id) ?? []).flatMap(({ file, failures }) =>
       failures.flatMap(({ keys, quiet, how }) => {
         const alone = quiet ? ' with nothing else running' : ''
+        if (keys.length === 0) return [`${relative(options.root, file)}: ${how} only in tests that fail by chance${alone}`]
         return keys.flatMap((key) => {
           if (key === '\0died') return [`${relative(options.root, file)}: the worker died${alone}`]
           if (key.startsWith('\0')) return [`${relative(options.root, file)}: ${how} with no test under way${alone}`]
