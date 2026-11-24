@@ -130,6 +130,10 @@ describe('copies of a worker made one after another', () => {
     const byChance = (mutant: RunResult['mutants'][number]) =>
       chance.some((record) => record.mutant === mutant.id || mutant.doubted?.some((doubt) => record.file.endsWith(doubt.split(' > ')[0])))
     expect(unsettled.filter((mutant) => mutant.leftOut || !(mutant.wavered || mutant.doubted) || !byChance(mutant)).map((mutant) => mutant.id)).toEqual([])
+    // A stall leaves the few copies under way then open: 1 on that runner,
+    // 3 or 4 of the 23 with the whole run stopped for 7 s. A copy that times
+    // out with every mutant, as a defect in its timers would, leaves most.
+    expect(unsettled.length).toBeLessThan(clock.mutants.filter((mutant) => mutant.status !== 'NoCoverage').length / 2)
     const verdicts = clock.mutants.filter((mutant) => mutant.status !== 'NoCoverage').map((mutant) => `${mutant.file} ${mutant.replacement} ${mutant.status === 'Unconfirmed' ? suite(mutant) : mutant.status}`)
     // The suite passes with `now` asking a child process; in a copy that had
     // stood still for the copies before it, the hook failed.
