@@ -124,12 +124,12 @@ describe('copies of a worker made one after another', () => {
     // A stall of 7.7 s on a four-core runner timed `labels` out with a mutant
     // the suite passes, and the run of the file alone then passed: that
     // settles nothing, and the mutant is Unconfirmed for a test that wavered
-    // with it or a file such a failure left failing by chance, never for a
-    // test left out.
+    // with it, a file such a failure left failing by chance, or runs that
+    // failed in a different test each time, never for a test left out.
     const unsettled = clock.mutants.filter((mutant) => mutant.status === 'Unconfirmed')
     const byChance = (mutant: RunResult['mutants'][number]) =>
       chance.some((record) => record.mutant === mutant.id || mutant.doubted?.some((doubt) => record.file.endsWith(doubt.split(' > ')[0])))
-    expect(unsettled.filter((mutant) => mutant.leftOut || !(mutant.wavered || mutant.doubted) || !byChance(mutant)).map((mutant) => mutant.id)).toEqual([])
+    expect(unsettled.filter((mutant) => mutant.leftOut || !(mutant.wavered || mutant.doubted || mutant.scattered) || !byChance(mutant)).map((mutant) => mutant.id)).toEqual([])
     // A stall leaves the few copies under way then open: 1 on that runner,
     // 3 or 4 of the 23 with the whole run stopped for 7 s. A copy that times
     // out with every mutant, as a defect in its timers would, leaves most.
