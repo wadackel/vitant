@@ -3105,6 +3105,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
               await cleanup()
             } catch {
               this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
+              this.wholeOutside = true
             }
           }
         }
