@@ -71,9 +71,16 @@ export interface Target {
    * hangs, where they are more than its `--limit`: for a scope whose run
    * takes most of the workflow's limit, or more, on a runner it uses. On
    * the three-core macOS runner some scopes take most of this one too, and
-   * headlamp's does not always end within it.
+   * headlamp's, with the two workers its `workers` gives there, ended within
+   * it in two runs of four.
    */
   limit?: number
+  /**
+   * Workers this tool is given on a machine with as many processors as a
+   * key, where `--workers` gives none; elsewhere, and StrykerJS always, it
+   * keeps its default, one a processor. Fewer workers cost only this tool.
+   */
+  workers?: Record<number, number>
   scopes: Record<string, Scope>
 }
 
@@ -84,6 +91,12 @@ export function vitestArgs(target: Target): string[] {
     ...(target.projects ?? []).flatMap((project) => ['--project', project]),
     ...(target.filters ?? []),
   ]
+}
+
+/** How many workers this tool is given: what `--workers` gave, else the target's `workers` for this many processors, else its default (undefined). */
+export function toolWorkers(target: Pick<Target, 'workers'>, processors: number, given?: string): number | undefined {
+  if (given) return Number(given)
+  return target.workers?.[processors]
 }
 
 /** `base` with the target's variables set and removed, and with `node_modules/.bin` of the project in `dir` first on PATH where the target asks for it. */
@@ -802,6 +815,11 @@ export const targets: Record<string, Target> = {
     env: { UNDER_TEST: 'true' },
     // The scope's run took 7,885 s on an EPYC 7763 against the workflow's 150 minutes.
     limit: 300,
+    // On the three-core macOS runner, three runs of `storybook.test.tsx` at once took every processor, stories that take
+    // a second or two ran out of Vitest's 5 s beside each other, and the file was run one process at a time from then on:
+    // in all five runs with three workers, two finishing within the job. With two it stayed side by side in two runs of
+    // four. Not every target's: Shopify CLI took 981 s there with two against 660 s with three ([benchmark](../docs/benchmark.md)).
+    workers: { 3: 2 },
     // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
     // a file in node_modules, which is the original's, outside the copy: two
     // of the 143 test files that reach `retry.ts` fail as they load. Ground truth is made with `--jobs 1`.

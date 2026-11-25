@@ -12,7 +12,8 @@
 // from one job to the next.
 // `vitant-confirm4`, `vitant-led` and `vitant-fast` are it with `--confirm 4`, `--led` and `--fast`, held against the scope's report of `vitant`.
 // `--workers N` gives both tools N processes at once, as a CI runner with N
-// cores would; where it is left out each takes its own default.
+// cores would; where it is left out each takes its own default, but this tool
+// takes what the target's `workers` says for the machine's processors.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
@@ -24,7 +25,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { changedLines } from '../src/changed.ts'
 import { defaultExclude } from '../src/mutate/generate.ts'
-import { projectDir, targetEnv, targets, vitestArgs } from './targets.ts'
+import { projectDir, targetEnv, targets, toolWorkers, vitestArgs } from './targets.ts'
 import { assertStrykerRestored, prepareStrykerSandbox } from './sandbox.ts'
 
 const { values, positionals } = parseArgs({
@@ -50,6 +51,7 @@ const outDir = path.join(import.meta.dirname, 'results', `${targetName}-${scopeN
 fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
 const tools = new Set(values.tool === 'both' ? ['stryker', 'vitant'] : values.tool.split(','))
+const workers = toolWorkers(targets[targetName], os.availableParallelism(), values.workers)
 
 interface Timing {
   tool: string
@@ -221,7 +223,7 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
     process.exit(1)
   }
   const args = [path.join(toolRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
-  if (values.workers) args.push('--max-workers', values.workers)
+  if (workers) args.push('--max-workers', String(workers))
   if (tool === 'vitant-no-clone') args.push('--no-clone')
   if (tool === 'vitant-confirm4') args.push('--confirm', '4')
   if (tool === 'vitant-led') args.push('--led')
@@ -314,7 +316,9 @@ for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4
 }
 
 const summaryPath = path.join(outDir, 'summary.json')
-const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version }
+// The target's setting is recorded on a run of StrykerJS alone as well: recorded only where this tool ran, the
+// machine would differ between the two halves of a scope run one tool at a time, and the second would drop the first.
+const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version, ...(workers ? { workers, workersOf: values.workers ? 'both tools' : 'this tool' } : {}) }
 // Times taken on another machine do not belong next to these.
 const earlier = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
 const previous = JSON.stringify(earlier.machine) === JSON.stringify(machine) ? earlier : {}
