@@ -992,15 +992,15 @@ fn spent_ms() -> Option<Vec<f64>> {
 /// Linux keeps the time waiting for a processor per thread, and this is the
 /// process's first, which runs the test file's JavaScript: Vitest's forks
 /// pool and the copies of its workers run it there. A kernel that keeps no
-/// such statistics gives noughts, and a process that has run has waited for
-/// a processor at some point.
+/// such statistics gives noughts for all three numbers; a copy just made has
+/// waited for nothing yet, so the wait alone being nought says nothing.
 #[cfg(not(target_os = "macos"))]
 fn spent_ms() -> Option<Vec<f64>> {
     let stat = std::fs::read_to_string("/proc/self/schedstat").ok()?;
     let mut fields = stat.split_ascii_whitespace();
     let cpu: f64 = fields.next()?.parse().ok()?;
     let wait: f64 = fields.next()?.parse().ok()?;
-    (cpu > 0.0 && wait > 0.0).then(|| vec![cpu / 1e6, wait / 1e6])
+    (cpu > 0.0).then(|| vec![cpu / 1e6, wait / 1e6])
 }
 
 /// The length of the unit the kernel counts a process's time in, in nanoseconds.
