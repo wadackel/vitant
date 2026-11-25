@@ -331,6 +331,8 @@ describe('what the runs of whole files settle', () => {
     expect(given([slow({ verdict: 'failed', overran: undefined }), alone()])).toEqual([file])
     expect(given([slow({ overran: undefined }), alone()])).toEqual([file])
     expect(given([slow({ verdict: 'failed', died: true }), alone()])).toEqual([file])
+    // A hook of a suite, or the file, that failed as well.
+    expect(given([slow({ outside: true }), alone()])).toEqual([file])
     // Another test that failed in the run by an assertion.
     expect(given([slow({ tests: ['t1', 't2'], spent: { t1: [5200, 1500, 3600], t2: [10, 10, 0] } }), alone()])).toEqual([file])
     // Passes made beside other runs only: nothing to set the work against.

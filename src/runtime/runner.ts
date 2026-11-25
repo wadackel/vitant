@@ -671,9 +671,9 @@ function standClocks(): void {
   process.hrtime = hrtime
   process.uptime = shifted(process.uptime, (seconds) => seconds - stood / 1000)
 }
-// An addon built before it could list threads would leave every check of them to fail in a test.
-if (addon && (typeof addon.threads !== 'function' || typeof addon.poolThreads !== 'function')) {
-  throw new Error(`${process.env.VITANT_FORK} cannot list threads: build it again with pnpm build:native`)
+// An addon built before it could list threads, or say what a process spent, would leave every check of them to fail in a test.
+if (addon && (typeof addon.threads !== 'function' || typeof addon.poolThreads !== 'function' || typeof addon.spent !== 'function')) {
+  throw new Error(`${process.env.VITANT_FORK} is older than this tool: build it again with pnpm build:native`)
 }
 if (cloner) standClocks()
 
@@ -1623,6 +1623,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeBegan = new Map<string, number[]>()
     /** See `WholeRecord.spent` in `src/run.ts`. */
     private wholeSpent: Record<string, number[]> = {}
+    /** See `WholeRecord.outside` in `src/run.ts`. */
+    private wholeOutside = false
     /**
      * While this process runs the file's tests with no mutant on to copy
      * itself before some of them, the runs to copy for, by the test they
@@ -2217,6 +2219,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.wholeOverrun = []
       this.wholeBegan.clear()
       this.wholeSpent = {}
+      this.wholeOutside = false
       this.wholeStartedAt = preciseNow()
       // A mutant that is only to be on for one test comes on at that test.
       runtime.a = job.control || job.trial !== undefined ? NO_MUTANT : job.mutant
@@ -2959,7 +2962,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // Vitest takes 0 for no limit.
       const limit = (test as { timeout?: number }).timeout ?? this.config.testTimeout
       if (!overran && !(limit > 0 && wall >= limit / 10)) return
-      const now = began.length === 3 ? addon?.spent() : undefined
+      // Tests that run at once share the process, and each one's stretch holds the others' time.
+      const now = began.length === 3 && !test.concurrent ? addon?.spent() : undefined
       this.wholeSpent[test.id] = [wall, ...(now ? [now[0] - began[1], now[1] - began[2]] : [])].map(Math.round)
     }
 
@@ -2967,6 +2971,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       return {
         ...(Object.keys(this.wholeSpent).length > 0 ? { spent: this.wholeSpent } : {}),
         ...(this.wholeOverrun.length > 0 ? { overran: this.wholeOverrun } : {}),
+        ...(this.wholeOutside ? { outside: true } : {}),
       }
     }
 
@@ -3112,6 +3117,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // A hook or the file itself can fail with every test passing.
         forEachTask(files, (task) => {
           if (task.result?.state === 'fail') this.wholeFailure ??= runtime.t ? 'timeout' : 'failed'
+          // A suite fails with its tests as well; one with errors of its own failed in a hook, or the file did.
+          if (task.type !== 'test' && (task.result?.errors?.length ?? 0) > 0) this.wholeOutside = true
         })
         if (cloned) return this.leave()
         for (const file of this.whole.calm ? files : []) {

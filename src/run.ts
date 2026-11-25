@@ -413,6 +413,8 @@ interface WholeRecord {
    * milliseconds. The last two are absent where the system does not say.
    */
   spent?: Record<string, number[]>
+  /** Something failed outside the tests: a hook of a suite, or the file. */
+  outside?: boolean
 }
 
 interface WholeState {
@@ -472,7 +474,7 @@ const SAME_WORK = 1.5
  * system does not say how long a process waited for a processor, no run is.
  */
 function slowOnly(failure: WholeRecord, passes: WholeRecord[]): boolean {
-  if (failure.verdict !== 'timeout' || failure.died || passes.length === 0) return false
+  if (failure.verdict !== 'timeout' || failure.died || failure.outside || passes.length === 0) return false
   const failing = failure.tests ?? (failure.test === undefined ? [] : [failure.test])
   return (
     failing.length > 0 &&
@@ -1024,7 +1026,9 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     const key = wholeKey(record.mutant, record.file)
     if (record.verdict === 'passed' || !passedOnce.has(key)) continue
     // A test that is only slow with the mutant says so like any test that
-    // fails one run and passes another, and the file stays side by side.
+    // fails one run and passes another, and the file stays side by side. One
+    // given away before its run alone showed that goes back, with what ran
+    // beside: that run says no other run was in its way.
     if (!record.alone) {
       if (!slowOnly(record, passedAlone.get(key) ?? [])) suspect(record.file, record.test)
     } else if (!passedAlone.has(key)) suspect(record.file, record.test)
