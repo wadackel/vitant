@@ -937,13 +937,7 @@ fn available_bytes() -> Option<f64> {
 /// CPU time a process has used, in milliseconds.
 #[cfg(target_os = "macos")]
 fn cpu_ms(pid: i32) -> Option<f64> {
-    static NANOSECONDS_PER_UNIT: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
-    let unit = *NANOSECONDS_PER_UNIT.get_or_init(|| {
-        let mut base = Timebase { numer: 1, denom: 1 };
-        // SAFETY: the kernel fills the two numbers.
-        unsafe { mach_timebase_info(&mut base) };
-        f64::from(base.numer) / f64::from(base.denom)
-    });
+    let unit = nanoseconds_per_unit();
     // SAFETY: the kernel fills the structure, which is plain numbers.
     unsafe {
         let mut usage: libc::rusage_info_v2 = std::mem::zeroed();
@@ -965,6 +959,59 @@ fn cpu_ms(pid: i32) -> Option<f64> {
     // SAFETY: plain system call.
     let per_second = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as f64;
     Some((user + system) * 1000.0 / per_second)
+}
+
+/// The time this process has spent on a processor and the time it has spent
+/// ready to run and waiting for one, in milliseconds; none where the system
+/// does not say. Over a stretch, their sum falls short of the time by the
+/// clock by what the process spent asleep: waiting on a timer, a file, a
+/// socket or a lock.
+#[napi]
+pub fn spent() -> Option<Vec<f64>> {
+    spent_ms()
+}
+
+/// macOS keeps both for the whole process, its ended threads included. Its
+/// runnable time counts the time running as well: a process spinning on a
+/// quiet machine for 400 ms had 394 ms of it, and 1,655 ms of 1,663 by the
+/// clock with every processor taken, 400 of them on one.
+#[cfg(target_os = "macos")]
+fn spent_ms() -> Option<Vec<f64>> {
+    let unit = nanoseconds_per_unit();
+    // SAFETY: the kernel fills the structure, which is plain numbers.
+    unsafe {
+        let mut usage: libc::rusage_info_v4 = std::mem::zeroed();
+        if libc::proc_pid_rusage(libc::getpid(), libc::RUSAGE_INFO_V4, (&raw mut usage).cast()) != 0 {
+            return None;
+        }
+        let cpu = (usage.ri_user_time + usage.ri_system_time) as f64 * unit / 1e6;
+        Some(vec![cpu, usage.ri_runnable_time as f64 * unit / 1e6 - cpu])
+    }
+}
+
+/// Linux keeps the time waiting for a processor per thread, and this is the
+/// process's first, which runs the test file's JavaScript: Vitest's forks
+/// pool and the copies of its workers run it there. A kernel that keeps no
+/// such statistics gives noughts.
+#[cfg(not(target_os = "macos"))]
+fn spent_ms() -> Option<Vec<f64>> {
+    let stat = std::fs::read_to_string("/proc/self/schedstat").ok()?;
+    let mut fields = stat.split_ascii_whitespace();
+    let cpu: f64 = fields.next()?.parse().ok()?;
+    let wait: f64 = fields.next()?.parse().ok()?;
+    (cpu > 0.0).then(|| vec![cpu / 1e6, wait / 1e6])
+}
+
+/// The length of the unit the kernel counts a process's time in, in nanoseconds.
+#[cfg(target_os = "macos")]
+fn nanoseconds_per_unit() -> f64 {
+    static NANOSECONDS_PER_UNIT: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    *NANOSECONDS_PER_UNIT.get_or_init(|| {
+        let mut base = Timebase { numer: 1, denom: 1 };
+        // SAFETY: the kernel fills the two numbers.
+        unsafe { mach_timebase_info(&mut base) };
+        f64::from(base.numer) / f64::from(base.denom)
+    })
 }
 
 /// Ends the process at once. Node's own exit takes a copied process down

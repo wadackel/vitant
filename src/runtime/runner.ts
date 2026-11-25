@@ -590,6 +590,8 @@ interface Cloner {
   threads(): string[]
   /** Those of `threads` that are libuv's pool. */
   poolThreads(): string[]
+  /** This process's time on a processor and ready for one, in milliseconds; null where the system does not say. */
+  spent(): [number, number] | null
   Ended: { Done: number; Blocked: number; Memory: number; Lost: number }
   exit(code: number): never
 }
@@ -1615,6 +1617,12 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     private wholeWaits = new Set<string>()
     /** Tests of the run that Vitest's own time limit ended. */
     private wholeOverran = 0
+    /** Those tests, see `WholeRecord.overran` in `src/run.ts`. */
+    private wholeOverrun: string[] = []
+    /** Per test under way in the run: the clock and `spent` as it began. */
+    private wholeBegan = new Map<string, number[]>()
+    /** See `WholeRecord.spent` in `src/run.ts`. */
+    private wholeSpent: Record<string, number[]> = {}
     /**
      * While this process runs the file's tests with no mutant on to copy
      * itself before some of them, the runs to copy for, by the test they
@@ -2206,6 +2214,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       this.wholeTests = []
       this.wholeWaits = new Set(job.witnesses)
       this.wholeOverran = 0
+      this.wholeOverrun = []
+      this.wholeBegan.clear()
+      this.wholeSpent = {}
       this.wholeStartedAt = preciseNow()
       // A mutant that is only to be on for one test comes on at that test.
       runtime.a = job.control || job.trial !== undefined ? NO_MUTANT : job.mutant
@@ -2466,6 +2477,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         // The first failure settles it.
         const over = this.whole.trial !== undefined ? this.trialOver : this.wholeSettled()
         if (over || this.whole.ignore.includes(test.id)) test.mode = 'skip'
+        else if (this.whole.trial === undefined) this.wholeBegan.set(test.id, [preciseNow(), ...(addon?.spent() ?? [])])
         return
       }
       if (test.mode !== 'run' && test.mode !== 'queued') return
@@ -2908,14 +2920,18 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         return
       }
       this.wholeWaits.delete(test.id)
+      const overran = test.result?.state === 'fail' && !runtime.t && /^Test timed out in \d+ms/.test(firstError(test) ?? '')
+      this.noteSpent(test, overran)
       // A plain run never gets past a loop this runner ended, though the
       // test caught the error and passed.
       if (test.result?.state === 'fail' || (runtime.t && this.wholeFailure === undefined)) {
         if (!this.wholeFailure) this.wholeTest = test.id
         this.wholeTests.push(test.id)
-        const overran = /^Test timed out in \d+ms/.test(firstError(test) ?? '')
         this.wholeFailure ??= runtime.t || overran ? 'timeout' : 'failed'
-        if (overran) this.wholeOverran++
+        if (overran) {
+          this.wholeOverran++
+          this.wholeOverrun.push(test.id)
+        }
         // A plain run goes on past a test that ran out of Vitest's time, and
         // without the witness after it that failure waits for a run made with
         // nothing else running, one at a time: in jotai fifty mutants that
@@ -2926,6 +2942,32 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       // Nobody waits for the rest of a copy's run.
       if (cloned && this.wholeSettled()) await this.leave()
+    }
+
+    /**
+     * Keeps what a test of the run spent where it ran out of Vitest's time
+     * for it, or took a tenth of that or more: the run of the file that
+     * passes with the same mutant is to show it spending about as much, see
+     * `slowOnly` in `src/run.ts`. Every test would make the records of a file
+     * with thousands of them as long as its runs are many.
+     */
+    private noteSpent(test: TaskLike, overran: boolean): void {
+      const began = this.wholeBegan.get(test.id)
+      this.wholeBegan.delete(test.id)
+      if (!began) return
+      const wall = preciseNow() - began[0]
+      // Vitest takes 0 for no limit.
+      const limit = (test as { timeout?: number }).timeout ?? this.config.testTimeout
+      if (!overran && !(limit > 0 && wall >= limit / 10)) return
+      const now = began.length === 3 ? addon?.spent() : undefined
+      this.wholeSpent[test.id] = [wall, ...(now ? [now[0] - began[1], now[1] - began[2]] : [])].map(Math.round)
+    }
+
+    private spentFields(): { spent?: Record<string, number[]>; overran?: string[] } {
+      return {
+        ...(Object.keys(this.wholeSpent).length > 0 ? { spent: this.wholeSpent } : {}),
+        ...(this.wholeOverrun.length > 0 ? { overran: this.wholeOverrun } : {}),
+      }
     }
 
     /**
@@ -2985,6 +3027,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
         quiet: this.whole!.quiet,
         by: this.wholeBy,
         ms: preciseNow() - this.wholeStartedAt,
+        ...this.spentFields(),
         ...(usage ? { faults: usage.minorPageFault, userMs: usage.userCPUTime / 1000, systemMs: usage.systemCPUTime / 1000 } : {}),
       })
       cloner!.done()
@@ -3091,6 +3134,7 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
             quiet: this.whole.quiet,
             by: this.wholeBy,
             ms: preciseNow() - this.wholeStartedAt,
+            ...this.spentFields(),
           })
         }
         this.whole = undefined
