@@ -236,6 +236,7 @@
     {"file":"src/punycode.ts","start":[87,30],"end":[87,35],"mutator":"ArithmeticOperator","replacement":"n + s","suite":"fail"},
     {"file":"src/punycode.ts","start":[88,30],"end":[88,36],"mutator":"ArithmeticOperator","replacement":"36 + s","suite":"fail"},
     {"file":"src/punycode.ts","start":[89,32],"end":[89,43],"mutator":"ArithmeticOperator","replacement":"s - (u % f)","suite":"fail"},
+    {"file":"src/punycode.ts","start":[89,58],"end":[89,63],"mutator":"ArithmeticOperator","replacement":"u * f","suite":"timeout"},
     {"file":"src/punycode.ts","start":[91,52],"end":[91,58],"mutator":"EqualityOperator","replacement":"p != h","suite":"fail"},
     {"file":"src/punycode.ts","start":[91,52],"end":[91,58],"mutator":"ConditionalExpression","replacement":"true","suite":"fail"},
     {"file":"src/punycode.ts","start":[91,52],"end":[91,58],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},
