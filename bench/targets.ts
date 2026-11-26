@@ -429,7 +429,7 @@ export const targets: Record<string, Target> = {
     dir: 'packages/loot-core',
     install: ['corepack yarn install --immutable'],
     installStryker: `corepack yarn workspace @actual-app/core add -D ${stryker}`,
-    // The scope's run took 7,623 s on an EPYC 9V74, 11,072 s on an EPYC 7763 and 8,183 s on a macOS runner against the workflow's 150 minutes.
+    // The scope's run took 7,623 s on an EPYC 9V74, 11,072 s on an EPYC 7763 and 8,123 to 16,307 s on a macOS runner, the longest with a second test file run one process at a time, against the workflow's 150 minutes.
     limit: 300,
     scopes: {
       server: { mutate: ['src/server/budget/**/*.ts', 'src/server/aql/**/*.ts'] },
