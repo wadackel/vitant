@@ -404,6 +404,17 @@ interface WholeRecord {
   ms?: number
   /** Absent on a verdict taken over from an earlier run of the tool. */
   by?: keyof WholeRuns
+  /** The tests of `tests` that ran out of the time Vitest gives them, with no loop this runner ended. */
+  overran?: string[]
+  /**
+   * Per test of the run that took a tenth of the time Vitest gives it or
+   * more, or ran out of it: how long it took by the clock, and of that the
+   * time the process spent on a processor and ready for one, in
+   * milliseconds. The last two are absent where the system does not say.
+   */
+  spent?: Record<string, number[]>
+  /** Something failed outside the tests: a hook of a suite, or the file. */
+  outside?: boolean
 }
 
 interface WholeState {
@@ -442,6 +453,40 @@ function failureKeys(record: WholeRecord, counts: (test: string) => boolean): st
   if (record.died) return ['\0died']
   const failing = record.tests ?? (record.test === undefined ? [] : [record.test])
   return failing.length > 0 ? failing.filter(counts) : [`\0${record.verdict}`]
+}
+
+/** The least share of a test's time by the clock its process is to have spent on a processor or ready for one, see `slowOnly`. */
+const AWAKE = 0.9
+/** How many times the processor time of one of two runs of a test may be the other's, see `slowOnly`. */
+const SAME_WORK = 1.5
+
+/**
+ * Whether a run of a file that failed next to other runs of it, and that
+ * passed with the same mutant where it had the file to itself, failed only
+ * by being slow: every test that failed ran out of the time Vitest gives it;
+ * for most of that time its process was on a processor or ready for one,
+ * never asleep; and in each run that passed the test spent about as long on
+ * a processor. A run waiting on a port, a lock or a file another run holds
+ * sleeps while it waits, and one made to do other work by what another run
+ * wrote spends more. On headlamp's 3-core runner a mutant that makes a story
+ * slower ran it out of its 5 s next to one other run of the file, and the
+ * file given away for that took the job past its six hours. Where the
+ * system does not say how long a process waited for a processor, no run is.
+ */
+function slowOnly(failure: WholeRecord, passes: WholeRecord[]): boolean {
+  if (failure.verdict !== 'timeout' || failure.died || failure.outside || passes.length === 0) return false
+  const failing = failure.tests ?? (failure.test === undefined ? [] : [failure.test])
+  return (
+    failing.length > 0 &&
+    failing.every((test) => {
+      const [wall, cpu, ready] = failure.spent?.[test] ?? []
+      if (!failure.overran?.includes(test) || ready === undefined || cpu + ready < wall * AWAKE) return false
+      return passes.every((pass) => {
+        const alone = pass.spent?.[test]?.[1]
+        return alone !== undefined && Math.max(cpu, alone) <= Math.min(cpu, alone) * SAME_WORK
+      })
+    })
+  )
 }
 
 /** Some test, or the death of a worker, failed in two of the runs, one made with nothing else running. */
@@ -962,11 +1007,12 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
   const flaky = new Set<string>()
   const exclusive = new Set<string>()
   const passedOnce = new Set<string>()
-  const passedAlone = new Set<string>()
+  const passedAlone = new Map<string, WholeRecord[]>()
   for (const record of counted) {
     if (record.verdict !== 'passed') continue
-    passedOnce.add(wholeKey(record.mutant, record.file))
-    if (record.alone) passedAlone.add(wholeKey(record.mutant, record.file))
+    const key = wholeKey(record.mutant, record.file)
+    passedOnce.add(key)
+    if (record.alone) passedAlone.set(key, [...(passedAlone.get(key) ?? []), record])
   }
   /** Per file, the tests whose failing made it one to run alone; undefined for a failure that was no test's. */
   const gaveAway = new Map<string, Set<string | undefined>>()
@@ -979,7 +1025,13 @@ export function inspect(records: SessionRecord[], siteOf?: ArrayLike<number>) {
     if (record.alone) lastAlone.set(record.file, Math.max(lastAlone.get(record.file) ?? 0, record.at))
     const key = wholeKey(record.mutant, record.file)
     if (record.verdict === 'passed' || !passedOnce.has(key)) continue
-    if (!record.alone || !passedAlone.has(key)) suspect(record.file, record.test)
+    // A test that is only slow with the mutant says so like any test that
+    // fails one run and passes another, and the file stays side by side. One
+    // given away before its run alone showed that goes back, with what ran
+    // beside: that run says no other run was in its way.
+    if (!record.alone) {
+      if (!slowOnly(record, passedAlone.get(key) ?? [])) suspect(record.file, record.test)
+    } else if (!passedAlone.has(key)) suspect(record.file, record.test)
     else if (record.test) {
       unsteady.set(record.test, (unsteady.get(record.test) ?? new Set()).add(siteOf?.[record.mutant] ?? record.mutant))
     }

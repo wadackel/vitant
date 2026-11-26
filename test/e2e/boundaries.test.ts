@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createE2E, root } from '../helpers/e2e.ts'
+import { addonTarget } from '../../src/platform.ts'
 import type { RunResult } from '../../src/run.ts'
 import { relative } from '../../src/session.ts'
 
@@ -141,6 +142,25 @@ describe('test files whose runs do not stand each other, or that fail now and th
     }
     expect(judged(run, 'src/alive.ts').flatMap((mutant) => mutant.evidence?.map((entry) => entry.kind) ?? [])).toContain('died')
     const others = (result: RunResult) => verdicts(result).filter((line) => !line.startsWith('src/drift.ts') && !line.startsWith('src/scatter.ts'))
+    expect(others(run)).toEqual(others(plain))
+  }, 120_000)
+
+  // How long a process waited for a processor comes from the addon.
+  it.skipIf(!addonTarget())('keeps a file side by side whose test only ran out of its time for want of a processor, and not one whose test waited on a lock', () => {
+    const id = `${process.pid}-${Date.now()}`
+    const run = runClash('clash-crowd', { CLASH_CROWD: id, CLASH_LATCH: id })
+    expect([...run.exclusiveFiles].sort()).toEqual(['test/latch.test.ts', 'test/slot.test.ts'])
+    for (const [source, test] of [['src/crowd.ts', 'test/crowd.test.ts > seats the crowd'], ['src/latch.ts', 'test/latch.test.ts > lets the guests in']]) {
+      const judged = run.mutants.filter((mutant) => mutant.file === source)
+      expect(judged.length, source).toBeGreaterThan(0)
+      expect(plain.mutants.filter((mutant) => mutant.file === source).map((mutant) => mutant.status)).toEqual(judged.map(() => 'Survived'))
+      // Timed out next to another run of the file and passed with nothing else running, as any test that fails one run and passes another.
+      for (const mutant of judged) {
+        expect(mutant.status).toBe('Unconfirmed')
+        expect(mutant.wavered).toEqual([test])
+      }
+    }
+    const others = (result: RunResult) => verdicts(result).filter((line) => !line.startsWith('src/crowd.ts') && !line.startsWith('src/latch.ts'))
     expect(others(run)).toEqual(others(plain))
   }, 120_000)
 })

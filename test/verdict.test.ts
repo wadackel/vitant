@@ -305,6 +305,40 @@ describe('what the runs of whole files settle', () => {
     expect([...kept.exclusive]).toEqual([file])
   })
 
+  it('keeps a file side by side where a test only ran out of its time beside other runs, on a processor or ready for one, doing the same work', () => {
+    // A run of another mutant that passed side by side, which counts as long as the file is not given away.
+    const before = whole(2, 'passed')
+    const slow = (more: object = {}) => whole(0, 'timeout', { test: 't1', tests: ['t1'], overran: ['t1'], spent: { t1: [5200, 1500, 3600] }, ...more })
+    const alone = (more: object = {}) => whole(0, 'passed', { alone: true, quiet: true, spent: { t1: [1400, 1300, 20] }, ...more })
+    const status = inspect([before, slow(), alone()])
+    expect(status.exclusive.size).toBe(0)
+    expect(status.whole.get(`2\n${file}`)?.passed).toBe(1)
+    expect(status.detected.has(0)).toBe(false)
+    expect(status.whole.get(`0\n${file}`)?.passed).toBe(1)
+    const given = (records: SessionRecord[]) => [...inspect([before, ...records]).exclusive]
+    // Asleep for most of it, as a run waiting on a lock another run holds.
+    expect(given([slow({ spent: { t1: [5200, 100, 300] } }), alone({ spent: { t1: [1400, 100, 20] } })])).toEqual([file])
+    // More work than where it passed, as a run made to by what another run wrote.
+    expect(given([slow({ spent: { t1: [5200, 5000, 100] } }), alone()])).toEqual([file])
+    expect(given([slow(), alone({ spent: { t1: [5200, 4800, 20] } })])).toEqual([file])
+    // Where the system does not say how long the process waited for a processor.
+    expect(given([slow({ spent: { t1: [5200, 1500] } }), alone()])).toEqual([file])
+    // Where the run that passed did not keep the test's time, as for one far quicker there.
+    expect(given([slow(), alone({ spent: undefined })])).toEqual([file])
+    // Every run made alone that passed is to show the same work.
+    expect(given([slow(), alone(), alone({ spent: { t1: [400, 300, 10] } })])).toEqual([file])
+    // A failure other than Vitest's own time limit: an assertion, the tool's limit, a death.
+    expect(given([slow({ verdict: 'failed', overran: undefined }), alone()])).toEqual([file])
+    expect(given([slow({ overran: undefined }), alone()])).toEqual([file])
+    expect(given([slow({ verdict: 'failed', died: true }), alone()])).toEqual([file])
+    // A hook of a suite, or the file, that failed as well.
+    expect(given([slow({ outside: true }), alone()])).toEqual([file])
+    // Another test that failed in the run by an assertion.
+    expect(given([slow({ tests: ['t1', 't2'], spent: { t1: [5200, 1500, 3600], t2: [10, 10, 0] } }), alone()])).toEqual([file])
+    // Passes made beside other runs only: nothing to set the work against.
+    expect(given([slow(), whole(0, 'passed', { spent: { t1: [1400, 1300, 20] } })])).toEqual([file])
+  })
+
   it('leaves a test out for every mutant only once it failed and passed alone with mutants in two places', () => {
     const one = [whole(0, 'failed', { test: 't2', alone: true }), whole(0, 'passed', { alone: true })]
     const other = [whole(1, 'failed', { test: 't2', alone: true }), whole(1, 'failed', { test: 't2', alone: true, quiet: true })]
