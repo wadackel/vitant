@@ -151,33 +151,33 @@ When Stryker is usable, the StrykerJS and vitant columns use those same pairs; t
 
 Against the same measurement of [b58eef9](https://github.com/wadackel/vitant/commit/b58eef9) on 10 November, the medians moved by a tenth or less, except Secretlint `messages` from 2.710 to 3.088, es-toolkit `array` from 2.218 to 1.911, immer from 1.755 to 1.585 and es-toolkit `pr` from 0.693 to 0.532. Between the two, [#16](https://github.com/wadackel/vitant/pull/16) makes a run stopped for its memory again alone, which within one job cost es-toolkit `array` 13 and immer 11 in a hundred; within one job the changes after it gave these 0.96 to 1.08. Every judged stored-truth entry agrees; these checks cover subsets of the generated mutants. [Application scopes, CI cohorts, correctness evidence and historical macOS measurements](docs/benchmark.md#on-hosted-ci-runners).
 
-The targets added in November 2026, StrykerJS and vitant one after the other in a job, one run each, at [c853c54](https://github.com/wadackel/vitant/commit/c853c54208a102dc587aa925d484efe347b58275) on four-core Ubuntu 24.04 runners ([run](https://github.com/wadackel/vitant/actions/runs/44902363147); fast-check, added after it, at [516c9ac](https://github.com/wadackel/vitant/commit/516c9ac951df2d964035027c741cb1a4288c9f69) ([run](https://github.com/wadackel/vitant/actions/runs/44936867476))). The times are of the tool at those commits; #68 and #70 to #72 changed it after them (fast-check's commit has #68). Runners differ by half in speed, so only times from one job compare; "not comparable" marks a StrykerJS run that kills none or few of its mutants, or times out a third or more ([notes](docs/benchmark.md#every-target-on-main-21-november-2026)).
+The targets added in November 2026, StrykerJS and vitant one after the other in a job, one run each, at [c853c54](https://github.com/wadackel/vitant/commit/c853c54208a102dc587aa925d484efe347b58275) on four-core Ubuntu 24.04 runners ([run](https://github.com/wadackel/vitant/actions/runs/44902363147); fast-check, added after it, at [516c9ac](https://github.com/wadackel/vitant/commit/516c9ac951df2d964035027c741cb1a4288c9f69) ([run](https://github.com/wadackel/vitant/actions/runs/44936867476))). The StrykerJS and vitant columns are of the tool at those commits, before #68, #70 to #72, #76 and #77 (fast-check's commit has #68). The last two are of vitant alone at [5275f7f](https://github.com/wadackel/vitant/commit/5275f7f3f50070a83138e6991fb111ff678931f0) on 26 November 2026 ([run](https://github.com/wadackel/vitant/actions/runs/45814208409)), each on the processor its job was given. Runners differ by half in speed, so only times from one job compare; "not comparable" marks a StrykerJS run that kills none or few of its mutants, or times out a third or more ([notes](docs/benchmark.md#every-target-on-main)).
 
-| Target and scope | Processor | StrykerJS | vitant | Against the suite |
-|---|---|---|---|---|
-| koel `composables` | Xeon 6975P-C | does not start | 1,611 s | all 1,120 agree |
-| homepage `utils` | Xeon 6975P-C | 550 s | 919 s | all 726 agree |
-| tailwindcss `parsers` | Xeon 6975P-C | 2,465 s, not comparable | 1,789 s | all 843 agree |
-| sentry `utils` | EPYC 9V74 | 473 s | 386 s | all 883 agree |
-| lobehub `topic` | Xeon 6975P-C | 1,957 s, not comparable | 2,882 s | all 502 agree |
-| Shopify CLI `node` | Xeon 6975P-C | does not start | 240 s | all 718 agree (with `archiver.ts`, since left out: 43 of them) |
-| promptfoo `assertions` | Xeon 6975P-C | does not start | 725 s | all 480 agree |
-| ComfyUI_frontend `stores` | Xeon 6975P-C | 1,181 s, not comparable | 2,601 s | all 1,041 agree |
-| freelens `utils` | Xeon 8573C | not run (`strykerSkip`) | 7,963 s | all 410 agree |
-| n8n `proxy` | Xeon 6975P-C | 991 s | 756 s | all 1,351 agree |
-| headlamp `api` | Xeon 6975P-C | 2,100 s | 5,438 s | all 641 agree |
-| zod `core` | EPYC 9V74 | does not start | 1,768 s | all 1,240 agree |
-| vercel/ai `node` | Xeon 6975P-C | 1,432 s | 639 s | all 756 agree |
-| vercel/ai `edge` | Xeon 6975P-C | 1,476 s | 654 s | all 752 agree |
-| SvelteKit `server` | EPYC 7763 | not run (`strykerSkip`) | 625 s | 1,042 agree, 17 as their notes say, 2 unconfirmed |
-| renovate `util` | EPYC 9V74 | does not start | 554 s | 469 agree, 2 as their notes say |
-| lint-staged `lib` | Xeon 6975P-C | 1,898 s, not comparable | 1,883 s | all 530 agree |
-| happy-dom `selectors` | Xeon 6975P-C | does not start | 625 s | all 702 agree |
-| mikro-orm `core` | EPYC 7763 | 3,680 s, not comparable | 3,220 s | all 616 agree |
-| coder `agents` | Xeon 6975P-C | does not start | 570 s | all 2,670 agree |
-| element-plus `table` | Xeon 6975P-C | 2,277 s, not comparable | 4,582 s | all 2,088 agree |
-| element-plus `hooks` | Xeon 6975P-C | 208 s, not comparable | 4,096 s | 1,052 agree, 2 unconfirmed |
-| fast-check `check`, at 516c9ac | Xeon 6975P-C | does not start | 5,633 s | all 505 agree |
+| Target and scope | Processor | StrykerJS | vitant | vitant at 5275f7f | Against the suite at 5275f7f |
+|---|---|---|---|---|---|
+| koel `composables` | Xeon 6975P-C | does not start | 1,611 s | 1,579 s, Xeon 6975P-C | all 1,120 agree |
+| homepage `utils` | Xeon 6975P-C | 550 s | 919 s | 929 s, Xeon 6975P-C | all 726 agree |
+| tailwindcss `parsers` | Xeon 6975P-C | 2,465 s, not comparable | 1,789 s | 1,830 s, Xeon 6975P-C | all 843 agree |
+| sentry `utils` | EPYC 9V74 | 473 s | 386 s | 385 s, EPYC 9V74 | all 883 agree |
+| lobehub `topic` | Xeon 6975P-C | 1,957 s, not comparable | 2,882 s | 2,679 s, Xeon 6975P-C | all 502 agree |
+| Shopify CLI `node` | Xeon 6975P-C | does not start | 240 s, with `archiver.ts`, since left out | 274 s, EPYC 7763 | all 675 agree |
+| promptfoo `assertions` | Xeon 6975P-C | does not start | 725 s | 805 s, Xeon 6975P-C | all 480 agree |
+| ComfyUI_frontend `stores` | Xeon 6975P-C | 1,181 s, not comparable | 2,601 s | 2,364 s, EPYC 9V45 | all 1,041 agree |
+| freelens `utils` | Xeon 8573C | not run (`strykerSkip`) | 7,963 s | 7,433 s, Xeon 6975P-C | all 410 agree |
+| n8n `proxy` | Xeon 6975P-C | 991 s | 756 s | 1,061 s, EPYC 9V74 | 1,350 agree, 1 as their notes say |
+| headlamp `api` | Xeon 6975P-C | 2,100 s | 5,438 s | 6,966 s, EPYC 9V45 | 640 agree, 1 unconfirmed |
+| zod `core` | EPYC 9V74 | does not start | 1,768 s | 2,385 s, EPYC 7763 | all 1,240 agree |
+| vercel/ai `node` | Xeon 6975P-C | 1,432 s | 639 s | 635 s, Xeon 6975P-C | all 756 agree |
+| vercel/ai `edge` | Xeon 6975P-C | 1,476 s | 654 s | 674 s, Xeon 6975P-C | all 752 agree |
+| SvelteKit `server` | EPYC 7763 | not run (`strykerSkip`) | 625 s | 570 s, EPYC 7763 | 1,040 agree, 17 as their notes say, 4 unconfirmed |
+| renovate `util` | EPYC 9V74 | does not start | 554 s | 480 s, EPYC 9V45 | 470 agree, 1 as their notes say |
+| lint-staged `lib` | Xeon 6975P-C | 1,898 s, not comparable | 1,883 s | 2,046 s, Xeon 6975P-C | all 530 agree |
+| happy-dom `selectors` | Xeon 6975P-C | does not start | 625 s | 608 s, EPYC 7763 | all 702 agree |
+| mikro-orm `core` | EPYC 7763 | 3,680 s, not comparable | 3,220 s | 2,047 s, Xeon 6975P-C | all 616 agree |
+| coder `agents` | Xeon 6975P-C | does not start | 570 s | 590 s, Xeon 6975P-C | all 2,670 agree |
+| element-plus `table` | Xeon 6975P-C | 2,277 s, not comparable | 4,582 s | 4,541 s, EPYC 9V45 | all 2,088 agree |
+| element-plus `hooks` | Xeon 6975P-C | 208 s, not comparable | 4,096 s | 5,059 s, EPYC 9V74 | all 1,054 agree |
+| fast-check `check`, at 516c9ac | Xeon 6975P-C | does not start | 5,633 s | 8,854 s, EPYC 7763 | all 505 agree |
 
 ## Limits
 

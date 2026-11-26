@@ -72,7 +72,7 @@ export interface Target {
    * takes most of the workflow's limit, or more, on a runner it uses. On
    * the three-core macOS runner some scopes take most of this one too, and
    * headlamp's, with the two workers its `workers` gives there, ended within
-   * it in two runs of four.
+   * it in seven runs of nine.
    */
   limit?: number
   /**
@@ -817,8 +817,8 @@ export const targets: Record<string, Target> = {
     limit: 300,
     // On the three-core macOS runner, three runs of `storybook.test.tsx` at once took every processor, stories that take
     // a second or two ran out of Vitest's 5 s beside each other, and the file was run one process at a time from then on:
-    // in all five runs with three workers, two finishing within the job. With two it stayed side by side in two runs of
-    // four. Not every target's: Shopify CLI took 981 s there with two against 660 s with three ([benchmark](../docs/benchmark.md)).
+    // in all five runs with three workers, two finishing within the job. With two it stayed side by side in seven runs of
+    // nine. Not every target's: Shopify CLI took 981 s there with two against 660 s with three ([benchmark](../docs/benchmark.md)).
     workers: { 3: 2 },
     // From a `--jobs` copy of ground truth, Vite refuses the `?url` import of
     // a file in node_modules, which is the original's, outside the copy: two
