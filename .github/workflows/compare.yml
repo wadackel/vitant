@@ -57,7 +57,8 @@ jobs:
     name: ${{ matrix.job.name }}
     needs: plan
     runs-on: ${{ matrix.job.runner }}
-    # A share is meant to take under half an hour; one that does not end in an hour is stuck.
+    # A share's run of one commit is meant to take ten minutes; `--limit` ends one at 25, and
+    # records what it was doing, before the job's limit would end both and keep nothing.
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -85,9 +86,10 @@ jobs:
           ref: ${{ needs.plan.outputs.base }}
           path: base
           persist-credentials: false
+      # The head's packages stand in for the base's unless the base locks others, a parser's version among them.
       - name: Build the base
         run: |
-          ln -s ../node_modules base/node_modules
+          if cmp -s pnpm-lock.yaml base/pnpm-lock.yaml; then ln -s ../node_modules base/node_modules; else (cd base && pnpm install --frozen-lockfile); fi
           cd base && pnpm build:native
       - name: Set up ${{ matrix.job.target }}
         run: node bench/setup.ts "${{ matrix.job.target }}" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
@@ -96,7 +98,7 @@ jobs:
           VITANT_BASE: ${{ github.workspace }}/base
           TOOLS: ${{ matrix.job.tools }}
           SHARD: ${{ matrix.job.shard }}
-        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit 40
+        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit 25
       - name: Summary
         if: ${{ !cancelled() }}
         run: node bench/summary.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"

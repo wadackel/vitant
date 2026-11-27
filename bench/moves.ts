@@ -11,8 +11,10 @@
 // base's mutants with the head's by file, start, end, mutator and replacement,
 // and prints Markdown: every mutant that moved, and each merged report held
 // against bench/truth/. It exits with 1 where a mutant moved between detected
-// and undetected, unless the stored ground truth explains the mutant's verdict,
-// a report disagrees with the suite, or a job left no report.
+// and undetected, where a merged report disagrees with the suite, where a
+// mutant is in one commit's report only, and where a job left no report, a
+// run exited with another code than 0 or left a mutant pending. A move of a
+// mutant whose stored ground truth has a note is listed apart and passes.
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -123,8 +125,15 @@ export function planSlots(scopes: string, withMacos: boolean): Slot[] {
         if (!/^[1-9]\d*$/.test(shards)) throw new Error(`${entry}: shards must be a whole number above 0`)
         return { target, scope, shards: Number(shards), runner: linux, path: 'copies' }
       })
+  const seen = new Set<string>()
   for (const slot of slots) {
-    if (!targets[slot.target]?.scopes[slot.scope]) throw new Error(`no scope ${slot.target} ${slot.scope} in bench/targets.ts`)
+    // `in` and a plain lookup would take `toString` for a scope.
+    if (!Object.hasOwn(targets, slot.target) || !Object.hasOwn(targets[slot.target].scopes, slot.scope)) {
+      throw new Error(`no scope ${slot.target} ${slot.scope} in bench/targets.ts`)
+    }
+    const name = slotName(slot)
+    if (seen.has(name)) throw new Error(`${slot.target}:${slot.scope} is given twice`)
+    seen.add(name)
   }
   return slots
 }
@@ -172,21 +181,21 @@ export interface Moved {
  * listed apart without failing: the suite was run by hand for it, and the
  * note says why this tool's verdict differs from the suite's in some runs.
  */
-export function movesBetween(base: RunResult, head: RunResult, explained = new Set<string>()): { moved: Moved[]; onlyBase: number; onlyHead: number } {
+export function movesBetween(base: RunResult, head: RunResult, explained = new Set<string>()): { moved: Moved[]; onlyBase: MutantResult[]; onlyHead: MutantResult[] } {
   const before = new Map(base.mutants.map((mutant) => [keyOf(mutant), mutant]))
   const moved: Moved[] = []
-  let onlyHead = 0
+  const onlyHead: MutantResult[] = []
   for (const mutant of head.mutants) {
     const was = before.get(keyOf(mutant))
     if (!was) {
-      onlyHead++
+      onlyHead.push(mutant)
       continue
     }
     before.delete(keyOf(mutant))
     const move = moveOf(was.status, mutant.status)
     if (move) moved.push({ mutant, was: was.status, move: move === 'detection' && explained.has(keyOf(mutant)) ? 'explained' : move })
   }
-  return { moved, onlyBase: before.size, onlyHead }
+  return { moved, onlyBase: [...before.values()], onlyHead }
 }
 
 interface StoredEntry {
@@ -203,7 +212,14 @@ interface Summary {
   timings: Record<string, { seconds: number[]; exitCodes: (number | null)[] }>
 }
 
-const read = <T>(file: string): T | undefined => (fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as T) : undefined)
+const read = <T>(file: string): T | undefined => {
+  if (!fs.existsSync(file)) return undefined
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8')) as T
+  } catch {
+    return undefined
+  }
+}
 
 const order: Move[] = ['detection', 'explained', 'without a verdict', 'killed or timeout', 'survived or no coverage']
 const heading: Record<Move, string> = {
@@ -217,6 +233,13 @@ const heading: Record<Move, string> = {
 const where = (mutant: MutantResult) =>
   `${mutant.file}:${mutant.location.start.line}:${mutant.location.start.column + 1} ${mutant.mutator} \`${mutant.replacement.slice(0, 40).replace(/\s+/g, ' ').replace(/`/g, "'")}\``
 
+interface Outcome {
+  lines: string[]
+  problems: number
+  detections: number
+  explained: number
+}
+
 function check(jobs: Job[], dir: string): boolean {
   const lines: string[] = []
   let problems = 0
@@ -224,83 +247,107 @@ function check(jobs: Job[], dir: string): boolean {
   let explainedMoves = 0
   const groups = slotsOf(jobs)
   for (const { slot, jobs: slotJobs } of groups) {
-    const { base: baseTool, head: headTool } = toolsOf(slot.path)
-    lines.push(`### ${slotName(slot)}, ${slot.shards} shard${slot.shards === 1 ? '' : 's'}${slot.apart ? ', base and head on two runners' : ''}`, '')
-    const shares: Record<string, RunResult[]> = { [baseTool]: [], [headTool]: [] }
-    const cpus: Record<string, string[]> = { [baseTool]: [], [headTool]: [] }
-    const seconds: Record<string, number> = { [baseTool]: 0, [headTool]: 0 }
-    const missing: string[] = []
-    for (const job of slotJobs) {
-      const at = path.join(dir, job.artifact)
-      const summary = read<Summary>(path.join(at, 'summary.json'))
-      for (const tool of job.tools.split(',')) {
-        const report = read<RunResult>(path.join(at, `${tool}.json`))
-        const timing = summary?.timings[tool]
-        if (!report || !timing) {
-          missing.push(`${job.name}: no ${!summary ? 'results' : `report of ${tool}`}`)
-          continue
-        }
-        if (timing.exitCodes.some((code) => code !== 0)) missing.push(`${job.name}: ${tool} exited with ${timing.exitCodes.join(', ')}`)
-        if (report.counts.Pending > 0) missing.push(`${job.name}: ${tool} left ${report.counts.Pending} mutant(s) pending`)
-        shares[tool].push(report)
-        cpus[tool].push(summary.machine.cpu)
-        seconds[tool] = Math.max(seconds[tool], ...timing.seconds)
-      }
+    // One scope's reports that cannot be read or merged leave the others' moves to be read.
+    let outcome: Outcome
+    try {
+      outcome = compareSlot(slot, slotJobs, dir)
+    } catch (error) {
+      outcome = { lines: [`### ${slotName(slot)}`, '', `- **Not compared: ${(error as Error).message}**`, ''], problems: 1, detections: 0, explained: 0 }
     }
-    if (missing.length > 0) {
-      problems += missing.length
-      lines.push(...missing.map((line) => `- **${line}**`), '')
-    }
-    if (shares[baseTool].length < slot.shards || shares[headTool].length < slot.shards) {
-      lines.push('Not compared: a share of one commit is missing.', '')
-      continue
-    }
-    const merged = { [baseTool]: mergeReports(shares[baseTool]), [headTool]: mergeReports(shares[headTool]) }
-    const truthFile = path.join(import.meta.dirname, 'truth', `${slot.target}-${slot.scope}.json`)
-    const truth: Record<string, string> = {}
-    for (const tool of [baseTool, headTool]) {
-      const file = path.join(dir, 'merged', `${slot.target}-${slot.scope}-${slot.runner}-${slot.path}`, `${tool}.json`)
-      fs.mkdirSync(path.dirname(file), { recursive: true })
-      fs.writeFileSync(file, JSON.stringify(merged[tool]))
-      if (!fs.existsSync(truthFile)) {
-        truth[tool] = 'no ground truth stored'
-        continue
-      }
-      const run = spawnSync(process.execPath, [path.join(import.meta.dirname, 'truth.ts'), 'check', '--report', file, '--truth', truthFile], { encoding: 'utf8' })
-      truth[tool] = run.stdout.trim().split('\n').map((line) => line.trimEnd()).join('<br>')
-      if (run.status !== 0) {
-        problems++
-        truth[tool] = `**${truth[tool] || run.stderr.trim()}**`
-      }
-    }
-    const counts = (report: RunResult) => Object.entries(report.counts).filter(([, count]) => count > 0).map(([status, count]) => `${status} ${count}`).join(', ')
-    const work = (report: RunResult) => `${Object.entries(report.wholeRuns).filter(([kind]) => kind !== 'lost').reduce((sum, [, count]) => sum + count, 0)} whole-file runs, ${report.work.trials} trials`
-    lines.push('| | Verdicts | Work | Longest shard | Processors | Against the suite |', '|---|---|---|---|---|---|')
-    for (const tool of [baseTool, headTool]) {
-      lines.push(`| ${tool} | ${counts(merged[tool])} | ${work(merged[tool])} | ${seconds[tool]} s | ${[...new Set(cpus[tool])].join(', ')} | ${truth[tool]} |`)
-    }
-    lines.push('')
-    const stored = read<{ mutants: StoredEntry[] }>(truthFile)
-    const explained = new Set((stored?.mutants ?? []).filter((entry) => entry.note).map((entry) =>
-      keyOf({ file: entry.file, location: { start: { line: entry.start[0], column: entry.start[1] }, end: { line: entry.end[0], column: entry.end[1] } }, mutator: entry.mutator, replacement: entry.replacement })))
-    const { moved, onlyBase, onlyHead } = movesBetween(merged[baseTool], merged[headTool], explained)
-    if (onlyBase + onlyHead > 0) lines.push(`Mutants of one commit only: ${onlyBase} of the base, ${onlyHead} of the head.`, '')
-    if (moved.length === 0) lines.push('No mutant moved.', '')
-    for (const move of order) {
-      const these = moved.filter((entry) => entry.move === move)
-      if (these.length === 0) continue
-      if (move === 'detection') detections += these.length
-      if (move === 'explained') explainedMoves += these.length
-      lines.push(`${move === 'detection' ? '**' : ''}${heading[move]}: ${these.length}${move === 'detection' ? '**' : ''}`, '')
-      for (const { mutant, was } of these) lines.push(`- ${where(mutant)}: ${was} → ${mutant.status}`)
-      lines.push('')
-    }
+    lines.push(...outcome.lines)
+    problems += outcome.problems
+    detections += outcome.detections
+    explainedMoves += outcome.explained
   }
   const verdict = detections === 0 && problems === 0
     ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite.`
     : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**`
   console.log(['## Verdicts at two commits', '', verdict, '', ...lines].join('\n'))
   return detections === 0 && problems === 0
+}
+
+function compareSlot(slot: Slot, slotJobs: Job[], dir: string): Outcome {
+  const lines: string[] = []
+  let problems = 0
+  let detections = 0
+  let explainedMoves = 0
+  const { base: baseTool, head: headTool } = toolsOf(slot.path)
+  lines.push(`### ${slotName(slot)}, ${slot.shards} shard${slot.shards === 1 ? '' : 's'}${slot.apart ? ', base and head on two runners' : ''}`, '')
+  const shares: Record<string, RunResult[]> = { [baseTool]: [], [headTool]: [] }
+  const cpus: Record<string, string[]> = { [baseTool]: [], [headTool]: [] }
+  const seconds: Record<string, number> = { [baseTool]: 0, [headTool]: 0 }
+  const missing: string[] = []
+  for (const job of slotJobs) {
+    const at = path.join(dir, job.artifact)
+    const summary = read<Summary>(path.join(at, 'summary.json'))
+    for (const tool of job.tools.split(',')) {
+      const report = read<RunResult>(path.join(at, `${tool}.json`))
+      const timing = summary?.timings[tool]
+      if (!report || !timing) {
+        missing.push(`${job.name}: no ${!summary ? 'results' : `report of ${tool} that can be read`}`)
+        continue
+      }
+      if (timing.exitCodes.some((code) => code !== 0)) missing.push(`${job.name}: ${tool} exited with ${timing.exitCodes.join(', ')}`)
+      if (report.counts.Pending > 0) missing.push(`${job.name}: ${tool} left ${report.counts.Pending} mutant(s) pending`)
+      shares[tool].push(report)
+      cpus[tool].push(summary.machine.cpu)
+      seconds[tool] = Math.max(seconds[tool], ...timing.seconds)
+    }
+  }
+  if (missing.length > 0) {
+    problems += missing.length
+    lines.push(...missing.map((line) => `- **${line}**`), '')
+  }
+  if (shares[baseTool].length < slot.shards || shares[headTool].length < slot.shards) {
+    lines.push('Not compared: a share of one commit is missing.', '')
+    return { lines, problems, detections, explained: explainedMoves }
+  }
+  const merged = { [baseTool]: mergeReports(shares[baseTool]), [headTool]: mergeReports(shares[headTool]) }
+  const truthFile = path.join(import.meta.dirname, 'truth', `${slot.target}-${slot.scope}.json`)
+  const truth: Record<string, string> = {}
+  for (const tool of [baseTool, headTool]) {
+    const file = path.join(dir, 'merged', `${slot.target}-${slot.scope}-${slot.runner}-${slot.path}`, `${tool}.json`)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(merged[tool]))
+    if (!fs.existsSync(truthFile)) {
+      truth[tool] = 'no ground truth stored'
+      continue
+    }
+    const run = spawnSync(process.execPath, [path.join(import.meta.dirname, 'truth.ts'), 'check', '--report', file, '--truth', truthFile], { encoding: 'utf8' })
+    truth[tool] = run.stdout.trim().split('\n').map((line) => line.trimEnd()).join('<br>')
+    if (run.status !== 0) {
+      problems++
+      truth[tool] = `**${truth[tool] || run.stderr.trim()}**`
+    }
+  }
+  const counts = (report: RunResult) => Object.entries(report.counts).filter(([, count]) => count > 0).map(([status, count]) => `${status} ${count}`).join(', ')
+  const work = (report: RunResult) => `${Object.entries(report.wholeRuns).filter(([kind]) => kind !== 'lost').reduce((sum, [, count]) => sum + count, 0)} whole-file runs, ${report.work.trials} trials`
+  lines.push('| | Verdicts | Work | Longest shard | Processors | Against the suite |', '|---|---|---|---|---|---|')
+  for (const tool of [baseTool, headTool]) {
+    lines.push(`| ${tool} | ${counts(merged[tool])} | ${work(merged[tool])} | ${seconds[tool]} s | ${[...new Set(cpus[tool])].join(', ')} | ${truth[tool]} |`)
+  }
+  lines.push('')
+  const stored = read<{ mutants: StoredEntry[] }>(truthFile)
+  const explained = new Set((stored?.mutants ?? []).filter((entry) => entry.note).map((entry) =>
+    keyOf({ file: entry.file, location: { start: { line: entry.start[0], column: entry.start[1] }, end: { line: entry.end[0], column: entry.end[1] } }, mutator: entry.mutator, replacement: entry.replacement })))
+  const { moved, onlyBase, onlyHead } = movesBetween(merged[baseTool], merged[headTool], explained)
+  // A share that ran and reported fewer mutants is as missing as one that did not run.
+  if (onlyBase.length + onlyHead.length > 0) {
+    problems++
+    const byFile = (list: MutantResult[]) => [...Map.groupBy(list, (mutant) => mutant.file)].map(([file, of]) => `${file} ${of.length}`).join(', ')
+    lines.push(`**Mutants of one commit only: ${onlyBase.length} of the base${onlyBase.length ? ` (${byFile(onlyBase)})` : ''}, ${onlyHead.length} of the head${onlyHead.length ? ` (${byFile(onlyHead)})` : ''}.**`, '')
+  }
+  if (moved.length === 0) lines.push('No mutant moved.', '')
+  for (const move of order) {
+    const these = moved.filter((entry) => entry.move === move)
+    if (these.length === 0) continue
+    if (move === 'detection') detections += these.length
+    if (move === 'explained') explainedMoves += these.length
+    lines.push(`${move === 'detection' ? '**' : ''}${heading[move]}: ${these.length}${move === 'detection' ? '**' : ''}`, '')
+    for (const { mutant, was } of these) lines.push(`- ${where(mutant)}: ${was} → ${mutant.status}`)
+    lines.push('')
+  }
+  return { lines, problems, detections, explained: explainedMoves }
 }
 
 if (import.meta.main) {

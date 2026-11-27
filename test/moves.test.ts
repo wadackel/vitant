@@ -47,6 +47,8 @@ it('plans the scopes given in place of the set, and refuses one the benchmark do
   ])
   expect(() => planSlots('ufo:nothing', false)).toThrow('no scope ufo nothing')
   expect(() => planSlots('ufo:all:0', false)).toThrow('shards must be a whole number above 0')
+  expect(() => planSlots('h3:toString', false)).toThrow('no scope h3 toString')
+  expect(() => planSlots('ufo:all ufo:all:2', false)).toThrow('ufo:all is given twice')
 })
 
 const mutant = (file: string, line: number, status: string, end = 5) => ({
@@ -135,4 +137,51 @@ it('passes where only benign moves happened, and fails where a share or a run is
   const failed = check([first, second])
   expect(failed.status).toBe(1)
   expect(failed.stdout).toContain(`**${second.name}: vitant exited with 1**`)
+})
+
+it('fails on a mutant left pending, on one in one commit only, and on a report that cannot be read, and still prints the rest', () => {
+  const [first, second] = jobsOf([slot])
+  const other = jobsOf([{ ...slot, scope: 'other', shards: 1 }])[0]
+  job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Pending')]) })
+  job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed'), mutant('b.ts', 2, 'Killed')]), vitant: report(2, 2, []) })
+  job(other, { 'vitant-base': report(1, 1, [mutant('c.ts', 1, 'Killed')]), vitant: report(1, 1, [mutant('c.ts', 1, 'Killed')]) })
+  const run = check([first, second, other])
+  expect(run.status).toBe(1)
+  expect(run.stdout).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
+  expect(run.stdout).toContain('**Mutants of one commit only: 2 of the base (b.ts 2), 0 of the head.**')
+
+  fs.writeFileSync(path.join(dir, second.artifact, 'vitant.json'), '{"mutants": [')
+  const unread = check([first, second, other])
+  expect(unread.status).toBe(1)
+  expect(unread.stdout).toContain(`**${second.name}: no report of vitant that can be read**`)
+  expect(unread.stdout).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
+})
+
+it('holds each merged report against the stored ground truth and passes a move the truth explains', () => {
+  const truth = path.join(import.meta.dirname, '../bench/truth/.moves-test-scope.json')
+  const entry = (line: number, suite: string, note?: string) =>
+    ({ file: 'a.ts', start: [line, 4], end: [line, 5], mutator: 'BooleanLiteral', replacement: 'false', suite, ...(note ? { note } : {}) })
+  const [only] = jobsOf([{ ...slot, shards: 1 }])
+  try {
+    fs.writeFileSync(truth, JSON.stringify({ mutants: [entry(1, 'pass', 'times out in some runs'), entry(2, 'fail')] }))
+    job(only, {
+      'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Killed')]),
+      vitant: report(1, 1, [mutant('a.ts', 1, 'Timeout'), mutant('a.ts', 2, 'Killed')]),
+    })
+    const explained = check([only])
+    expect(explained.status, explained.stdout).toBe(0)
+    expect(explained.stdout).toContain('but 1 whose verdict bench/truth/ explains')
+    expect(explained.stdout).toContain('Between detected and undetected, of a mutant whose verdict bench/truth/ explains: 1')
+
+    job(only, {
+      'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Killed')]),
+      vitant: report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Survived')]),
+    })
+    const wrong = check([only])
+    expect(wrong.status).toBe(1)
+    expect(wrong.stdout).toContain('**1 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+    expect(wrong.stdout).toMatch(/\*\*2 mutants checked against the suite: 1 agree, 1 wrong/)
+  } finally {
+    fs.rmSync(truth, { force: true })
+  }
 })
