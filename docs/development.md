@@ -59,6 +59,22 @@ The benchmark workflow is manual. It retains the target/scope, tool, baseline co
 
 Use `node bench/tier.ts`, `node bench/tier.ts apps`, or explicit `target:scope` arguments to see work counts and verdict agreement early. Compare before and after on at least two targets for instrumentation, planning, runner or addon changes. Changes to Date, performance, fs or process values need the full application scopes too; the short scopes cannot establish their correctness.
 
+## Ground truth on CI
+
+Ground truth for a benchmark scope takes one job a mutant at a time: from a second to nearly three minutes a mutant, hours a scope. `.github/workflows/truth.yml`, dispatched by hand, deals the mutants over jobs:
+
+```sh
+gh workflow run truth.yml --ref <branch> -f target=sveltekit -f scope=server [-f shards=8] [-f command=related] [-f jobs=1] [-f report=<bench run id>]
+```
+
+- **The report.** A first job runs this tool over the scope as `bench/run.ts` does, or takes `vitant.json` from the ubuntu-24.04 artifact of the bench run that `report` names. Every share is made for that one report.
+- **The shares.** Each of the `shards` jobs sets up the target and runs `bench/truth.ts make --target <target> --report <report> --shard <i>/<n>`. It writes each mutant of its share into the source and runs the suite, as one `make` would: with the target's arguments, and with `--related` where the stored ground truth was made with it (`command`, empty by default). The calibration covers every file of the report, so each share gets the time limit the whole would have had on that machine. Runs that disagree with the report are made again alone. With `jobs` above 1, each job probes its copies for every file of its share and refuses them as a local `make` does. Keep `jobs` at 1 for a target whose notes in `bench/targets.ts` say its ground truth is made with `--jobs 1`.
+- **The merge.** The last job runs `bench/truth.ts merge`. It refuses a share that is missing, given twice, made for another report or made with another command, and rejects entries other than those a share says it checked. It writes the entries in the report's order, which is the file one `make` would have written. It then checks the file against the report and, with `bench/truth.ts diff`, against the stored `bench/truth/<target>-<scope>.json`; both results are in the run's summary. The file is the artifact `truth-<target>-<scope>`. It carries none of the notes written by hand, so a mutant whose stored entry has a note counts as wrong against the report until the note is carried over by hand.
+- **Storing it.** A difference from a stored entry is a defect until the suite, run by hand with the mutant written in, settles it. Only then does an entry in `bench/truth/` change. One mutant detected in both, by failing in one and by running out of the limit in the other, is the known benign difference.
+- **A new workflow.** GitHub dispatches only workflows it has seen run. A workflow that is not yet on `main` needs one push run first, from a temporary `push` trigger on its branch.
+
+Each share is a Linux job of its own, among the twenty the account runs at once with PR checks; more shards than are free wait for a runner. SvelteKit `server`'s 2,485 mutants took 47.5 minutes from dispatch to the merged file in eight shards, against 3.9 hours of making added up over the jobs ([Checking the verdicts](benchmark.md#checking-the-verdicts)).
+
 ## Evidence and timings
 
 E2e evidence stays under `build/test-reports/<group>-<unique-id>/`: named reports, per-invocation stdout/stderr, session records and `runs.jsonl` with start/end times and exit status. This also preserves a successful CLI report that a later assertion rejects. The fixture directory is removed independently of those records.

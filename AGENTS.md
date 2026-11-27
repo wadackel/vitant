@@ -44,6 +44,7 @@ node bench/tier.ts                    # six short scopes in about five minutes: 
 node bench/tier.ts apps               # a file or two each of three applications, in about four minutes
 node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone]   # also checks against bench/truth/
 node bench/truth.ts make --target <target> --report <report.json> --out <truth.json> [--related]   # the target's config, variables and Vitest arguments; --root <project> for any other project
+gh workflow run truth.yml -f target=<target> -f scope=<scope> [-f shards=8]   # the same on CI, its mutants dealt over jobs and merged into one file (docs/development.md)
 node bench/conformance.ts bench/.work/test262   # instrumented code against test262
 ```
 

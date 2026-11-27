@@ -33,7 +33,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: truth-${{ github.ref }}-${{ inputs.target }}-${{ inputs.scope }}-${{ inputs.ref }}
+  group: truth-${{ github.ref }}-${{ inputs.target }}-${{ inputs.scope }}-${{ inputs.ref }}-${{ inputs.shards }}-${{ inputs.command }}-${{ inputs.jobs }}-${{ inputs.report }}
   cancel-in-progress: true
 
 jobs:
@@ -206,10 +206,12 @@ jobs:
         # A merge that is refused writes nothing; one whose entries disagree with the report is written, and says where.
         run: |
           mkdir -p merged
-          node bench/truth.ts merge --report report/vitant.json --out "merged/$NAME.json" parts/*.json | tee merged/check.txt || true
+          # Into files, not through a pipe: Node drops what it has not yet written to a pipe when it exits.
+          node bench/truth.ts merge --report report/vitant.json --out "merged/$NAME.json" parts/*.json > merged/check.txt 2>&1 || true
+          cat merged/check.txt
           test -f "merged/$NAME.json"
           stored="bench/truth/$NAME.json"
-          if [ -f "$stored" ]; then node bench/truth.ts diff "merged/$NAME.json" "$stored" | tee merged/diff.txt || true; fi
+          if [ -f "$stored" ]; then node bench/truth.ts diff "merged/$NAME.json" "$stored" > merged/diff.txt 2>&1 || true; cat merged/diff.txt; fi
           {
             echo "### Ground truth of $NAME"
             echo
