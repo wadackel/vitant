@@ -73,7 +73,7 @@ gh workflow run truth.yml --ref <branch> -f target=sveltekit -f scope=server [-f
 - **Storing it.** A difference from a stored entry is a defect until the suite, run by hand with the mutant written in, settles it. Only then does an entry in `bench/truth/` change. One mutant detected in both, by failing in one and by running out of the limit in the other, is the known benign difference.
 - **A new workflow.** GitHub dispatches only workflows it has seen run. A workflow that is not yet on `main` needs one push run first, from a temporary `push` trigger on its branch.
 
-Each share is a Linux job of its own, among the twenty the account runs at once with PR checks; more shards than are free wait for a runner. SvelteKit `server`'s 2,485 mutants took 47.5 minutes from dispatch to the merged file in eight shards, against 3.9 hours of making added up over the jobs ([Checking the verdicts](benchmark.md#checking-the-verdicts)).
+Each share is a Linux job of its own, among the twenty the account runs at once with PR checks; more shards than are free wait for a runner. SvelteKit `server`'s 2,485 mutants took 47.5 and 46.0 minutes in two runs from dispatch to the merged file in eight shards, against 3.9 hours of making added up over the jobs ([Checking the verdicts](benchmark.md#checking-the-verdicts)).
 
 ## Evidence and timings
 
