@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { compareTruths, keyOf, mergeParts, type Part, type PartEntry, partitionKeys, validatePartitions } from '../bench/truth-shards.ts'
+import { calibrated, compareTruths, keyOf, mergeParts, type Part, type PartEntry, partitionKeys, validatePartitions } from '../bench/truth-shards.ts'
 
 const keys = ['mutant-z', 'mutant-a', 'mutant-b', 'mutant-c', 'mutant-d']
 const proof = (shard: string, universe = keys) => {
@@ -88,6 +88,16 @@ describe('comparing two ground truths', () => {
   })
 })
 
+describe('calibrating a share', () => {
+  it('takes the limit from every file of the report with --related, as the whole does', () => {
+    const eligible = [{ file: 'a.ts' }, { file: 'b.ts' }, { file: 'a.ts' }, { file: 'c.ts' }]
+    const share = [eligible[1]]
+    expect(calibrated({ related: true, shard: true, eligible, mutants: share })).toEqual(['a.ts', 'b.ts', 'c.ts'])
+    expect(calibrated({ related: true, shard: false, eligible, mutants: share })).toEqual(['b.ts'])
+    expect(calibrated({ related: false, shard: true, eligible, mutants: share })).toEqual([''])
+  })
+})
+
 describe('truth shard command boundary', () => {
   it.each([
     ['--shard', '0/4'],
@@ -101,6 +111,18 @@ describe('truth shard command boundary', () => {
     expect(result.status).not.toBe(0)
     expect(result.stderr).toMatch(/Shard must|--shard requires/)
     expect(result.stderr).not.toContain('the tool exited')
+  })
+
+  it.each([
+    ['--target', 'ufo'],
+    ['--target', 'ufo', '--related'],
+    ['--root', 'nonexistent-truth-fixture', '--related'],
+  ])('lets a share run with a target or --related: %j', (...args) => {
+    const result = spawnSync(process.execPath, [path.join(import.meta.dirname, '../bench/truth.ts'), 'make', '--shard', '1/4',
+      '--report', 'nonexistent-truth-report.json', '--out', 'unused-truth-output.json', ...args], { encoding: 'utf8' })
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).not.toMatch(/Shard must|--shard requires/)
+    expect(result.stderr).toContain('nonexistent-truth-report.json')
   })
 
   it('rejects a target bench/targets.ts does not have before running the tool', () => {

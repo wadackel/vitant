@@ -13,8 +13,9 @@
 // report is given; `check` does only the latter, against what an earlier `make`
 // wrote. Both exit with 1 when a verdict and the suite disagree. `probe`
 // runs no mutant: it probes the copies `make` would run in, for every file
-// of the report with or without `--related`, where `make` without it probes
-// one a copy, and says which files they cannot stand for, exiting with 1 if any.
+// of the report with or without `--related`, where `make` without either it
+// or `--target` probes one a copy, and says which files they cannot stand for,
+// exiting with 1 if any.
 //
 // `make --shard i/n` runs only the i-th of n shares of the report's mutants
 // and writes what it checked beside them; `merge` makes of every share's part
@@ -47,7 +48,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import type { MutantResult, RunResult } from '../src/run.ts'
 import { projectDir, targetEnv, targets, vitestArgs } from './targets.ts'
-import { compareTruths, keyOf, mergeParts, type Part, partitionKeys, type Partition } from './truth-shards.ts'
+import { calibrated, compareTruths, keyOf, mergeParts, type Part, partitionKeys, type Partition } from './truth-shards.ts'
 import { written } from './write-mutant.ts'
 
 type Suite = 'pass' | 'fail' | 'timeout'
@@ -139,7 +140,7 @@ if (values.related && target?.filters?.length) {
 if (values.shard) {
   partitionKeys([], values.shard)
   if (mode !== 'make' || !values.out || values.sample || values.vitest!.length > 0 || values.statuses !== 'Killed,Timeout,Survived,NoCoverage,Static') {
-    throw new Error('--shard requires make --out with the full suite and default statuses, without --sample or --vitest')
+    throw new Error('--shard requires make --out with every eligible mutant and the default statuses, without --sample or --vitest')
   }
 }
 
@@ -414,13 +415,10 @@ async function make(): Promise<Truth> {
     })
   }
 
-  // What every run is held against: the same command with no mutant, which
-  // has to pass. A share takes it for every file of the report, as the whole
-  // would: from its own files alone the limit could be lower than the whole's,
-  // and a mutant that only slows its tests would time out in one and not the other.
+  // What every run is held against: the same command with no mutant, which has to pass.
   let slowest = 0
   let slowestFile = ''
-  for (const file of values.related ? new Set((partition ? eligible : mutants).map((mutant) => mutant.file)) : ['']) {
+  for (const file of calibrated({ related: values.related!, shard: partition !== undefined, eligible, mutants })) {
     // More than once only where it fails: with a file per function there
     // are hundreds of these. What fails by itself in the runs below is
     // looked for where a run and the report disagree.
@@ -434,8 +432,12 @@ async function make(): Promise<Truth> {
     }
     if (!passed) throw new Error(`vitest ${argsFor(file).join(' ')} does not pass without a mutant`)
   }
+  // A share probes the slowest file too, which the loaded runs below make in
+  // every copy and need not be its own: in a copy that cannot run it, they
+  // fail at once and give a limit too short for the copies beside each other.
+  const probeFiles = [...mutants.map((mutant) => mutant.file), ...(partition && values.related ? [slowestFile] : [])]
   const probed = roots.length > 1
-    ? await probeCopies({ root, copies: roots, files: [...new Set(mutants.map((mutant) => mutant.file))], argsFor, originals, all: mode === 'probe' })
+    ? await probeCopies({ root, copies: roots, files: [...new Set(probeFiles)], argsFor, originals, all: mode === 'probe' })
     : new Map()
   if (mode === 'probe') {
     for (const [file, reason] of [...probed].sort(([a], [b]) => a.localeCompare(b))) console.log(reason ? `refused: ${file}: ${reason}` : `accepted: ${file}`)

@@ -66,51 +66,55 @@ jobs:
             console.log("related=" + (command === "related"))
           ' >> "$GITHUB_OUTPUT"
 
+  # The token that reads another run's artifacts stays in a job that runs none of the target's code.
+  take:
+    if: ${{ inputs.report }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    steps:
+      - name: Take the report of the bench run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.report }}
+          NAME: bench-${{ inputs.target }}-${{ inputs.scope }}-ubuntu-24.04
+        run: |
+          # The long job of bench.yml, excalidraw math's, names its artifact without the job number.
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME-1" -D taken || gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME" -D taken
+          mkdir -p report
+          cp taken/vitant.json taken/summary.json report/
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: truth-report
+          path: report
+
   report:
+    if: ${{ !inputs.report }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
-    permissions:
-      contents: read
-      actions: read
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - name: Take the report of the bench run
-        if: ${{ inputs.report }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN: ${{ inputs.report }}
-          NAME: bench-${{ inputs.target }}-${{ inputs.scope }}-ubuntu-24.04-1
-        run: |
-          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME" -D taken
-          mkdir -p report
-          cp taken/vitant.json report/vitant.json
       - uses: pnpm/action-setup@v6.1.0
-        if: ${{ !inputs.report }}
         with:
           version: 12.4.2
       - uses: actions/setup-node@v7.0.0
-        if: ${{ !inputs.report }}
         with:
           node-version: 24
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
-        if: ${{ !inputs.report }}
         with:
           toolchain: stable
       - name: Build
-        if: ${{ !inputs.report }}
         run: |
           pnpm install --frozen-lockfile
           pnpm build:native
       - name: Set up ${{ inputs.target }}
-        if: ${{ !inputs.report }}
         env:
           TARGET: ${{ inputs.target }}
         run: node bench/setup.ts "$TARGET" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
       - name: Run this tool
-        if: ${{ !inputs.report }}
         env:
           TARGET: ${{ inputs.target }}
           SCOPE: ${{ inputs.scope }}
@@ -118,15 +122,17 @@ jobs:
         run: |
           node bench/run.ts "$TARGET" "$SCOPE" --tool vitant --limit 150 || test -f "bench/results/$TARGET-$SCOPE/vitant.json"
           mkdir -p report
-          cp "bench/results/$TARGET-$SCOPE/vitant.json" report/vitant.json
+          cp "bench/results/$TARGET-$SCOPE/vitant.json" "bench/results/$TARGET-$SCOPE/summary.json" report/
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: truth-report
-          path: report/vitant.json
+          path: report
 
   shard:
     name: shard ${{ matrix.shard }}
-    needs: [plan, report]
+    needs: [plan, take, report]
+    # One of the two makes the report and the other is skipped.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.take.result == 'success' || needs.report.result == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     strategy:
@@ -154,6 +160,18 @@ jobs:
         with:
           name: truth-report
           path: report
+      # A mutant is written where the report says, whatever stands there: a report of other sources would be judged in the wrong places.
+      - name: Check the report is of the sources set up here
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs"
+            import { targets } from "./bench/targets.ts"
+            const { commit } = JSON.parse(fs.readFileSync("report/summary.json", "utf8"))
+            const want = targets[process.env.TARGET].commit
+            if (commit !== want) throw new Error(`the report is of ${process.env.TARGET} at ${commit}, and this checkout sets it up at ${want}`)
+          '
       - name: Make ground truth for shard ${{ matrix.shard }}
         env:
           TARGET: ${{ inputs.target }}
@@ -177,6 +195,8 @@ jobs:
 
   merge:
     needs: [plan, shard]
+    # Explicit, as the skipped one of take and report would otherwise skip it; every share has to have succeeded.
+    if: ${{ !cancelled() && needs.shard.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1

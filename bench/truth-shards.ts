@@ -48,6 +48,22 @@ export function validatePartitions(partitions: unknown[], total: number): string
   return errors
 }
 
+/**
+ * The files whose runs with no mutant a `make` takes the time limit from:
+ * with `--related` the mutated files, every one of the report's for a share
+ * as for the whole, since from its own files alone a share's limit could be
+ * lower and a mutant that only slows its tests would time out in it and not
+ * in the whole; otherwise the whole suite, '' standing for no file.
+ */
+export function calibrated({ related, shard, eligible, mutants }: {
+  related: boolean
+  shard: boolean
+  eligible: { file: string }[]
+  mutants: { file: string }[]
+}): string[] {
+  return related ? [...new Set((shard ? eligible : mutants).map((mutant) => mutant.file))] : ['']
+}
+
 export interface PartEntry {
   file: string
   start: [line: number, column: number]
