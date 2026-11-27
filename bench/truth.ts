@@ -292,7 +292,8 @@ function copies(root: string, count: number): string[] {
  * be a whole suite each, in every shard on CI. With `all` every file is
  * probed, and each comes back with why it is refused, or undefined;
  * without it the first refusal throws. Under `--shard` the files are the
- * share's, so that each job's copies are probed for what they run.
+ * share's, and with `--related` the slowest file of the report as well,
+ * so that each job's copies are probed for what they run.
  */
 async function probeCopies({ root, copies, files, argsFor, originals, all = false }: {
   root: string
@@ -435,7 +436,7 @@ async function make(): Promise<Truth> {
   // A share probes the slowest file too, which the loaded runs below make in
   // every copy and need not be its own: in a copy that cannot run it, they
   // fail at once and give a limit too short for the copies beside each other.
-  const probeFiles = [...mutants.map((mutant) => mutant.file), ...(partition && values.related ? [slowestFile] : [])]
+  const probeFiles = [...mutants.map((mutant) => mutant.file), ...(partition && values.related && slowestFile ? [slowestFile] : [])]
   const probed = roots.length > 1
     ? await probeCopies({ root, copies: roots, files: [...new Set(probeFiles)], argsFor, originals, all: mode === 'probe' })
     : new Map()

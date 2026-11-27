@@ -17,7 +17,7 @@ on:
         description: Jobs the mutants are dealt over
         default: '8'
       command:
-        description: run (the whole suite) or related (the test files that import the mutated file); empty for what the stored ground truth was made with, run where there is none
+        description: run (the whole suite) or related (the test files that import the mutated file); empty for related where the stored ground truth was made with it, run otherwise
         default: ''
       jobs:
         description: Copies of the project each job runs mutants in at once, as bench/truth.ts takes --jobs; keep 1 for a target whose notes say its ground truth is made with --jobs 1
@@ -60,7 +60,9 @@ jobs:
             const total = Number(SHARDS)
             if (!Number.isInteger(total) || total < 1 || total > 64) throw new Error("shards must be 1 to 64")
             const stored = `bench/truth/${TARGET}-${SCOPE}.json`
-            const command = COMMAND || (fs.existsSync(stored) ? JSON.parse(fs.readFileSync(stored, "utf8")).command ?? "run" : "run")
+            // Nine stored files were made with "reaching files", the test files that reach each mutant, which make no longer does.
+            const made = fs.existsSync(stored) ? JSON.parse(fs.readFileSync(stored, "utf8")).command : undefined
+            const command = COMMAND || (made === "related" ? "related" : "run")
             if (command !== "run" && command !== "related") throw new Error(`command must be run or related, not ${command}`)
             console.log("shards=" + JSON.stringify(Array.from({ length: total }, (_, i) => i + 1)))
             console.log("related=" + (command === "related"))
