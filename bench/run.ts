@@ -1,7 +1,7 @@
 // Runs StrykerJS and this tool over the same files of a benchmark target and
 // records wall-clock time, mutant counts and how often the verdicts agree.
 //
-//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES]
+//   node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-no-clone-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES] [--shard i/n]
 //
 // `--limit` ends a run of this tool that goes on for that long, having first
 // written down what its processes were doing (`<tool>.hang.txt`); a target's
@@ -9,11 +9,12 @@
 // `vitant-no-clone` is this tool starting a worker for every whole-file run.
 // `vitant-base` is the tool as another checkout has it, named by VITANT_BASE:
 // two commits are compared on one machine, CI runners differing by a third
-// from one job to the next.
+// from one job to the next. `vitant-no-clone-base` is that checkout with `--no-clone`.
 // `vitant-confirm4`, `vitant-led` and `vitant-fast` are it with `--confirm 4`, `--led` and `--fast`, held against the scope's report of `vitant`.
 // `--workers N` gives both tools N processes at once, as a CI runner with N
 // cores would; where it is left out each takes its own default, but this tool
 // takes what the target's `workers` says for the machine's processors.
+// `--shard i/n` gives this tool's every run the same share of the files; StrykerJS has none.
 // Results land in bench/results/<target>-<scope>/. Where bench/truth/ has
 // what the suite does with the scope's mutants, each report of this tool is
 // checked against it, and a verdict that disagrees fails the run.
@@ -36,12 +37,13 @@ const { values, positionals } = parseArgs({
     limit: { type: 'string' },
     records: { type: 'boolean', default: false },
     workers: { type: 'string' },
+    shard: { type: 'string' },
   },
 })
 const [targetName, scopeName] = positionals
 const scope = targets[targetName]?.scopes[scopeName]
 if (!scope) {
-  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES] [--records] [--workers N]')
+  console.error('usage: node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone,vitant-base,vitant-no-clone-base,vitant-confirm4,vitant-led,vitant-fast,vitant-base-fast] [--runs N] [--limit MINUTES] [--records] [--workers N] [--shard i/n]')
   process.exit(1)
 }
 
@@ -52,6 +54,10 @@ fs.mkdirSync(outDir, { recursive: true })
 const repoRoot = path.dirname(import.meta.dirname)
 const tools = new Set(values.tool === 'both' ? ['stryker', 'vitant'] : values.tool.split(','))
 const workers = toolWorkers(targets[targetName], os.availableParallelism(), values.workers)
+if (values.shard && tools.has('stryker')) {
+  console.error('--shard: StrykerJS would mutate every file while this tool mutates a share of them')
+  process.exit(1)
+}
 
 interface Timing {
   tool: string
@@ -214,17 +220,18 @@ const keyOf = (mutant: Reported) =>
 // A mutant that both fails a test and loops is Killed in one run and Timeout in another.
 const kind = (status: string) => (status === 'Killed' || status === 'Timeout' ? 'detected' : status)
 
-for (const tool of ['vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
+for (const tool of ['vitant-no-clone-base', 'vitant-no-clone', 'vitant-base', 'vitant', 'vitant-confirm4', 'vitant-led', 'vitant-fast', 'vitant-base-fast']) {
   if (!tools.has(tool)) continue
   const report = path.join(outDir, `${tool}.json`)
-  const toolRoot = tool === 'vitant-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot
+  const toolRoot = tool === 'vitant-base' || tool === 'vitant-no-clone-base' || tool === 'vitant-base-fast' ? process.env.VITANT_BASE : repoRoot
   if (!toolRoot) {
-    console.error('vitant-base: VITANT_BASE is to name the checkout of the tool to compare with')
+    console.error(`${tool}: VITANT_BASE is to name the checkout of the tool to compare with`)
     process.exit(1)
   }
   const args = [path.join(toolRoot, 'src/cli.ts'), '--root', dir, '--report', report, ...vitestArgs(targets[targetName])]
   if (workers) args.push('--max-workers', String(workers))
-  if (tool === 'vitant-no-clone') args.push('--no-clone')
+  if (tool === 'vitant-no-clone' || tool === 'vitant-no-clone-base') args.push('--no-clone')
+  if (values.shard) args.push('--shard', values.shard)
   if (tool === 'vitant-confirm4') args.push('--confirm', '4')
   if (tool === 'vitant-led') args.push('--led')
   if (tool === 'vitant-fast' || tool === 'vitant-base-fast') args.push('--fast')

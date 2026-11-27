@@ -1,0 +1,140 @@
+# The before-and-after check of a change to the runner, the planning, the
+# addon or the instrumentation: this tool at the workflow's commit and at a
+# base, over the scopes bench/moves.ts names, and every mutant whose verdict
+# moved. Manual, as bench.yml is; docs/development.md says when it suffices.
+name: compare
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Commit to compare with; where the workflow's commit leaves main when empty
+        default: ''
+      scopes:
+        description: Scopes as target:scope[:shards], separated by spaces, to run on Linux in place of the set
+        default: ''
+      macos:
+        description: Also run the set's macOS scopes
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compare-${{ github.ref }}-${{ inputs.base }}-${{ inputs.scopes }}-${{ inputs.macos }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      base: ${{ steps.base.outputs.base }}
+      jobs: ${{ steps.plan.outputs.jobs }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      # A commit named by a prefix fails to check out; it is named in full here, once.
+      - id: base
+        env:
+          BASE: ${{ inputs.base }}
+        run: |
+          if [ -n "$BASE" ]; then base=$(git rev-parse --verify "$BASE^{commit}"); else base=$(git merge-base origin/main HEAD); fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "Head $(git rev-parse HEAD), base $base" >> "$GITHUB_STEP_SUMMARY"
+      - id: plan
+        env:
+          SCOPES: ${{ inputs.scopes }}
+          MACOS: ${{ inputs.macos && '--macos' || '' }}
+        run: node bench/moves.ts plan --scopes "$SCOPES" $MACOS >> "$GITHUB_OUTPUT"
+
+  run:
+    name: ${{ matrix.job.name }}
+    needs: plan
+    runs-on: ${{ matrix.job.runner }}
+    # A share is meant to take under half an hour; one that does not end in an hour is stuck.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+      - name: Build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:native
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.base }}
+          path: base
+          persist-credentials: false
+      - name: Build the base
+        run: |
+          ln -s ../node_modules base/node_modules
+          cd base && pnpm build:native
+      - name: Set up ${{ matrix.job.target }}
+        run: node bench/setup.ts "${{ matrix.job.target }}" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
+      - name: Run
+        env:
+          VITANT_BASE: ${{ github.workspace }}/base
+          TOOLS: ${{ matrix.job.tools }}
+          SHARD: ${{ matrix.job.shard }}
+        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit 40
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: node bench/summary.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: ${{ matrix.job.artifact }}
+          path: bench/results/${{ matrix.job.target }}-${{ matrix.job.scope }}
+
+  compare:
+    needs: [plan, run]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      # The truth check reads the stored mutants' sources with the parser.
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: compare-*
+          path: results
+      - name: Compare
+        shell: bash
+        env:
+          JOBS: ${{ needs.plan.outputs.jobs }}
+        run: |
+          printf '%s' "$JOBS" > jobs.json
+          node bench/moves.ts check --plan jobs.json results | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: merged
+          path: results/merged
