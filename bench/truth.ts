@@ -444,6 +444,7 @@ async function make(): Promise<Truth> {
     for (const [file, reason] of [...probed].sort(([a], [b]) => a.localeCompare(b))) console.log(reason ? `refused: ${file}: ${reason}` : `accepted: ${file}`)
     process.exit([...probed.values()].some(Boolean) ? 1 : 0)
   }
+  if (roots.length > 1) console.error(`${roots.length} copies passed the probes of ${probed.size} of ${new Set(probeFiles).size} files`)
   // The limit is for runs that have others beside them: on a machine with
   // one processor for each, a suite among four takes five times what it
   // takes alone, and a limit from the one alone ends every run. Only the
