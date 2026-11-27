@@ -5,6 +5,8 @@
 name: compare
 
 on:
+  push:
+    branches: [ci-bench-compare]
   workflow_dispatch:
     inputs:
       base:
@@ -27,6 +29,7 @@ concurrency:
 
 jobs:
   plan:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     outputs:
       base: ${{ steps.base.outputs.base }}
