@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { defaultSet, type Job, jobsOf, moveOf, movesBetween, planSlots } from '../bench/moves.ts'
+import type { RunResult } from '../src/run.ts'
 
 let dir: string
 beforeEach(() => {
@@ -109,8 +110,8 @@ it('lists every moved mutant of the merged shares and fails on a move between de
 })
 
 it('lists apart a move of a mutant whose verdict the stored ground truth explains', () => {
-  const base = report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Survived')])
-  const head = report(1, 1, [mutant('a.ts', 1, 'Timeout'), mutant('a.ts', 2, 'Timeout')])
+  const base = report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Survived')]) as unknown as RunResult
+  const head = report(1, 1, [mutant('a.ts', 1, 'Timeout'), mutant('a.ts', 2, 'Timeout')]) as unknown as RunResult
   const explained = new Set([JSON.stringify(['a.ts', 1, 4, 1, 5, 'BooleanLiteral', 'false'])])
   expect(movesBetween(base, head, explained).moved.map(({ mutant, move }) => [mutant.location.start.line, move])).toEqual([[1, 'explained'], [2, 'detection']])
 })
