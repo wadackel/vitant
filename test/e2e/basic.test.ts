@@ -15,6 +15,8 @@ let result: RunResult
 let output = ''
 /** What each worker of that run said of the tests it drove. */
 let tests: { file: string; id: string; name: string; baseline?: string; nonRepeatable?: boolean; needsReplay?: boolean }[] = []
+/** The test file of each run of that run made again in a worker started for it, its copy having ended without a verdict. */
+let lost: string[] = []
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -31,6 +33,8 @@ beforeAll(() => {
   const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
   const lines = fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n'))
   tests = lines.filter((line) => line.includes('"type":"test"')).map((line) => JSON.parse(line))
+  lost = lines.filter((line) => line.includes('"type":"plain"')).map((line) => JSON.parse(line) as { file: string; memory?: boolean })
+    .filter((record) => !record.memory).map((record) => record.file)
 }, basicRunMs)
 
 describe('running the fixture project', () => {
@@ -73,10 +77,12 @@ describe('running the fixture project', () => {
     expect(runs['copied while loading']).toBeGreaterThan(0)
     expect(runs['copied after load']).toBeGreaterThan(0)
     // A copy that ends without a verdict is run again in a worker started for
-    // it: the one `guard.ts` ends with SIGKILL in every run. A copy not made
-    // because the mutant's code ran while it waited is no such copy, though
-    // its claim is taken, and on a busy machine there are more of those.
+    // it: the one `guard.ts` ends with SIGKILL in every run, and now and then
+    // another on a busy machine. A copy not made because the mutant's code
+    // ran while it waited, as `queue-ready.ts`'s chain of promises makes it,
+    // is none, though its run was claimed: it is made before the file loads.
     expect(runs.lost).toBeLessThan(3)
+    expect(lost.filter((file) => file.endsWith('test/queue.test.ts'))).toEqual([])
     // What is left to workers started for the run: mutants that block or end
     // the process, and the runs made alone, four of them for `delay.ts` and
     // three in a run of `nest.ts` alone; the count varies by a few between runs.
@@ -280,7 +286,7 @@ describe('running the fixture project', () => {
     const [endless] = tests.filter((test) => test.file.endsWith('test/nest.test.ts') && test.name === 'finds every level closed').map((test) => test.id)
     const stopped = seen.filter((record) => record.type === 'stall' && record.pid === tried.pid)
     expect(stopped.map(({ id, mutant, cold }) => ({ id, mutant, cold }))).toEqual([{ id: endless, mutant: -1, cold: true }])
-  })
+  }, basicRunMs)
 
   it('does not go by what a test reached in a worker a mutant had left its mark on', () => {
     // With the module a level off, the test that fails on this mutant returns before the line.

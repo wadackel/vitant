@@ -3236,7 +3236,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
       )
       // A copy whose clocks stood still and that met another clock ended
       // without a verdict, or one was not made once the file had loaded, and
-      // the file's runs are made before it loads next.
+      // that run, or every run of the file, is made before it loads next.
       const withdrawn = new Set(recent.flatMap((record) => (record.type === 'early' && record.mutant !== undefined ? [wholeKey(record.mutant, record.file)] : [])))
       // A run that was taken on and left no word otherwise ended with its
       // process. In a worker started for it, that is how the suite would go

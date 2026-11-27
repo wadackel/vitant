@@ -1904,7 +1904,8 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       }
       // So may it have started a thread, the end of a read the file began.
       if (!beforeLoad && threadsStarted(this.threadsBeforeLoad)) {
-        emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], threads: true, mutant: job.mutant })
+        // A test's one run is no run of the main process's plan, and its mutant would withdraw one that is.
+        emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], threads: true, ...(job.trial === undefined ? { mutant: job.mutant } : {}) })
         // A test that was to have its one run in such a copy has had its turn, as where the file shares what it holds.
         if (job.trial !== undefined) untold(job, this.wholeFile!)
         this.threaded = true

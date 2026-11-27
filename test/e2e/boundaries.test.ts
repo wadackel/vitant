@@ -60,13 +60,16 @@ describe('a mutant that keeps a test file from ever finishing to load', () => {
     // each ended by the clock at five times the limit a try has over the
     // file's time (defaults 4 and 3,000 ms) and Vitest's hook timeout: 25 s
     // and twenty times the file's time, which a slow runner makes seconds.
+    // The plan takes the shortest time a run of the file has had so far; the
+    // longest of them all is not under it whichever round it planned.
     const results = path.join(project, 'node_modules/.vitant/session/results')
-    const fileMs = Math.min(...fs.readdirSync(results)
+    const fileMs = Math.max(...fs.readdirSync(results)
       .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
       .filter(Boolean)
       .map((line) => JSON.parse(line) as { type: string; complete?: boolean; wallMs?: number })
       .filter((record) => record.type === 'file' && record.complete)
       .map((record) => record.wallMs!))
+    expect(fileMs).toBeGreaterThan(0)
     expect(took).toBeLessThan(2 * (5 * (fileMs * 4 + 3_000) + 10_000) + 30_000)
   }, 600_000)
 })
