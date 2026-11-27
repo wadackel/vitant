@@ -5,6 +5,8 @@
 //        [--related] [--jobs N] [--sample N] [--timeout seconds] [--statuses Killed,Survived,...]
 //   node bench/truth.ts check --report <report.json> --truth <truth.json>
 //   node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]
+//   node bench/truth.ts merge --report <report.json> --out <truth.json> <part.json>...
+//   node bench/truth.ts diff <made.json> <stored.json>
 //
 // `make` runs the suite once per mutant and then checks the report against
 // what it saw, running the tool over the whole project first where no
@@ -13,6 +15,14 @@
 // runs no mutant: it probes the copies `make` would run in, for every file
 // of the report with or without `--related`, where `make` without it probes
 // one a copy, and says which files they cannot stand for, exiting with 1 if any.
+//
+// `make --shard i/n` runs only the i-th of n shares of the report's mutants
+// and writes what it checked beside them; `merge` makes of every share's part
+// the file one `make` would have written, refusing a share missing, given
+// twice or of another report, and then checks it as `check` does. `diff`
+// says where two ground truths of one scope disagree on what the suite does,
+// exiting with 1 where one detects a mutant the other does not or they hold
+// different mutants.
 //
 // `--related` runs only the test files that import the mutated file
 // (`vitest related`) in place of the whole suite.
@@ -37,7 +47,7 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import type { MutantResult, RunResult } from '../src/run.ts'
 import { projectDir, targetEnv, targets, vitestArgs } from './targets.ts'
-import { partitionKeys, type Partition } from './truth-shards.ts'
+import { compareTruths, keyOf, mergeParts, type Part, partitionKeys, type Partition } from './truth-shards.ts'
 import { written } from './write-mutant.ts'
 
 type Suite = 'pass' | 'fail' | 'timeout'
@@ -81,17 +91,33 @@ const { values, positionals } = parseArgs({
     statuses: { type: 'string', default: 'Killed,Timeout,Survived,NoCoverage,Static' },
   },
 })
-const [mode] = positionals
+const [mode, ...files] = positionals
 const invalid = mode === 'make' ? !values.root && !values.target
   : mode === 'probe' ? (!values.root && !values.target) || !values.report || Number(values.jobs) < 2
+  : mode === 'merge' ? !values.report || !values.out || files.length === 0
+  : mode === 'diff' ? files.length !== 2
   : mode !== 'check' || !values.report || !values.truth
 if (invalid) {
   console.error(
     'usage: node bench/truth.ts make (--root <project> | --target <name>) --report <report.json> [--out <truth.json>] [--related] [--jobs N]\n' +
       '       node bench/truth.ts check --report <report.json> --truth <truth.json>\n' +
-      '       node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]',
+      '       node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]\n' +
+      '       node bench/truth.ts merge --report <report.json> --out <truth.json> <part.json>...\n' +
+      '       node bench/truth.ts diff <made.json> <stored.json>',
   )
   process.exit(2)
+}
+if (mode === 'diff') {
+  const [made, stored] = files.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')) as Part)
+  const { commands, same, failOrTimeout, differ, onlyMade, onlyStored } = compareTruths(made, stored)
+  const at = (entry: Part['mutants'][number]) => `${entry.file}:${entry.start.join(':')} ${entry.mutator} -> ${entry.replacement.slice(0, 60).replace(/\n/g, ' ')}`
+  console.log(`${made.mutants.length} entries made with ${commands[0] ?? 'run'} against ${stored.mutants.length} stored with ${commands[1] ?? 'run'}: ` +
+    `${same.length} the same, ${failOrTimeout.length} detected in both, one by failing and the other by running out of the limit, ` +
+    `${differ.length} detected in one only, ${onlyMade.length} made and not stored, ${onlyStored.length} stored and not made`)
+  for (const [entry, was] of [...differ, ...failOrTimeout]) console.log(`  ${at(entry)}: ${entry.suite} made, ${was.suite} stored${was.note ? ` (${was.note})` : ''}`)
+  for (const entry of onlyMade) console.log(`  made only: ${at(entry)}`)
+  for (const entry of onlyStored) console.log(`  stored only: ${at(entry)}`)
+  process.exit(differ.length + onlyMade.length + onlyStored.length > 0 ? 1 : 0)
 }
 const target = values.target === undefined ? undefined : targets[values.target]
 if (values.target !== undefined && !target) {
@@ -107,10 +133,13 @@ if (values.related && target?.filters?.length) {
   process.exit(2)
 }
 
+// A share is of every eligible mutant and runs the suite as the whole would:
+// the target's own arguments and `--related` are what `make` does with each
+// mutant, and every share of a scope is given the same.
 if (values.shard) {
   partitionKeys([], values.shard)
-  if (mode !== 'make' || !values.out || values.sample || values.related || values.vitest!.length > 0 || target || values.statuses !== 'Killed,Timeout,Survived,NoCoverage,Static') {
-    throw new Error('--shard requires make --out with the full suite and default statuses, without --sample, --related, --vitest or --target')
+  if (mode !== 'make' || !values.out || values.sample || values.vitest!.length > 0 || values.statuses !== 'Killed,Timeout,Survived,NoCoverage,Static') {
+    throw new Error('--shard requires make --out with the full suite and default statuses, without --sample or --vitest')
   }
 }
 
@@ -131,8 +160,6 @@ if (!values.report) {
 }
 const report: RunResult = JSON.parse(fs.readFileSync(values.report, 'utf8'))
 
-const keyOf = (entry: Pick<TruthEntry, 'file' | 'start' | 'end' | 'mutator' | 'replacement'>) =>
-  [entry.file, ...entry.start, ...entry.end, entry.mutator, entry.replacement].join('|')
 const describe = (mutant: MutantResult): Omit<TruthEntry, 'suite'> => ({
   file: mutant.file,
   start: [mutant.location.start.line, mutant.location.start.column],
@@ -257,12 +284,14 @@ function copies(root: string, count: number): string[] {
  * at the top of the copy's file, it has to fail the very test files that
  * the throw fails at the top of the checkout's; and with the throw in the
  * checkout's file, none. With `--related` the runs differ by file, and
- * every mutated file is probed; otherwise each is the whole suite, and
- * each copy takes one file in turn, which holds for the rest only where
+ * every mutated file is probed, as for a `--target`, whose tests need not
+ * reach its files alike; otherwise each is the whole suite of a fixture,
+ * and each copy takes one file in turn, which holds for the rest only where
  * the tests reach every file alike: the throw's runs of every file would
  * be a whole suite each, in every shard on CI. With `all` every file is
  * probed, and each comes back with why it is refused, or undefined;
- * without it the first refusal throws.
+ * without it the first refusal throws. Under `--shard` the files are the
+ * share's, so that each job's copies are probed for what they run.
  */
 async function probeCopies({ root, copies, files, argsFor, originals, all = false }: {
   root: string
@@ -275,7 +304,7 @@ async function probeCopies({ root, copies, files, argsFor, originals, all = fals
   const outcome = new Map<string, string | undefined>()
   if (files.length === 0) return outcome
   // Each copy takes its first file before any run ends, so that each is probed.
-  const queue = Array.from({ length: values.related || all ? Math.max(files.length, copies.length) : copies.length }, (_, at) => files[at % files.length])
+  const queue = Array.from({ length: values.related || target || all ? Math.max(files.length, copies.length) : copies.length }, (_, at) => files[at % files.length])
   const failing: { copy: string; file: string }[] = []
   const probed: { copy: string; file: string; marked: Set<string> }[] = []
   // A copy is refused for a run with no mutant only once it fails with
@@ -385,10 +414,13 @@ async function make(): Promise<Truth> {
     })
   }
 
-  // What every run is held against: the same command with no mutant, which has to pass.
+  // What every run is held against: the same command with no mutant, which
+  // has to pass. A share takes it for every file of the report, as the whole
+  // would: from its own files alone the limit could be lower than the whole's,
+  // and a mutant that only slows its tests would time out in one and not the other.
   let slowest = 0
   let slowestFile = ''
-  for (const file of values.related ? new Set(mutants.map((mutant) => mutant.file)) : ['']) {
+  for (const file of values.related ? new Set((partition ? eligible : mutants).map((mutant) => mutant.file)) : ['']) {
     // More than once only where it fails: with a file per function there
     // are hundreds of these. What fails by itself in the runs below is
     // looked for where a run and the report disagree.
@@ -536,15 +568,24 @@ function check(truth: Truth): boolean {
 }
 
 let truth: Truth
-if (mode === 'make' || mode === 'probe') {
-  truth = await make()
-  if (values.out) {
-    fs.mkdirSync(path.dirname(path.resolve(values.out)), { recursive: true })
-    const lines = truth.mutants.map((entry) => `    ${JSON.stringify(entry)}`).join(',\n')
-    const partition = truth.partition ? `,\n  "partition": ${JSON.stringify(truth.partition)}` : ''
-    fs.writeFileSync(values.out, `{\n  "command": "${truth.command}",\n  "mutants": [\n${lines}\n  ]${partition}\n}\n`)
+if (mode === 'merge') {
+  const wanted = new Set(values.statuses!.split(','))
+  const order = report.mutants.filter((mutant) => wanted.has(mutant.status)).map((mutant) => keyOf(describe(mutant)))
+  const merged = mergeParts(order, files.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')) as Part))
+  if ('errors' in merged) {
+    for (const error of merged.errors) console.error(error)
+    process.exit(1)
   }
+  truth = merged as Truth
+} else if (mode === 'make' || mode === 'probe') {
+  truth = await make()
 } else {
   truth = JSON.parse(fs.readFileSync(values.truth!, 'utf8'))
+}
+if (mode !== 'check' && values.out) {
+  fs.mkdirSync(path.dirname(path.resolve(values.out)), { recursive: true })
+  const lines = truth.mutants.map((entry) => `    ${JSON.stringify(entry)}`).join(',\n')
+  const partition = truth.partition ? `,\n  "partition": ${JSON.stringify(truth.partition)}` : ''
+  fs.writeFileSync(values.out, `{\n  "command": "${truth.command}",\n  "mutants": [\n${lines}\n  ]${partition}\n}\n`)
 }
 process.exit(check(truth) ? 0 : 1)
