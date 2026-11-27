@@ -58,7 +58,8 @@ jobs:
     needs: plan
     runs-on: ${{ matrix.job.runner }}
     # A share's run of one commit is meant to take ten minutes; `--limit` ends one at 25, and
-    # records what it was doing, before the job's limit would end both and keep nothing.
+    # records what it was doing, before the job's limit would end both and keep nothing. A target
+    # with a longer limit of its own (actual, headlamp) keeps it and is for bench.yml instead.
     timeout-minutes: 60
     strategy:
       fail-fast: false

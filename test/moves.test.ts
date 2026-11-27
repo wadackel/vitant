@@ -155,6 +155,12 @@ it('fails on a mutant left pending, on one in one commit only, and on a report t
   expect(unread.status).toBe(1)
   expect(unread.stdout).toContain(`**${second.name}: no report of vitant that can be read**`)
   expect(unread.stdout).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
+
+  job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitant: { ...report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitestVersion: '4.0.0' } })
+  const unmerged = check([first, second, other])
+  expect(unmerged.status).toBe(1)
+  expect(unmerged.stdout).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
+  expect(unmerged.stdout).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
 })
 
 it('holds each merged report against the stored ground truth and passes a move the truth explains', () => {

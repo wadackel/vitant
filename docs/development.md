@@ -95,7 +95,8 @@ What the set cannot show, and when the full benchmark is still needed:
 - **A wrong verdict that comes by chance.** Each commit is run once: h3's wrong Survived showed in one Linux job of several, and a verdict that one run in ten gets wrong shows here one time in ten. A change to how a failure is settled or a test is trusted is run with `bench.yml`'s `jobs` on the scopes it touches.
 - **Timeouts of n8n `proxy`.** Its base and head run on two processors, and a move to or from Timeout there may be the processor's: such a move is written into the source and run with the suite before it is taken for the change's.
 - **Times and counts of a speed change.** The summary gives each commit's longest shard, whole-file runs and trials, from one run each on the processor its job was given. A claimed speedup is measured on the scopes it is for, and the tables in `docs/benchmark.md` come from full runs.
-- **A change of the packages.** Base and head share the head's `node_modules` unless their lockfiles differ, in which case the base installs its own.
+- **A change of how the packages are installed.** Base and head share the head's `node_modules` unless their `pnpm-lock.yaml` differ, in which case the base installs its own; a setting outside the lockfile, as `pnpm-workspace.yaml` holds, is the head's for both.
+- **Scopes that take hours.** A job ends a run of one commit after 25 minutes and is itself ended after 60, and a target with a limit of its own (actual, freelens, headlamp, immich, fast-check) keeps that limit, so these are compared with `bench.yml` and `base`.
 - **Values the target's code observes through Date, performance, fs or process.** These need the full application scopes against the ground truth, as above.
 - **A release.** Before a release and in the final pass of a goal, every target runs on Linux and macOS with `bench.yml`.
 

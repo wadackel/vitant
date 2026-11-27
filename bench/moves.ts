@@ -302,7 +302,13 @@ function compareSlot(slot: Slot, slotJobs: Job[], dir: string): Outcome {
     lines.push('Not compared: a share of one commit is missing.', '')
     return { lines, problems, detections, explained: explainedMoves }
   }
-  const merged = { [baseTool]: mergeReports(shares[baseTool]), [headTool]: mergeReports(shares[headTool]) }
+  let merged: Record<string, RunResult>
+  try {
+    merged = { [baseTool]: mergeReports(shares[baseTool]), [headTool]: mergeReports(shares[headTool]) }
+  } catch (error) {
+    lines.push(`- **Not compared: ${(error as Error).message}**`, '')
+    return { lines, problems: problems + 1, detections, explained: explainedMoves }
+  }
   const truthFile = path.join(import.meta.dirname, 'truth', `${slot.target}-${slot.scope}.json`)
   const truth: Record<string, string> = {}
   for (const tool of [baseTool, headTool]) {
