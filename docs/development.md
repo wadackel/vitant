@@ -57,7 +57,46 @@ Main pushes and pull requests use automatic selection. A newer automatic run can
 
 The benchmark workflow is manual. It retains the target/scope, tool, baseline commit, repetition, runner and record inputs, and the ground-truth comparisons. It no longer starts all 26 scopes on two operating systems for every matching main push.
 
-Use `node bench/tier.ts`, `node bench/tier.ts apps`, or explicit `target:scope` arguments to see work counts and verdict agreement early. Compare before and after on at least two targets for instrumentation, planning, runner or addon changes. Changes to Date, performance, fs or process values need the full application scopes too; the short scopes cannot establish their correctness.
+Use `node bench/tier.ts`, `node bench/tier.ts apps`, or explicit `target:scope` arguments to see work counts and verdict agreement early. Instrumentation, planning, runner or addon changes are compared before and after with the compare workflow below. Changes to Date, performance, fs or process values need the full application scopes too; the short scopes cannot establish their correctness.
+
+## Comparing two commits
+
+A change to the instrumentation, the planning, the runner or the addon is held against the commit it starts from on CI alone:
+
+```sh
+gh workflow run compare.yml --ref <branch>     # base: where the branch leaves main
+gh workflow run compare.yml --ref <branch> -f base=<commit> -f scopes='tailwindcss:parsers:4 shopify:node' -f macos=false
+```
+
+`bench/moves.ts` names the scopes. Each job runs one share of a scope's files (`--shard`) with the base and then with the head, on one runner, so that a time and a timeout of one compare with the other's. The compare job merges each commit's shares, matches the mutants by file, start, end, mutator and replacement, holds each merged report against `bench/truth/`, and writes to its summary every mutant whose status moved, grouped as: between detected and undetected; to or from a status without a verdict (Static, Unconfirmed, Led, Pending); between Killed and Timeout, which is benign; between Survived and NoCoverage, which the suite passes alike. It fails on a move of the first kind, a report that disagrees with the suite, a job that left no report, a run that did not exit with 0, and a mutant left pending. A move between detected and undetected of a mutant whose `bench/truth/` entry has a note is listed apart and does not fail it: the suite was run by hand for that mutant, and the note says why this tool's verdict differs from the suite's in some runs, as n8n `proxy`'s `workflow-data-proxy.ts:1134:21`, Survived in one run and Timeout in another of the same commit, does. The other moves are listed for reading and do not fail it either: an Unconfirmed that comes or goes is as often the project's tests failing by chance as the change. `scopes` replaces the set with Linux runs of the scopes given, as `target:scope[:shards]`.
+
+The set is chosen by what its runs go through, with about 22 jobs of under half an hour each:
+
+| Scope | Runner, path | Shards | What it covers |
+|---|---|---|---|
+| yaml `lexer` | macOS, copies | 1 | 174 timeouts of 737 mutants; macOS's three processors and its build of the addon |
+| es-toolkit `array` | macOS, copies; Linux, no copies | 1 | 68 small files, timeouts, copies made before a test |
+| n8n `proxy` | Linux, copies, base and head apart | 1 | Files run only in copies made before they load, Vitest projects. Its mutants are nearly all in one file, which a shard cannot split, so base and head run in a job each on two processors |
+| formbricks `utils` | Linux, copies | 3 | An application suite: copies refused for native threads and open descriptors, many Static mutants |
+| h3 `utils` | Linux, copies | 3 | Timeouts, Unconfirmed and explained mutants in 39 files |
+| umami `lib` | Linux, copies | 3 | An application suite that reads Date; the most Static mutants |
+| sveltekit `server` | Linux, copies | 2 | Copies made before load, timeouts, Unconfirmed and explained mutants, Vitest 5 |
+| xstate `core` | Linux, copies | 1 | Vitest 3.2, workers started for whole-file runs, timeouts |
+| vue `reactivity` | Linux, copies | 1 | Files whose verdicts are unsure: most of the benchmark's Unconfirmed mutants |
+| immer `all` | Linux, copies and no copies | 1 | Vitest 3.2, started workers, Static mutants |
+| es-toolkit `pr` | Linux, copies | 1 | Lines a change touched (`--changed`) |
+| hono `router` | Linux, no copies | 1 | The path of platforms without the addon |
+
+What the set cannot show, and when the full benchmark is still needed:
+
+- **A trap of a project outside it.** Of the last 28 fixes' comparisons, the wrong verdicts that showed on a benchmark scope were in n8n `proxy` (twice) and h3 `utils`, which the set has, and in headlamp `api`, Shopify `node` on macOS (610 mutants left pending), tailwindcss `parsers` on macOS (a run that stalled) and excalidraw `pr` on macOS (a wrong Killed), which it does not. A change aimed at a target, or at a kind of suite only some targets have (a browser environment, a project with several Vitest configs, a run that fills the memory), adds those scopes with `scopes` or runs them with `bench.yml` and `base`.
+- **macOS beyond two library scopes.** The applications on macOS's three processors, where heavy files are run one at a time and runs come near the job's limit, are not in it. A change to how many processes run at once, to memory or to the addon's copies needs `bench.yml` on macOS.
+- **Windows.** No benchmark runs there; the paths without the addon are run on Linux alone, and the PR checks' Windows smoke run is all Windows gets before a full run.
+- **A wrong verdict that comes by chance.** Each commit is run once: h3's wrong Survived showed in one Linux job of several, and a verdict that one run in ten gets wrong shows here one time in ten. A change to how a failure is settled or a test is trusted is run with `bench.yml`'s `jobs` on the scopes it touches.
+- **Timeouts of n8n `proxy`.** Its base and head run on two processors, and a move to or from Timeout there may be the processor's: such a move is written into the source and run with the suite before it is taken for the change's.
+- **Times and counts of a speed change.** The summary gives each commit's longest shard, whole-file runs and trials, from one run each on the processor its job was given. A claimed speedup is measured on the scopes it is for, and the tables in `docs/benchmark.md` come from full runs.
+- **Values the target's code observes through Date, performance, fs or process.** These need the full application scopes against the ground truth, as above.
+- **A release.** Before a release and in the final pass of a goal, every target runs on Linux and macOS with `bench.yml`.
 
 ## Ground truth on CI
 

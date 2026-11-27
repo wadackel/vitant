@@ -11,7 +11,8 @@
 // base's mutants with the head's by file, start, end, mutator and replacement,
 // and prints Markdown: every mutant that moved, and each merged report held
 // against bench/truth/. It exits with 1 where a mutant moved between detected
-// and undetected, a report disagrees with the suite, or a job left no report.
+// and undetected, unless the stored ground truth explains the mutant's verdict,
+// a report disagrees with the suite, or a job left no report.
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -73,7 +74,7 @@ export const defaultSet: Slot[] = [
   // Timeouts, Unconfirmed and explained mutants in 39 files; a wrong Survived of the last fixes showed here.
   { target: 'h3', scope: 'utils', shards: 3, runner: linux, path: 'copies' },
   // An application suite that reads Date, with the most Static mutants.
-  { target: 'umami', scope: 'lib', shards: 2, runner: linux, path: 'copies' },
+  { target: 'umami', scope: 'lib', shards: 3, runner: linux, path: 'copies' },
   // Copies made before load, timeouts, Unconfirmed and explained mutants, Vitest 5.
   { target: 'sveltekit', scope: 'server', shards: 2, runner: linux, path: 'copies' },
   // Vitest 3.2, workers started for whole-file runs, timeouts.
@@ -144,7 +145,7 @@ function slotsOf(jobs: Job[]): { slot: Slot; jobs: Job[] }[] {
 const detected = (status: string) => status === 'Killed' || status === 'Timeout'
 const undetected = (status: string) => status === 'Survived' || status === 'NoCoverage'
 
-export type Move = 'detection' | 'without a verdict' | 'killed or timeout' | 'survived or no coverage'
+export type Move = 'detection' | 'explained' | 'without a verdict' | 'killed or timeout' | 'survived or no coverage'
 
 /** What a change of status between the two commits says; undefined where it did not change. */
 export function moveOf(was: string, now: string): Move | undefined {
@@ -164,8 +165,14 @@ export interface Moved {
   move: Move
 }
 
-/** Every mutant of both reports whose status differs, and the mutants only one of them has. */
-export function movesBetween(base: RunResult, head: RunResult): { moved: Moved[]; onlyBase: number; onlyHead: number } {
+/**
+ * Every mutant of both reports whose status differs, and the mutants only one
+ * of them has. A move between detected and undetected of a mutant that
+ * `explained` names, the stored ground truth's entries with a note, is
+ * listed apart without failing: the suite was run by hand for it, and the
+ * note says why this tool's verdict differs from the suite's in some runs.
+ */
+export function movesBetween(base: RunResult, head: RunResult, explained = new Set<string>()): { moved: Moved[]; onlyBase: number; onlyHead: number } {
   const before = new Map(base.mutants.map((mutant) => [keyOf(mutant), mutant]))
   const moved: Moved[] = []
   let onlyHead = 0
@@ -177,9 +184,18 @@ export function movesBetween(base: RunResult, head: RunResult): { moved: Moved[]
     }
     before.delete(keyOf(mutant))
     const move = moveOf(was.status, mutant.status)
-    if (move) moved.push({ mutant, was: was.status, move })
+    if (move) moved.push({ mutant, was: was.status, move: move === 'detection' && explained.has(keyOf(mutant)) ? 'explained' : move })
   }
   return { moved, onlyBase: before.size, onlyHead }
+}
+
+interface StoredEntry {
+  file: string
+  start: [number, number]
+  end: [number, number]
+  mutator: string
+  replacement: string
+  note?: string
 }
 
 interface Summary {
@@ -189,9 +205,10 @@ interface Summary {
 
 const read = <T>(file: string): T | undefined => (fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as T) : undefined)
 
-const order: Move[] = ['detection', 'without a verdict', 'killed or timeout', 'survived or no coverage']
+const order: Move[] = ['detection', 'explained', 'without a verdict', 'killed or timeout', 'survived or no coverage']
 const heading: Record<Move, string> = {
   detection: 'Between detected and undetected',
+  explained: 'Between detected and undetected, of a mutant whose verdict bench/truth/ explains',
   'without a verdict': 'To or from a status without a verdict (Static, Unconfirmed, Led, Pending)',
   'killed or timeout': 'Between Killed and Timeout, benign',
   'survived or no coverage': 'Between Survived and NoCoverage, which the suite passes alike',
@@ -204,6 +221,7 @@ function check(jobs: Job[], dir: string): boolean {
   const lines: string[] = []
   let problems = 0
   let detections = 0
+  let explainedMoves = 0
   const groups = slotsOf(jobs)
   for (const { slot, jobs: slotJobs } of groups) {
     const { base: baseTool, head: headTool } = toolsOf(slot.path)
@@ -262,20 +280,24 @@ function check(jobs: Job[], dir: string): boolean {
       lines.push(`| ${tool} | ${counts(merged[tool])} | ${work(merged[tool])} | ${seconds[tool]} s | ${[...new Set(cpus[tool])].join(', ')} | ${truth[tool]} |`)
     }
     lines.push('')
-    const { moved, onlyBase, onlyHead } = movesBetween(merged[baseTool], merged[headTool])
+    const stored = read<{ mutants: StoredEntry[] }>(truthFile)
+    const explained = new Set((stored?.mutants ?? []).filter((entry) => entry.note).map((entry) =>
+      keyOf({ file: entry.file, location: { start: { line: entry.start[0], column: entry.start[1] }, end: { line: entry.end[0], column: entry.end[1] } }, mutator: entry.mutator, replacement: entry.replacement })))
+    const { moved, onlyBase, onlyHead } = movesBetween(merged[baseTool], merged[headTool], explained)
     if (onlyBase + onlyHead > 0) lines.push(`Mutants of one commit only: ${onlyBase} of the base, ${onlyHead} of the head.`, '')
     if (moved.length === 0) lines.push('No mutant moved.', '')
     for (const move of order) {
       const these = moved.filter((entry) => entry.move === move)
       if (these.length === 0) continue
       if (move === 'detection') detections += these.length
+      if (move === 'explained') explainedMoves += these.length
       lines.push(`${move === 'detection' ? '**' : ''}${heading[move]}: ${these.length}${move === 'detection' ? '**' : ''}`, '')
       for (const { mutant, was } of these) lines.push(`- ${where(mutant)}: ${was} → ${mutant.status}`)
       lines.push('')
     }
   }
   const verdict = detections === 0 && problems === 0
-    ? `No mutant moved between detected and undetected in ${groups.length} scope runs, and every report holds against the suite.`
+    ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite.`
     : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**`
   console.log(['## Verdicts at two commits', '', verdict, '', ...lines].join('\n'))
   return detections === 0 && problems === 0
