@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { commandsFor, expectedChecks, profileFor, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
+import { buildsFor, commandsFor, expectedChecks, profileFor, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
 
 import { partitionKeys } from '../bench/truth-shards.ts'
 
@@ -68,6 +68,17 @@ describe('CI profiles', () => {
     expect(expectedChecks('docs')).toEqual([])
   })
 
+  it('builds every environment once, those of the detail checks apart', () => {
+    for (const profile of ['standard', 'full'] as const) {
+      const { needed, others } = buildsFor(profile)
+      expect([...needed, ...others].map((t) => t.target).sort()).toEqual(targets.map((t) => t.target).sort())
+      const detail = new Set(expectedChecks(profile).filter((c) => !['quick', 'smoke'].includes(c.suite)).map((c) => c.target))
+      expect(needed.map((t) => t.target).sort()).toEqual([...detail].sort())
+    }
+    expect(buildsFor('standard').needed.map((t) => t.target)).toEqual(['darwin-arm64', 'linux-x64-gnu'])
+    expect(buildsFor('full').others).toEqual([])
+  })
+
   it('retains all e2e files, packed, units and typechecking across the PR lanes', () => {
     expect(commandsFor('linux-x64-gnu', 'quick').map((c) => c.name)).toEqual(['typecheck', 'unit'])
     expect(commandsFor('win32-x64', 'quick').map((c) => c.name)).toEqual(['unit'])
@@ -100,13 +111,17 @@ describe('CI profiles', () => {
 
 describe('required CI results', () => {
   it('requires successful prerequisite jobs even if their result files claim success', () => {
-    const jobs = { plan: { result: 'success' }, quick: { result: 'success' }, build: { result: 'success' }, detail: { result: 'success' } }
+    const jobs = { plan: { result: 'success' }, quick: { result: 'success' }, build: { result: 'success' }, 'build-others': { result: 'success' }, detail: { result: 'success' } }
     expect(validateJobs('standard', jobs)).toEqual([])
     for (const result of ['failure', 'cancelled', 'skipped', undefined]) {
       expect(validateJobs('standard', { ...jobs, build: { result } })).not.toEqual([])
+      expect(validateJobs('standard', { ...jobs, 'build-others': { result } })).not.toEqual([])
     }
     expect(validateJobs('standard', {})).not.toEqual([])
-    expect(validateJobs('docs', { plan: { result: 'success' }, quick: { result: 'skipped' }, build: { result: 'skipped' }, detail: { result: 'skipped' } })).toEqual([])
+    // A full run's detail jobs need every environment, so no build is left for build-others.
+    expect(validateJobs('full', { ...jobs, 'build-others': { result: 'skipped' } })).toEqual([])
+    expect(validateJobs('full', jobs)).not.toEqual([])
+    expect(validateJobs('docs', { plan: { result: 'success' }, quick: { result: 'skipped' }, build: { result: 'skipped' }, 'build-others': { result: 'skipped' }, detail: { result: 'skipped' } })).toEqual([])
     expect(validateJobs('docs', { ...jobs, plan: { result: 'failure' } })).not.toEqual([])
   })
 
@@ -224,6 +239,15 @@ describe('CI command boundaries', { timeout: 30_000 }, () => {
     const quick = JSON.parse(fs.readFileSync(output, 'utf8').match(/^quick=(.*)$/m)![1]).include
     expect(quick.map((entry: { target: string; runner: string }) => [entry.target, entry.runner]))
       .toEqual([['linux-x64-gnu', 'ubuntu-24.04'], ['win32-x64', 'windows-2025']])
+    const matrix = (name: string) => JSON.parse(fs.readFileSync(output, 'utf8').match(new RegExp(`^${name}=(.*)$`, 'm'))![1]).include
+      .map((entry: { target: string }) => entry.target)
+    expect(matrix('platforms')).toEqual(['darwin-arm64', 'linux-x64-gnu'])
+    expect(matrix('others')).toEqual(['darwin-x64', 'linux-arm64-gnu', 'linux-x64-musl', 'linux-arm64-musl', 'win32-x64'])
+    fs.writeFileSync(output, '')
+    expect(command(['plan'], { GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_OUTPUT: output }).status).toBe(0)
+    expect(matrix('platforms')).toEqual(targets.map((t) => t.target))
+    // native.yml skips build-others on exactly this value, since an empty matrix would fail the job.
+    expect(fs.readFileSync(output, 'utf8')).toContain('others={"include":[]}\n')
     fs.writeFileSync(event, JSON.stringify({ before: 'b'.repeat(40), after: source }))
     fs.writeFileSync(output, '')
     expect(command(['plan'], { GITHUB_EVENT_NAME: 'push', GITHUB_EVENT_PATH: event, GITHUB_OUTPUT: output }).status).toBe(0)
@@ -246,7 +270,7 @@ describe('CI command boundaries', { timeout: 30_000 }, () => {
     const records = valid('standard').map((record) => ({ ...record, sha: source }))
     for (const record of records) fs.writeFileSync(path.join(directory, `result-${record.target}-${record.suite}.json`), JSON.stringify(record))
     const env = { CI_PROFILE: 'standard', CI_NEEDS: JSON.stringify({
-      plan: { result: 'success' }, quick: { result: 'success' }, build: { result: 'success' }, detail: { result: 'success' },
+      plan: { result: 'success' }, quick: { result: 'success' }, build: { result: 'success' }, 'build-others': { result: 'success' }, detail: { result: 'success' },
     }) }
     const passing = command(['gate'], env)
     expect(passing.status, passing.stderr).toBe(0)

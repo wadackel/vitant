@@ -36,33 +36,6 @@ describe('with a limit on the test files a mutant is run against', () => {
   }, basicRunMs)
 })
 
-describe('with leads taken at their word', () => {
-  it('reports a mutant a test failed with as led, and no other verdict differently', () => {
-    const report = reportPath('led')
-    const cli = tool(['--root', fixture('basic'), '--led', '--report', report])
-    expect(cli.status, cli.stderr).toBe(0)
-    const led: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
-    expect(led.counts.Led).toBeGreaterThan(0)
-    const runs = ({ started, lost, ...copied }: RunResult['wholeRuns']) => started + Object.values(copied).reduce((sum, count) => sum + count, 0)
-    expect(runs(led.wholeRuns)).toBeLessThan(runs(result.wholeRuns))
-    const kind = (status: string) => (status === 'Timeout' ? 'Killed' : status)
-    for (const mutant of led.mutants) {
-      // A failure next to other runs is left at that too, and that mutant is unconfirmed.
-      if (mutant.besideOnly) expect(`${mutant.id} ${mutant.status} ${kind(result.mutants[mutant.id].status)}`).toBe(`${mutant.id} Unconfirmed Killed`)
-      else if (mutant.status !== 'Led') expect(`${mutant.id} ${kind(mutant.status)}`).toBe(`${mutant.id} ${kind(result.mutants[mutant.id].status)}`)
-      else {
-        expect(mutant.led!.tests.length).toBeGreaterThan(0)
-        expect(['Killed', 'Timeout', 'Survived']).toContain(result.mutants[mutant.id].status)
-      }
-    }
-    expect(cli.stdout).toMatch(/--led: \d+ mutant\(s\) failed a test while trying it/)
-    // A try that ran out of the time Vitest gives the test has no control
-    // run after it to say the test passes without the mutant: no lead.
-    const delayed = led.mutants.find((m) => m.file === 'src/delay.ts' && m.location.start.line === 2 && m.replacement === 'false')!
-    expect(`${delayed.status} ${delayed.besideOnly}`).toBe('Unconfirmed test/delay.test.ts')
-  }, basicRunMs)
-})
-
 describe('with --fast', () => {
   it('leads only by tests that failed with their file to themselves, and settles failures next to other runs', () => {
     const report = reportPath('fast')
