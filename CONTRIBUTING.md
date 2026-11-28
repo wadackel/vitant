@@ -26,7 +26,7 @@ A pull request that changes code runs the complete checks in its CI; once its ch
 
 ```sh
 pnpm test           # all unit, smoke and e2e tests
-pnpm test:truth     # complete truth checks for basic (both modes), stuck, clash and walk
+pnpm test:truth     # complete truth checks for basic (both modes), stuck, clash, walk and nest
 pnpm test:packed    # the tool packed, installed into a copy of the fixture and run from there
 pnpm typecheck
 ```
