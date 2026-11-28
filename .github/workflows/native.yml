@@ -49,7 +49,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
       - id: plan
@@ -74,23 +74,23 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.1.0
+      - uses: pnpm/action-setup@v6.1.1
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Check
         run: node bench/ci.ts run quick "$TARGET"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: check-${{ matrix.target }}-quick-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: reports-${{ matrix.target }}-quick
@@ -118,15 +118,15 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.1.0
+      - uses: pnpm/action-setup@v6.1.1
         if: ${{ !matrix.musl }}
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: ${{ !matrix.musl }}
         with:
           node-version: 24
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc
         if: ${{ matrix.addon && !matrix.musl }}
         with:
           toolchain: stable
@@ -169,7 +169,7 @@ jobs:
           cp "build/fork.$TARGET.node" "npm/$TARGET/"
           cd "npm/$TARGET"
           npm pack --dry-run 2>&1 | grep -F "fork.$TARGET.node"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ matrix.addon }}
         with:
           name: fork.${{ matrix.target }}-${{ github.run_attempt }}
@@ -177,13 +177,13 @@ jobs:
             build/fork.${{ matrix.target }}.node
             build/addon.${{ matrix.target }}.json
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() && matrix.smoke }}
         with:
           name: check-${{ matrix.target }}-smoke-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() && matrix.smoke }}
         with:
           name: reports-${{ matrix.target }}-smoke
@@ -226,11 +226,11 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.1.0
+      - uses: pnpm/action-setup@v6.1.1
         if: ${{ !matrix.musl }}
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
       - id: addon
@@ -271,13 +271,13 @@ jobs:
       - name: Keep available truth sessions
         if: ${{ always() && startsWith(matrix.suite, 'truth') }}
         run: node bench/ci.ts sessions
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: check-${{ matrix.target }}-${{ matrix.suite }}-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: reports-${{ matrix.target }}-${{ matrix.suite }}
@@ -309,7 +309,7 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
       - id: checks
