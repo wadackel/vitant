@@ -1,12 +1,18 @@
 # Full scopes occupy runners for hours; starting them on every main push
-# would delay pull-request checks on the same runners.
+# would delay pull-request checks on the same runners. What runs by itself is
+# the check that every target it lists still sets up and starts, on Linux alone: left
+# to the manual runs, a target that stopped starting went unseen for weeks.
 name: bench
 
 on:
+  # 10 UTC is the hour the fewest pull-request and main-push runs began in, 12 of
+  # the 1,000 runs from 13 to 28 November 2026, and ten hours from native.yml's full run.
+  schedule:
+    - cron: '17 10 * * *'
   workflow_dispatch:
     inputs:
       check:
-        description: Check that every target this workflow lists still sets up and starts - this tool alone over a share of each scope on Linux, whatever tools, runs, runners and jobs say
+        description: Check that every target this workflow lists still sets up and starts, as the daily run does - this tool alone over a share of each scope on Linux, whatever tools, runs, runners and jobs say
         type: boolean
         default: false
       tools:
@@ -66,8 +72,8 @@ jobs:
       - id: pick
         env:
           ONLY: ${{ inputs.only }}
-          RUNNERS: ${{ inputs.check && 'ubuntu-24.04' || inputs.runners || 'ubuntu-24.04 macos-15' }}
-          JOBS: ${{ inputs.check && '1' || inputs.jobs || '1' }}
+          RUNNERS: ${{ (github.event_name == 'schedule' || inputs.check) && 'ubuntu-24.04' || inputs.runners || 'ubuntu-24.04 macos-15' }}
+          JOBS: ${{ (github.event_name == 'schedule' || inputs.check) && '1' || inputs.jobs || '1' }}
           SLOTS: ${{ inputs.slots || '2' }}
           ALL: |
             ufo all
@@ -159,14 +165,14 @@ jobs:
     needs: plan
     runs-on: ${{ matrix.runner }}
     # StrykerJS took 315 minutes on actual on macOS.
-    timeout-minutes: ${{ inputs.check && 100 || 360 }}
+    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.check) && 100 || 360 }}
     concurrency:
       group: ${{ matrix.slot && format('bench-macos-{0}', matrix.slot) || format('bench-{0}-{1}', github.run_id, strategy.job-index) }}
       queue: max
     strategy:
       fail-fast: false
       # The check leaves most of the account's runners to the pull requests that come while it runs.
-      max-parallel: ${{ inputs.check && 6 || 256 }}
+      max-parallel: ${{ (github.event_name == 'schedule' || inputs.check) && 6 || 256 }}
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -202,14 +208,14 @@ jobs:
       - name: Run
         # A check that hangs is to end failed, not cancelled as a job its own limit ends does,
         # and the step's limit leaves the summary and the upload their minutes.
-        timeout-minutes: ${{ inputs.check && 80 || 360 }}
+        timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.check) && 80 || 360 }}
         env:
           VITANT_BASE: ${{ inputs.base && format('{0}/base', github.workspace) || '' }}
-          TOOLS: ${{ inputs.check && 'vitant' || inputs.tools || 'vitant' }}
-          RUNS: ${{ inputs.check && '1' || inputs.runs || '1' }}
+          TOOLS: ${{ (github.event_name == 'schedule' || inputs.check) && 'vitant' || inputs.tools || 'vitant' }}
+          RUNS: ${{ (github.event_name == 'schedule' || inputs.check) && '1' || inputs.runs || '1' }}
           # A share of the files rather than none: with no mutant this tool ends before it starts Vitest.
           # The first share is never empty, holding the file with the most mutants.
-          SHARD: ${{ inputs.check && '1/64' || '' }}
+          SHARD: ${{ (github.event_name == 'schedule' || inputs.check) && '1/64' || '' }}
           # On Linux, the longest run of this tool but actual's, freelens's, headlamp's and fast-check's, one that starts a worker for every run of a file, took 106 minutes; actual's took 185 on an EPYC 7763, freelens's 133, headlamp's 131 and fast-check's 119. On macOS immich services' took 193, freelens's 200, and headlamp's 268 to past 345 with three workers and 231 and 257, twice past 345, with the two its target gives this tool on three processors. Each of these sets a limit of its own; on macOS headlamp's run does not always end within its 300 minutes, nor within a job's six hours with a longer one.
           LIMIT: ${{ inputs.limit || '150' }}
         run: |
