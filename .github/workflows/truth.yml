@@ -1,0 +1,248 @@
+# Ground truth for a benchmark scope: every mutant of a report written into
+# the source and the suite run, the mutants dealt over jobs. One job at a time
+# took hours a scope on a laptop; each job here makes the share `--shard`
+# gives it, and the last makes of the shares the file one job would have made.
+name: truth
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target of bench/targets.ts
+        required: true
+      scope:
+        description: Its scope
+        required: true
+      shards:
+        description: Jobs the mutants are dealt over
+        default: '8'
+      command:
+        description: run (the whole suite) or related (the test files that import the mutated file); empty for related where the stored ground truth was made with it, run otherwise
+        default: ''
+      jobs:
+        description: Copies of the project each job runs mutants in at once, as bench/truth.ts takes --jobs; keep 1 for a target whose notes say its ground truth is made with --jobs 1
+        default: '1'
+      report:
+        description: Run of the bench workflow whose ubuntu-24.04 artifact of the scope holds the report to make ground truth for; one is made here when empty
+        default: ''
+      ref:
+        description: Commit of this tool to run; the one the workflow is started from when empty
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: truth-${{ github.ref }}-${{ inputs.target }}-${{ inputs.scope }}-${{ inputs.ref }}-${{ inputs.shards }}-${{ inputs.command }}-${{ inputs.jobs }}-${{ inputs.report }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      shards: ${{ steps.pick.outputs.shards }}
+      related: ${{ steps.pick.outputs.related }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - id: pick
+        env:
+          TARGET: ${{ inputs.target }}
+          SCOPE: ${{ inputs.scope }}
+          SHARDS: ${{ inputs.shards }}
+          COMMAND: ${{ inputs.command }}
+        run: |
+          node -e '
+            const fs = require("node:fs")
+            const { TARGET, SCOPE, SHARDS, COMMAND } = process.env
+            const total = Number(SHARDS)
+            if (!Number.isInteger(total) || total < 1 || total > 64) throw new Error("shards must be 1 to 64")
+            const stored = `bench/truth/${TARGET}-${SCOPE}.json`
+            // Nine stored files were made with "reaching files", the test files that reach each mutant, which make no longer does.
+            const made = fs.existsSync(stored) ? JSON.parse(fs.readFileSync(stored, "utf8")).command : undefined
+            const command = COMMAND || (made === "related" ? "related" : "run")
+            if (command !== "run" && command !== "related") throw new Error(`command must be run or related, not ${command}`)
+            console.log("shards=" + JSON.stringify(Array.from({ length: total }, (_, i) => i + 1)))
+            console.log("related=" + (command === "related"))
+          ' >> "$GITHUB_OUTPUT"
+
+  # The token that reads another run's artifacts stays in a job that runs none of the target's code.
+  take:
+    if: ${{ inputs.report }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    steps:
+      - name: Take the report of the bench run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.report }}
+          NAME: bench-${{ inputs.target }}-${{ inputs.scope }}-ubuntu-24.04
+        run: |
+          # The long job of bench.yml, excalidraw math's, names its artifact without the job number.
+          gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME-1" -D taken || gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME" -D taken
+          mkdir -p report
+          cp taken/vitant.json taken/summary.json report/
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: truth-report
+          path: report
+
+  report:
+    if: ${{ !inputs.report }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+      - name: Build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:native
+      - name: Set up ${{ inputs.target }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: node bench/setup.ts "$TARGET" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
+      - name: Run this tool
+        env:
+          TARGET: ${{ inputs.target }}
+          SCOPE: ${{ inputs.scope }}
+        # A report that disagrees with the stored ground truth is what new ground truth is made for: only a missing one stops here.
+        run: |
+          node bench/run.ts "$TARGET" "$SCOPE" --tool vitant --limit 150 || test -f "bench/results/$TARGET-$SCOPE/vitant.json"
+          mkdir -p report
+          cp "bench/results/$TARGET-$SCOPE/vitant.json" "bench/results/$TARGET-$SCOPE/summary.json" report/
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: truth-report
+          path: report
+
+  shard:
+    name: shard ${{ matrix.shard }}
+    needs: [plan, take, report]
+    # One of the two makes the report and the other is skipped.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.take.result == 'success' || needs.report.result == 'success') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Set up ${{ inputs.target }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: node bench/setup.ts "$TARGET" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: truth-report
+          path: report
+      # A mutant is written where the report says, whatever stands there: a report of other sources would be judged in the wrong places.
+      - name: Check the report is of the sources set up here
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs"
+            import { targets } from "./bench/targets.ts"
+            const { commit } = JSON.parse(fs.readFileSync("report/summary.json", "utf8"))
+            const want = targets[process.env.TARGET].commit
+            if (commit !== want) throw new Error(`the report is of ${process.env.TARGET} at ${commit}, and this checkout sets it up at ${want}`)
+          '
+      - name: Make ground truth for shard ${{ matrix.shard }}
+        env:
+          TARGET: ${{ inputs.target }}
+          SHARD: ${{ matrix.shard }}/${{ inputs.shards }}
+          JOBS: ${{ inputs.jobs }}
+          RELATED: ${{ needs.plan.outputs.related }}
+          OUT: parts/part-${{ matrix.shard }}
+        # It exits with 1 where the report and the suite disagree, having written the part: the merge judges that.
+        run: |
+          mkdir -p parts
+          related=()
+          if [ "$RELATED" = true ]; then related=(--related); fi
+          node bench/truth.ts make --target "$TARGET" --report report/vitant.json --shard "$SHARD" --jobs "$JOBS" "${related[@]}" --out "$OUT.json" > "$OUT.log" 2>&1 || true
+          tail -n 60 "$OUT.log"
+          test -f "$OUT.json"
+      - uses: actions/upload-artifact@v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: truth-part-${{ matrix.shard }}
+          path: parts
+
+  merge:
+    needs: [plan, shard]
+    # Explicit, as the skipped one of take and report would otherwise skip it; every share has to have succeeded.
+    if: ${{ !cancelled() && needs.shard.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: truth-report
+          path: report
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: truth-part-*
+          path: parts
+          merge-multiple: true
+      - name: Merge
+        env:
+          NAME: ${{ inputs.target }}-${{ inputs.scope }}
+        # A merge that is refused writes nothing; one whose entries disagree with the report is written, and says where.
+        run: |
+          mkdir -p merged
+          # Into files, not through a pipe: Node drops what it has not yet written to a pipe when it exits.
+          node bench/truth.ts merge --report report/vitant.json --out "merged/$NAME.json" parts/*.json > merged/check.txt 2>&1 || true
+          cat merged/check.txt
+          test -f "merged/$NAME.json"
+          stored="bench/truth/$NAME.json"
+          if [ -f "$stored" ]; then node bench/truth.ts diff "merged/$NAME.json" "$stored" > merged/diff.txt 2>&1 || true; cat merged/diff.txt; fi
+          {
+            echo "### Ground truth of $NAME"
+            echo
+            echo "Against the report: $(head -n 1 merged/check.txt)"
+            echo
+            if [ -f merged/diff.txt ]; then echo "Against $stored: $(head -n 1 merged/diff.txt)"; echo; echo '```'; tail -n +2 merged/diff.txt | head -n 100; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: truth-${{ inputs.target }}-${{ inputs.scope }}
+          path: merged
