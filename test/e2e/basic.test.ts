@@ -17,6 +17,8 @@ let output = ''
 let tests: { file: string; id: string; name: string; baseline?: string; nonRepeatable?: boolean; needsReplay?: boolean }[] = []
 /** The test file of each run of that run made again in a worker started for it, its copy having ended without a verdict. */
 let lost: string[] = []
+/** What that run's workers wrote of `intake.test.ts`. */
+let intake: { type: string; by?: string; why?: string }[] = []
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -35,6 +37,7 @@ beforeAll(() => {
   tests = lines.filter((line) => line.includes('"type":"test"')).map((line) => JSON.parse(line))
   lost = lines.filter((line) => line.includes('"type":"plain"')).map((line) => JSON.parse(line) as { file: string; memory?: boolean })
     .filter((record) => !record.memory).map((record) => record.file)
+  intake = lines.filter((line) => line.includes('test/intake.test.ts')).map((line) => JSON.parse(line))
 }, basicRunMs)
 
 describe('running the fixture project', () => {
@@ -87,6 +90,17 @@ describe('running the fixture project', () => {
     // the process, and the runs made alone, four of them for `delay.ts` and
     // three in a run of `nest.ts` alone; the count varies by a few between runs.
     expect(runs.started).toBeLessThan(25)
+  })
+
+  // The file imports `node:process` before `intake.ts` begins, which has Node
+  // make the worker's standard input; refused for that pipe, every run of
+  // the file was made in a copy taken before it loads.
+  it.skipIf(!addonTarget())('makes copies while a file loads that had Node make the standard input', () => {
+    expect(intake.filter((record) => record.type === 'loading')).toEqual([])
+    expect(intake.filter((record) => record.type === 'whole' && record.by === 'copied while loading').length).toBeGreaterThan(0)
+    expect(intake.filter((record) => record.type === 'whole' && record.by === 'copied before load')).toEqual([])
+    expect(statusOf('src/intake.ts', 2, 'size >= 10')).toBe('Survived')
+    expect(statusOf('src/intake.ts', 2, 'size <= 10')).toBe('Killed')
   })
 
   it('kills a mutant a test fails on and keeps one no test notices', () => {

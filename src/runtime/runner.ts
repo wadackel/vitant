@@ -1472,11 +1472,55 @@ const WINDOW_MS = 1000
 const IDLE_POLL_MS = 100
 const IDLE_MS = 500
 
-/** What keeps the event loop alive, counted by kind. */
+/**
+ * What keeps the event loop alive, counted by kind, with the worker's
+ * standard input apart from the pipes, as `StandardInput` and only while it
+ * is read. Node makes that pipe's handle when `process.stdin` is first
+ * touched, which importing `node:process` as a module does: Vitest 4.1's
+ * worker does as it starts, Vitest 5's does not, and a dependency that
+ * imports it while a file loads looked like a file that opened a pipe, so
+ * no copy was made while that file loaded. A handle that reads nothing
+ * shares nothing with a copy beyond descriptor 0, which every copy has from
+ * the worker either way. Taken off the pipes whether it is read or not, it
+ * stopping being read cannot hide a pipe opened since. It is not touched
+ * before loading as standard output is: that sets descriptor 0
+ * non-blocking, and `fs.readSync(0)` in a test would throw `EAGAIN` where
+ * the suite's worker waits.
+ */
 function activeResources(): Map<string, number> {
   const counts = new Map<string, number>()
   for (const kind of process.getActiveResourcesInfo()) counts.set(kind, (counts.get(kind) ?? 0) + 1)
+  const pipes = counts.get('PipeWrap') ?? 0
+  const input = pipes > 0 ? standardInput() : undefined
+  if (input) {
+    if (pipes === 1) counts.delete('PipeWrap')
+    else counts.set('PipeWrap', pipes - 1)
+    if (input === 'read') counts.set('StandardInput', 1)
+  }
   return counts
+}
+
+interface StreamHandle {
+  _handle?: { fd?: number; reading?: boolean; constructor?: { name?: string } } | null
+  readable?: boolean
+  writable?: boolean
+  readableFlowing?: boolean | null
+  listenerCount?(event: string): number
+}
+
+/**
+ * Whether the handles hold Node's stream of the standard input, a pipe on
+ * descriptor 0 that can only be read, and whether anything reads it or is
+ * about to.
+ */
+function standardInput(): 'idle' | 'read' | undefined {
+  const handles = (process as unknown as { _getActiveHandles(): StreamHandle[] })._getActiveHandles()
+  const input = handles.find(
+    (handle) => handle?._handle?.fd === 0 && handle._handle.constructor?.name === 'Pipe' && handle.writable === false && typeof handle.listenerCount === 'function',
+  )
+  if (!input) return undefined
+  const read = input._handle!.reading === true || input.readableFlowing === true || input.listenerCount!('data') > 0 || input.listenerCount!('readable') > 0
+  return read ? 'read' : 'idle'
 }
 
 /** What the worker holds open before any test file is loaded, the watchdog's thread included. */
