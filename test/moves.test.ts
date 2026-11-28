@@ -104,11 +104,11 @@ it('lists every moved mutant of the merged shares and fails on a move between de
   const run = check([first, second])
   expect(run.status, run.stderr).toBe(1)
   expect(run.stdout).toContain('**1 mutant(s) moved between detected and undetected; 0 other problem(s).**')
-  expect(run.stdout).toContain('- b.ts:2:5 BooleanLiteral `false`: Survived → Killed')
+  expect(run.stdout).toContain('- b.ts:2:5-2:6 BooleanLiteral `false`: Survived → Killed')
   expect(run.stdout).toContain('Between Killed and Timeout, benign: 1')
-  expect(run.stdout).toContain('- a.ts:1:5 BooleanLiteral `false`: Killed → Timeout')
+  expect(run.stdout).toContain('- a.ts:1:5-1:6 BooleanLiteral `false`: Killed → Timeout')
   expect(run.stdout).toContain('Between Survived and NoCoverage, which the suite passes alike: 1')
-  expect(run.stdout).not.toContain('a.ts:1:5 BooleanLiteral `false`: Survived')
+  expect(run.stdout).not.toContain('a.ts:1:5-1:10')
   expect(run.stdout).toContain('| vitant | Killed 1, Survived 1, Timeout 1, NoCoverage 1 | 6 whole-file runs, 6 trials | 10 s | Test CPU | no ground truth stored |')
 })
 
@@ -220,9 +220,9 @@ it('prints the whole summary into a pipe however long it is', () => {
   const run = check([only])
   expect(run.status).toBe(1)
   expect(run.stdout.length).toBeGreaterThan(200_000)
-  expect(run.stdout).toContain('- z.ts:1:5 BooleanLiteral `false`: Killed → Survived')
+  expect(run.stdout).toContain('- z.ts:1:5-1:6 BooleanLiteral `false`: Killed → Survived')
   // The benign moves come last, the last line of all with them.
-  expect(run.stdout.trimEnd().endsWith('- a.ts:4000:5 BooleanLiteral `false`: Killed → Timeout')).toBe(true)
+  expect(run.stdout.trimEnd().endsWith('- a.ts:4000:5-4000:6 BooleanLiteral `false`: Killed → Timeout')).toBe(true)
 })
 
 it('holds each merged report against the stored ground truth and passes a move the truth explains', () => {
@@ -240,6 +240,7 @@ it('holds each merged report against the stored ground truth and passes a move t
     expect(explained.status, explained.stdout).toBe(0)
     expect(explained.stdout).toContain('but 1 whose verdict bench/truth/ explains')
     expect(explained.stdout).toContain('Between detected and undetected, of a mutant whose verdict bench/truth/ explains: 1')
+    expect(explained.stdout).toContain('- a.ts:1:5-1:6 BooleanLiteral `false`: Survived → Timeout; bench/truth/: the suite passes, times out in some runs')
 
     job(only, {
       'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Killed')]),
@@ -249,6 +250,28 @@ it('holds each merged report against the stored ground truth and passes a move t
     expect(wrong.status).toBe(1)
     expect(wrong.stdout).toContain('**1 mutant(s) moved between detected and undetected; 1 other problem(s).**')
     expect(wrong.stdout).toMatch(/\*\*2 mutants checked against the suite: 1 agree, 1 wrong/)
+    expect(wrong.stdout).toContain('- a.ts:2:5-2:6 BooleanLiteral `false`: Killed → Survived; bench/truth/: the suite fails')
+  } finally {
+    fs.rmSync(truth, { force: true })
+  }
+})
+
+// Two mutants of one condition can share start, mutator and replacement, and the truth check
+// judges only the one stored: a line naming the start alone reads as the stored one's.
+it('names the end of a moved mutant and says where bench/truth/ has no entry for it', () => {
+  const truth = path.join(import.meta.dirname, '../bench/truth/.moves-test-scope.json')
+  const [only] = jobsOf([{ ...slot, shards: 1 }])
+  try {
+    fs.writeFileSync(truth, JSON.stringify({ mutants: [{ file: 'a.ts', start: [1, 4], end: [1, 5], mutator: 'BooleanLiteral', replacement: 'false', suite: 'pass' }] }))
+    job(only, {
+      'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 1, 'Survived', 9)]),
+      vitant: report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 1, 'Killed', 9)]),
+    })
+    const run = check([only])
+    expect(run.status).toBe(1)
+    expect(run.stdout).toContain('**1 mutant(s) moved between detected and undetected; 0 other problem(s).**')
+    expect(run.stdout).toContain('1 mutants checked against the suite: 1 agree')
+    expect(run.stdout).toContain('- a.ts:1:5-1:10 BooleanLiteral `false`: Survived → Killed; not in bench/truth/')
   } finally {
     fs.rmSync(truth, { force: true })
   }

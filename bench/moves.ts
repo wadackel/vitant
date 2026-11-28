@@ -10,8 +10,9 @@
 // `check` reads what every job of the plan left under <dir>, one directory a
 // job named as the job's `artifact`, merges each tool's shares, matches the
 // base's mutants with the head's by file, start, end, mutator and replacement,
-// and prints Markdown: every mutant that moved, and each merged report held
-// against bench/truth/. It exits with 1 where a mutant moved between detected
+// and prints Markdown: every mutant that moved, with what bench/truth/ stores
+// for one that moved between detected and undetected, and each merged report
+// held against bench/truth/. It exits with 1 where a mutant moved between detected
 // and undetected, where a merged report disagrees with the suite, where a
 // mutant is in one commit's report only, where shares cannot be merged, and
 // where a job left no report that can be read, a run exited with another code
@@ -213,6 +214,7 @@ interface StoredEntry {
   end: [number, number]
   mutator: string
   replacement: string
+  suite: 'pass' | 'fail' | 'timeout'
   note?: string
 }
 
@@ -239,8 +241,14 @@ const heading: Record<Move, string> = {
   'survived or no coverage': 'Between Survived and NoCoverage, which the suite passes alike',
 }
 
-const where = (mutant: MutantResult) =>
-  `${mutant.file}:${mutant.location.start.line}:${mutant.location.start.column + 1} ${mutant.mutator} \`${mutant.replacement.slice(0, 40).replace(/\s+/g, ' ').replace(/`/g, "'")}\``
+// The end as well: two mutants of one condition can share start, mutator and replacement, and
+// a line naming only the start reads as the other's, with what bench/truth/ stores for that one.
+const where = ({ file, location: { start, end }, mutator, replacement }: MutantResult) =>
+  `${file}:${start.line}:${start.column + 1}-${end.line}:${end.column + 1} ${mutator} \`${replacement.slice(0, 40).replace(/\s+/g, ' ').replace(/`/g, "'")}\``
+
+/** What bench/truth/ says of a mutant that moved between detected and undetected, which the truth check judges only where it has an entry. */
+const storedOf = (entry: StoredEntry | undefined) =>
+  !entry ? 'not in bench/truth/' : `bench/truth/: the suite ${entry.suite === 'pass' ? 'passes' : entry.suite === 'fail' ? 'fails' : 'times out'}${entry.note ? `, ${entry.note}` : ''}`
 
 interface Outcome {
   lines: string[]
@@ -345,8 +353,11 @@ function compareSlot(slot: Slot, slotJobs: Job[], dir: string): Outcome {
   }
   lines.push('')
   const stored = read<{ mutants: StoredEntry[] }>(truthFile)
-  const explained = new Set((stored?.mutants ?? []).filter((entry) => entry.note).map((entry) =>
-    keyOf({ file: entry.file, location: { start: { line: entry.start[0], column: entry.start[1] }, end: { line: entry.end[0], column: entry.end[1] } }, mutator: entry.mutator, replacement: entry.replacement })))
+  const storedByKey = new Map((stored?.mutants ?? []).map((entry) => [
+    keyOf({ file: entry.file, location: { start: { line: entry.start[0], column: entry.start[1] }, end: { line: entry.end[0], column: entry.end[1] } }, mutator: entry.mutator, replacement: entry.replacement }),
+    entry,
+  ]))
+  const explained = new Set([...storedByKey].filter(([, entry]) => entry.note).map(([key]) => key))
   const { moved, onlyBase, onlyHead } = movesBetween(merged[baseTool], merged[headTool], explained)
   // Two runs that mutated nothing agree on everything and compare nothing.
   if (merged[baseTool].mutants.length === 0 && merged[headTool].mutants.length === 0) {
@@ -366,7 +377,8 @@ function compareSlot(slot: Slot, slotJobs: Job[], dir: string): Outcome {
     if (move === 'detection') detections += these.length
     if (move === 'explained') explainedMoves += these.length
     lines.push(`${move === 'detection' ? '**' : ''}${heading[move]}: ${these.length}${move === 'detection' ? '**' : ''}`, '')
-    for (const { mutant, was } of these) lines.push(`- ${where(mutant)}: ${was} → ${mutant.status}`)
+    const said = (mutant: MutantResult) => (stored && (move === 'detection' || move === 'explained') ? `; ${storedOf(storedByKey.get(keyOf(mutant)))}` : '')
+    for (const { mutant, was } of these) lines.push(`- ${where(mutant)}: ${was} → ${mutant.status}${said(mutant)}`)
     lines.push('')
   }
   return { lines, problems, detections, explained: explainedMoves }
