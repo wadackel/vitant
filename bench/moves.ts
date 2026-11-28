@@ -15,8 +15,8 @@
 // and undetected, where a merged report disagrees with the suite, where a
 // mutant is in one commit's report only, where shares cannot be merged, and
 // where a job left no report that can be read, a run exited with another code
-// than 0 or left a mutant pending. A move of a
-// mutant whose stored ground truth has a note is listed apart and passes.
+// than 0 or left a mutant pending, and where neither commit reported a mutant.
+// A move of a mutant whose stored ground truth has a note is listed apart and passes.
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -73,11 +73,11 @@ export const defaultSet: Slot[] = [
   // Many small files with timeouts and the copy made before a test; macOS again.
   { target: 'es-toolkit', scope: 'array', shards: 1, runner: macos, path: 'copies' },
   // Files run only in copies made before they load (child processes, native threads), Vitest projects;
-  // the wrong verdicts at its lines 432 and 1134 (#43, #63) showed here first. Its mutants are nearly all in one file.
+  // a Timeout that depends on the processor. Its mutants are nearly all in one file.
   { target: 'n8n', scope: 'proxy', shards: 1, runner: linux, path: 'copies', apart: true },
   // An application suite: copies refused for native threads and open descriptors, many Static mutants.
   { target: 'formbricks', scope: 'utils', shards: 3, runner: linux, path: 'copies' },
-  // Timeouts, Unconfirmed and explained mutants in 39 files; the wrong Survived of #76 showed here.
+  // Timeouts, Unconfirmed and explained mutants in 39 files, with a race in the plain suite itself.
   { target: 'h3', scope: 'utils', shards: 3, runner: linux, path: 'copies' },
   // An application suite that reads Date, with the most Static mutants.
   { target: 'umami', scope: 'lib', shards: 3, runner: linux, path: 'copies' },
@@ -91,7 +91,7 @@ export const defaultSet: Slot[] = [
   { target: 'immer', scope: 'all', shards: 1, runner: linux, path: 'copies' },
   // Lines a change touched (`--changed`) rather than globs.
   { target: 'es-toolkit', scope: 'pr', shards: 1, runner: linux, path: 'copies' },
-  // Without copies, the path the wrong verdicts of #41 and #52 were on alone.
+  // Without copies: the path of platforms without the addon, which no other scope takes.
   { target: 'hono', scope: 'router', shards: 1, runner: linux, path: 'no-clone' },
   { target: 'immer', scope: 'all', shards: 1, runner: linux, path: 'no-clone' },
   { target: 'es-toolkit', scope: 'array', shards: 1, runner: linux, path: 'no-clone' },
