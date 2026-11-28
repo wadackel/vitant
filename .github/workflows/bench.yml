@@ -173,13 +173,13 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.1.0
+      - uses: pnpm/action-setup@v6.1.1
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # v1
         with:
           toolchain: stable
       - name: Build
@@ -230,7 +230,7 @@ jobs:
         if: ${{ always() && hashFiles(format('bench/results/{0}-{1}/summary.json', matrix.bench.target, matrix.bench.scope)) != '' }}
         run: |
           node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}-${{ matrix.job }}
@@ -253,13 +253,13 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.1.0
+      - uses: pnpm/action-setup@v6.1.1
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # v1
         with:
           toolchain: stable
       - name: Build
@@ -275,7 +275,7 @@ jobs:
       - name: Summary
         if: ${{ always() && hashFiles(format('bench/results/{0}-{1}/summary.json', matrix.bench.target, matrix.bench.scope)) != '' }}
         run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ always() }}
         with:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-ubuntu-24.04
