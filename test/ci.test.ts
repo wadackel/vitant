@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { buildsFor, commandsFor, expectedChecks, profileFor, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
+import { buildsFor, commandsFor, expectedChecks, latestArtifacts, profileFor, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
 
 import { partitionKeys } from '../bench/truth-shards.ts'
 
@@ -168,6 +168,22 @@ describe('required CI results', () => {
     for (const patch of [{ sha: 'b'.repeat(40) }, { run: '1233' }, { suite: 'not-run' }]) {
       expect(validateResults('standard', identity, [{ ...results[0], ...patch }, ...results.slice(1)])).not.toEqual([])
     }
+  })
+})
+
+describe('artifacts of the latest attempt', () => {
+  const rows = [
+    ['check-linux-x64-gnu-e2e-1-1', 1], ['check-linux-x64-gnu-e2e-1-30', 2], ['check-linux-x64-gnu-e2e-1-5', 3],
+    ['check-darwin-arm64-smoke-2', 4], ['check-darwin-arm64-smoke', 5],
+    ['fork.linux-x64-gnu-1', 7], ['fork.linux-x64-gnu-10', 8], ['fork.linux-x64-gnu-9', 9], ['fork.linux-x64-musl-11', 10],
+    ['fork.linux-x64-gnux-12', 11],
+  ].map(([name, id]) => ({ name: name as string, id: id as number }))
+
+  it('takes the highest attempt of each name, by number and not by ID or order', () => {
+    expect(latestArtifacts(rows, 'check-*').sort()).toEqual([2, 4])
+    expect(latestArtifacts([...rows].reverse(), 'check-*').sort()).toEqual([2, 4])
+    expect(latestArtifacts(rows, 'fork.linux-x64-gnu')).toEqual([8])
+    expect(latestArtifacts(rows, 'fork.linux-x64-gnu-1')).toEqual([])
   })
 })
 
