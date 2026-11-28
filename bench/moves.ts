@@ -367,7 +367,8 @@ if (import.meta.main) {
   if (mode === 'plan') {
     console.log(`jobs=${JSON.stringify(jobsOf(planSlots(values.scopes, values.macos)))}`)
   } else if (mode === 'check' && values.plan && dir) {
-    process.exit(check(JSON.parse(fs.readFileSync(values.plan, 'utf8')) as Job[], dir) ? 0 : 1)
+    // `process.exit` would drop what a pipe has not yet taken of the summary.
+    process.exitCode = check(JSON.parse(fs.readFileSync(values.plan, 'utf8')) as Job[], dir) ? 0 : 1
   } else {
     console.error("usage: node bench/moves.ts plan [--scopes 'target:scope[:shards] ...'] [--macos]\n       node bench/moves.ts check --plan <jobs.json> <dir>")
     process.exit(2)

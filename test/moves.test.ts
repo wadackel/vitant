@@ -139,16 +139,38 @@ it('passes where only benign moves happened, and fails where a share or a run is
   expect(failed.stdout).toContain(`**${second.name}: vitant exited with 1**`)
 })
 
-it('fails on a mutant left pending, on one in one commit only, and on a report that cannot be read, and still prints the rest', () => {
+// Each case has one problem alone, so that the exit code says that this problem fails the run.
+it('fails on a mutant left pending', () => {
+  const [only] = jobsOf([{ ...slot, shards: 1 }])
+  job(only, { 'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 1, [mutant('a.ts', 1, 'Pending')]) })
+  const run = check([only])
+  expect(run.status).toBe(1)
+  expect(run.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(run.stdout).toContain(`**${only.name}: vitant left 1 mutant(s) pending**`)
+})
+
+it('fails on mutants of one commit only, of the base or of the head', () => {
+  const [first, second] = jobsOf([slot])
+  job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Killed')]) })
+  job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed'), mutant('b.ts', 2, 'Killed')]), vitant: report(2, 2, []) })
+  const dropped = check([first, second])
+  expect(dropped.status).toBe(1)
+  expect(dropped.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(dropped.stdout).toContain('**Mutants of one commit only: 2 of the base (b.ts 2), 0 of the head.**')
+
+  job(second, { 'vitant-base': report(2, 2, []), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
+  const added = check([first, second])
+  expect(added.status).toBe(1)
+  expect(added.stdout).toContain('**Mutants of one commit only: 0 of the base, 1 of the head (b.ts 1).**')
+})
+
+it('fails on a report that cannot be read or shares that cannot be merged, and still prints the other scopes', () => {
   const [first, second] = jobsOf([slot])
   const other = jobsOf([{ ...slot, scope: 'other', shards: 1 }])[0]
-  job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Pending')]) })
-  job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed'), mutant('b.ts', 2, 'Killed')]), vitant: report(2, 2, []) })
+  job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Killed')]) })
+  job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
   job(other, { 'vitant-base': report(1, 1, [mutant('c.ts', 1, 'Killed')]), vitant: report(1, 1, [mutant('c.ts', 1, 'Killed')]) })
-  const run = check([first, second, other])
-  expect(run.status).toBe(1)
-  expect(run.stdout).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
-  expect(run.stdout).toContain('**Mutants of one commit only: 2 of the base (b.ts 2), 0 of the head.**')
+  expect(check([first, second, other]).status).toBe(0)
 
   fs.writeFileSync(path.join(dir, second.artifact, 'vitant.json'), '{"mutants": [')
   const unread = check([first, second, other])
@@ -159,8 +181,29 @@ it('fails on a mutant left pending, on one in one commit only, and on a report t
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitant: { ...report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitestVersion: '4.0.0' } })
   const unmerged = check([first, second, other])
   expect(unmerged.status).toBe(1)
-  expect(unmerged.stdout).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
+  expect(unmerged.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
   expect(unmerged.stdout).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
+
+  // JSON that is no report gets past the reading and fails inside the comparison of its scope.
+  fs.writeFileSync(path.join(dir, second.artifact, 'vitant.json'), '{}')
+  const broken = check([first, second, other])
+  expect(broken.status).toBe(1)
+  expect(broken.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(broken.stdout).toContain('- **Not compared: ')
+  expect(broken.stdout).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
+})
+
+it('prints the whole summary into a pipe however long it is', () => {
+  const [only] = jobsOf([{ ...slot, shards: 1 }])
+  const many = Array.from({ length: 4000 }, (_, i) => i + 1)
+  job(only, {
+    'vitant-base': report(1, 1, [...many.map((line) => mutant('a.ts', line, 'Killed')), mutant('z.ts', 1, 'Killed')]),
+    vitant: report(1, 1, [...many.map((line) => mutant('a.ts', line, 'Timeout')), mutant('z.ts', 1, 'Survived')]),
+  })
+  const run = check([only])
+  expect(run.status).toBe(1)
+  expect(run.stdout.length).toBeGreaterThan(200_000)
+  expect(run.stdout).toContain('- z.ts:1:5 BooleanLiteral `false`: Killed → Survived')
 })
 
 it('holds each merged report against the stored ground truth and passes a move the truth explains', () => {
