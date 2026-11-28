@@ -111,7 +111,7 @@ jobs:
       - name: Gather the results
         if: ${{ !cancelled() }}
         run: mkdir -p upload && cp -R "bench/results/${{ matrix.job.target }}-${{ matrix.job.scope }}" "upload/${{ matrix.job.artifact }}"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.job.artifact }}
@@ -145,7 +145,7 @@ jobs:
         run: |
           printf '%s' "$JOBS" > jobs.json
           node bench/moves.ts check --plan jobs.json results | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: merged

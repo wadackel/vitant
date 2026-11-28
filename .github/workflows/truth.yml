@@ -85,7 +85,7 @@ jobs:
           gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME-1" -D taken || gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME" -D taken
           mkdir -p report
           cp taken/vitant.json taken/summary.json report/
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: truth-report
           path: report
@@ -125,7 +125,7 @@ jobs:
           node bench/run.ts "$TARGET" "$SCOPE" --tool vitant --limit 150 || test -f "bench/results/$TARGET-$SCOPE/vitant.json"
           mkdir -p report
           cp "bench/results/$TARGET-$SCOPE/vitant.json" "bench/results/$TARGET-$SCOPE/summary.json" report/
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: truth-report
           path: report
@@ -189,7 +189,7 @@ jobs:
           node bench/truth.ts make --target "$TARGET" --report report/vitant.json --shard "$SHARD" --jobs "$JOBS" "${related[@]}" --out "$OUT.json" > "$OUT.log" 2>&1 || true
           tail -n 60 "$OUT.log"
           test -f "$OUT.json"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: truth-part-${{ matrix.shard }}
@@ -241,7 +241,7 @@ jobs:
             echo
             if [ -f merged/diff.txt ]; then echo "Against $stored: $(head -n 1 merged/diff.txt)"; echo; echo '```'; tail -n +2 merged/diff.txt | head -n 100; echo '```'; fi
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: truth-${{ inputs.target }}-${{ inputs.scope }}
