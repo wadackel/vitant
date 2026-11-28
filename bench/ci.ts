@@ -29,9 +29,12 @@ const truthLanes = truthCases.flatMap((test) => Array.from({ length: test.shards
 })))
 // Windows starts processes so slowly that the whole truth command on one runner came within minutes of its 200-minute limit.
 const partitionedTruth = (profile: Profile) => profile === 'full' ? ['win32-x64'] : ['linux-x64-gnu']
-// About six minutes each on macOS arm64. With the packed lane that is five macOS jobs, as many as an account runs at once;
+// About nine minutes each on macOS arm64, the longest setting the PR's time. With the packed lane that is five macOS jobs,
+// as many as an account runs at once, but macOS x64's build still holds one when they start: the packed lane, last of them,
+// is kept about two minutes shorter so that waiting for that slot does not make it the longest.
 // e2e files no lane names run in the packed lane, so a new file is never left out.
-const e2eLanes = [['basic.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'], ['boundaries.test.ts', 'cache.test.ts']]
+const e2eLanes = [['basic.test.ts', 'process-listeners.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'],
+  ['boundaries.test.ts', 'cache.test.ts', 'hooks.test.ts', 'pool-argv.test.ts']]
 const e2eSuites = e2eLanes.map((_, i) => `e2e-${i + 1}`)
 // Windows runs no other unit tests in a PR. Its quick job needs no addon, so unlike a detail lane it waits for no build.
 const quickTargets = ['linux-x64-gnu', 'win32-x64']
@@ -134,10 +137,19 @@ export function validateResults(profile: Profile, identity: Identity, results: u
   return errors
 }
 
+/**
+ * The environments whose build and smoke the detail jobs wait for, those with
+ * a detail check, and the others, which build and smoke beside the detail jobs.
+ */
+export function buildsFor(profile: Profile) {
+  const detail = new Set(expectedChecks(profile).filter((check) => !['quick', 'smoke'].includes(check.suite)).map((check) => check.target))
+  return { needed: targets.filter((target) => detail.has(target.target)), others: targets.filter((target) => !detail.has(target.target)) }
+}
+
 export function validateJobs(profile: Profile, needs: unknown): string[] {
   if (!object(needs)) return ['Missing prerequisite jobs']
-  return ['plan', 'quick', 'build', 'detail'].flatMap((job) => {
-    const expected = job === 'plan' || profile !== 'docs' ? 'success' : 'skipped'
+  return ['plan', 'quick', 'build', 'build-others', 'detail'].flatMap((job) => {
+    const expected = job === 'plan' || (profile !== 'docs' && (job !== 'build-others' || buildsFor(profile).others.length > 0)) ? 'success' : 'skipped'
     return object(needs[job]) && needs[job].result === expected ? [] : [`Prerequisite ${job} did not ${expected === 'success' ? 'succeed' : 'skip as planned'}`]
   })
 }
@@ -201,7 +213,8 @@ function plan() {
   detail.sort((a, b) => Number(b.target === 'win32-x64' && truth(b)) - Number(a.target === 'win32-x64' && truth(a))
     || Number(b.suite === 'truth') - Number(a.suite === 'truth'))
   const output = { ...selection, sha, base: changed.base, head: changed.head, comparison: changed.comparison, diff: changed.diff,
-    quick: JSON.stringify({ include: quick }), platforms: JSON.stringify({ include: targets }), detail: JSON.stringify({ include: detail }) }
+    quick: JSON.stringify({ include: quick }), detail: JSON.stringify({ include: detail }),
+    platforms: JSON.stringify({ include: buildsFor(selection.profile).needed }), others: JSON.stringify({ include: buildsFor(selection.profile).others }) }
   if (!process.env.GITHUB_OUTPUT) throw new Error('GITHUB_OUTPUT is required')
   fs.appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(output).map(([key, value]) => `${key}=${value}\n`).join(''))
   console.log(`${selection.profile}: ${selection.reason}\nSource: ${sha}\nComparison: ${changed.comparison} ${changed.base || 'unavailable'} -> ${changed.head || 'unavailable'} (${changed.diff})`)

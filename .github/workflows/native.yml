@@ -38,6 +38,7 @@ jobs:
       diff: ${{ steps.plan.outputs.diff }}
       quick: ${{ steps.plan.outputs.quick }}
       platforms: ${{ steps.plan.outputs.platforms }}
+      others: ${{ steps.plan.outputs.others }}
       detail: ${{ steps.plan.outputs.detail }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -94,6 +95,8 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
 
+  # The environments the detail jobs need an addon or a result from; the
+  # others build in build-others, which nothing but the gate waits for.
   build:
     name: Build and smoke (${{ matrix.target }})
     needs: plan
@@ -103,10 +106,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.platforms) }}
-    env:
+    env: &build-env
       CI_SHA: ${{ needs.plan.outputs.sha }}
       TARGET: ${{ matrix.target }}
-    steps:
+    steps: &build-steps
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
@@ -186,6 +189,19 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
 
+  build-others:
+    name: Build and smoke (${{ matrix.target }})
+    needs: plan
+    # An empty matrix fails the job, where the gate expects it skipped.
+    if: ${{ needs.plan.outputs.profile != 'docs' && needs.plan.outputs.others != '{"include":[]}' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.others) }}
+    env: *build-env
+    steps: *build-steps
+
   detail:
     name: ${{ matrix.target }} (${{ matrix.suite }})
     needs: [plan, build]
@@ -264,7 +280,7 @@ jobs:
 
   collect:
     name: Validate required results
-    needs: [plan, quick, build, detail]
+    needs: [plan, quick, build, build-others, detail]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     env:
