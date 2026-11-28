@@ -1476,7 +1476,7 @@ const IDLE_MS = 500
  * What keeps the event loop alive, counted by kind, less the worker's
  * standard input while nothing reads it. Node makes that pipe's handle when
  * `process.stdin` is first touched, which importing `node:process` as a
- * module does: Vitest 4's worker does as it starts, Vitest 5's does not,
+ * module does: Vitest 4.1's worker does as it starts, Vitest 5's does not,
  * and a dependency that imports it while a file loads looked like a file
  * that opened a pipe, so no copy was made while that file loaded. A handle
  * that reads nothing shares nothing with a copy beyond descriptor 0, which
