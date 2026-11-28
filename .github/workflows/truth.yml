@@ -84,6 +84,8 @@ jobs:
           # The long job of bench.yml, excalidraw math's, names its artifact without the job number.
           gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME-1" -D taken || gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n "$NAME" -D taken
           mkdir -p report
+          # A run of bench.yml's check mutates one share of the scope; truth made from it would hold that share alone.
+          node -e 'if (JSON.parse(require("node:fs").readFileSync("taken/vitant.json", "utf8")).shard) throw new Error("the report covers one share of the scope, as a run of the check does: take a full run")'
           cp taken/vitant.json taken/summary.json report/
       - uses: actions/upload-artifact@v7.0.1
         with:

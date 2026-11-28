@@ -91,6 +91,50 @@ it('lists a tool left out of a scope with its reason, unless a run of it was rec
   }
 })
 
+it('says how far the run that a job was ended in had come, by its log', () => {
+  const target = `.cut-${process.pid}`
+  const directory = path.join(import.meta.dirname, '../bench/results', `${target}-scope`)
+  fs.mkdirSync(directory, { recursive: true })
+  const summary = () => spawnSync(process.execPath, [path.join(import.meta.dirname, '../bench/summary.ts'), target, 'scope'], { encoding: 'utf8' })
+  const log = path.join(directory, 'vitant.log')
+  try {
+    const startedAt = new Date(Date.now() - 90_000)
+    fs.writeFileSync(path.join(directory, 'summary.json'), JSON.stringify({
+      machine: { platform: 'test', cores: 1, cpu: 'test', node: process.version },
+      timings: { 'vitant-no-clone': { seconds: [3], exitCodes: [0] }, vitant: { seconds: [4], exitCodes: [0] } },
+      reports: { 'vitant-no-clone': { counts: { Killed: 9 }, wholeRuns: {} } },
+      running: { tool: 'vitant', run: 2, of: 2, startedAt: startedAt.toISOString() },
+    }))
+    fs.writeFileSync(log, '12 mutants in 2 files (5 ms)\nround 1 took 1.0s, 3 mutants detected so far\nround 2 took 2.0s, 7 mutants detected so far\n')
+    fs.utimesSync(log, new Date(), new Date(startedAt.getTime() + 60_000))
+    const cut = summary()
+    expect(cut.status, cut.stderr).toBe(0)
+    expect(cut.stdout).toContain('| vitant-no-clone | 3 s | Killed 9 |')
+    expect(cut.stdout).toContain('| vitant | 4 s, ended in run 2 of 2, its log last written 1.0 min in | 7 of 12 detected after round 2 | | |')
+
+    fs.writeFileSync(log, "12 mutants in 2 files (5 ms)\n1 file(s) left out, which the project's plugins do not compile instrumented as they compile them: 10 mutants in 1 files\nround 1 took 1.0s, 3 mutants detected so far\n")
+    expect(summary().stdout).toContain('| 3 of 10 detected after round 1 |')
+    fs.writeFileSync(log, '12 mutants in 2 files (5 ms)\n')
+    expect(summary().stdout).toContain('| 12 mutants, no round done |')
+    fs.writeFileSync(path.join(directory, 'summary.json'), JSON.stringify({
+      machine: { platform: 'test', cores: 1, cpu: 'test', node: process.version },
+      timings: { stryker: { seconds: [], exitCodes: [] } },
+      running: { tool: 'stryker', run: 1, of: 1, startedAt: startedAt.toISOString() },
+    }))
+    fs.writeFileSync(path.join(directory, 'stryker.log'), 'INFO Instrumenter Instrumented 3 source file(s) with 95 mutant(s)\n')
+    expect(summary().stdout).toMatch(/\| stryker \| ended in run 1 of 1, its log last written [\d.]+ min in \| 95 mutants \|/)
+    fs.writeFileSync(path.join(directory, 'summary.json'), JSON.stringify({
+      machine: { platform: 'test', cores: 1, cpu: 'test', node: process.version },
+      timings: { 'vitant-no-clone': { seconds: [3], exitCodes: [0] }, vitant: { seconds: [4], exitCodes: [0] } },
+      running: { tool: 'vitant', run: 2, of: 2, startedAt: startedAt.toISOString() },
+    }))
+    fs.rmSync(log)
+    expect(summary().stdout).toContain('| vitant | 4 s, ended in run 2 of 2, with no log |')
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 it('gives a target its config, projects and filters on the command line', () => {
   const target: Target = { ...targets.ufo, config: 'config/unit.config.ts', projects: ['unit'], filters: ['sqlite.test.ts'] }
   expect(vitestArgs(target)).toEqual(['--config', 'config/unit.config.ts', '--project', 'unit', 'sqlite.test.ts'])
