@@ -22,7 +22,7 @@ pnpm test:e2e test/e2e/cache.test.ts
 
 Pass the file name directly, without a separating `--`: Vitest treats arguments after that separator differently and can run the entire project instead. A selected group does not establish that all tests pass.
 
-Before finishing a change, run the complete checks:
+A pull request that changes code runs the complete checks in its CI; once its checks are green at the last push (`gh pr checks`), they need not be run here as well. A change that will not go through a pull request runs them here before it is finished:
 
 ```sh
 pnpm test           # all unit, smoke and e2e tests

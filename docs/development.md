@@ -1,6 +1,6 @@
 # Development workflow
 
-The short commands answer whether an edit is ready for a larger check. The full commands retain every test and every ground-truth comparison; a quick pass does not replace them.
+The short commands answer whether an edit is ready for a larger check. The full commands retain every test and every ground-truth comparison; a quick pass does not replace them. A pull request's standard CI run does: it is the complete check of a change that goes through one, and `pnpm test` is the complete check only of a change that does not.
 
 ## Local checks
 
@@ -24,6 +24,19 @@ Build the addon with `pnpm build:native` before smoke or full tests on supported
 The e2e groups own private fixture directories and report directories. Basic/options share one baseline inside their file; the clash scenarios retain their order. Vitest runs unit, smoke and e2e projects in order, with only unit files running concurrently. The inner CLI worker counts and verdict rules are unchanged.
 
 Run full tests, truth and packed checks sequentially in one checkout. Private fixture paths do not make truth safe beside another CLI run: truth writes tracked files, and the CLI checks the containing repository for changes. A second run on one root also replaces its session. Leave tracked files alone while a run is in progress.
+
+Before finishing a change, run `pnpm typecheck`, `pnpm check:quick` and the e2e files that exercise it; the table above names the main groups. The complete check of a change that goes through a pull request is that pull request's [standard](#ci-profiles) run, green at its head and read with `gh pr checks` after the last push; until then the complete check is pending, not passed. On macOS arm64 and Linux x64 it runs every unit, smoke and e2e file that `pnpm test` runs, and the packed check besides; on Linux it also runs all five truth cases. A change that does not go through a pull request has no such run, so `pnpm test` is run here before it is finished. A pull request that selects the docs profile runs no tests; a documentation change that alters a command it documents runs that command here. Two checks are run whatever the pull request runs: `pnpm test:truth` here for a new trap in `fixtures/basic/`, and the [compare workflow](#comparing-two-commits) for a change to the instrumentation, the planning, the runner or the addon.
+
+### What a local full run adds
+
+A local `pnpm test` was the complete check of every change from 16 to 28 November 2026. The 49 changes of 16 to 27 November ran it 63 times, in 30 of them: 2.1 runs for each change that ran it. The 51 of those runs not chained with another command took a median of 18.7 minutes, waits for another run excluded, against a median of 1.0 minute for `pnpm check:quick` and 3.3 for one e2e group. The records those changes kept, with those of 13 changes on 28 November (6 more runs recorded, none failed), show what the local runs found that the pull request's run did not:
+
+- **Failures that came from the machine it ran on, not from the change, in 8 runs.** Each passed on CI. A third lost copy in `basic.test.ts` under load (4 runs in the records; a note names a fifth change, which may be one of them) came from a defect in the tool that CI's margin hid: a copy declined while its file loaded was counted as lost and its run moved to a started worker, with no verdict changed (#80). Vitest's module file missing at import in `leftovers.test.ts` and `basic-modes.test.ts`, in the same run as one of the cache failures below, may have come from a local benchmark run of Shopify `node` emptying the user's temp directory beside it; that was not checked. The CI benchmark met the same error there, from a test that empties the temp directory (#70). `cache.test.ts` "gives the same report without running anything" (2 runs: a mutant left Unconfirmed, a file given up on) and the memory-wait smoke test (1 run) have no known cause; each passed 10 of 10 beside 24 busy loops on 12 processors. Two `basic.test.ts` tests went past their 300 s limit at a load average of 37 to 55 from other processes, again when their file was run alone at that load.
+- **Failures from tracked files edited while it ran, in 7 runs**, one of them also among the 8. A CI checkout is not edited during its run.
+- **One defect of the change itself**, a wrong verdict under `--led` in `basic-options.test.ts`, which the standard run also runs on both platforms.
+- **Nothing on Windows.** The local runs were on macOS; the standard run adds the unit tests on Windows x64.
+
+In those records, what the pull request's run gives up is failures that need a loaded machine or another process beside the run. To look for a load failure, run `pnpm test` beside busy processes on purpose, as #80 was checked beside 24 busy loops.
 
 ## CI profiles
 
