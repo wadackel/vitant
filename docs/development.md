@@ -32,14 +32,14 @@ PR validation targets about ten minutes from workflow creation until all require
 | Profile | Selection | Required validation |
 |---|---|---|
 | docs | A resolved, nonempty diff containing only README, CONTRIBUTING, LICENSE or Markdown under docs, excluding agent instructions | Profile selection and lockfile validation; platform checks explicitly finish through the docs path |
-| standard | Every other PR or main push, including unknown paths and missing/invalid/empty diffs; explicit manual standard runs | Build/smoke on all seven environments; complete unit/e2e/packed checks on Linux x64 glibc and macOS arm64; all five full-suite truth cases on Linux x64 glibc |
+| standard | Every other PR or main push, including unknown paths and missing/invalid/empty diffs; explicit manual standard runs | Build/smoke on all seven environments; complete unit/e2e/packed checks on Linux x64 glibc and macOS arm64; unit tests on Windows x64; all five full-suite truth cases on Linux x64 glibc |
 | full | Daily runs and manual runs unless standard is explicitly requested | Every original unit, smoke, e2e, truth and packed check on every original environment |
 
 `bench/ci.ts` only distinguishes proven documentation changes from code. AGENTS.md, CLAUDE.md and SKILL.md select standard at any depth. A failed diff cannot select docs. The summary records the comparison mode, base/head SHAs and whether the diff resolved, separately from the tested checkout SHA.
 
-The seven environments are macOS arm64/x64, Linux x64/arm64 with glibc/musl, and Windows x64. Typechecking remains on the five macOS/glibc/Windows targets in full runs; musl retains its Alpine container boundary. Every PR retains the full unit suite on both representative targets, including native supervision in smoke on all supported targets.
+The seven environments are macOS arm64/x64, Linux x64/arm64 with glibc/musl, and Windows x64. Typechecking remains on the five macOS/glibc/Windows targets in full runs; musl retains its Alpine container boundary. Every PR retains the full unit suite on both representative targets and on Windows x64, including native supervision in smoke on all supported targets.
 
-The quick Linux job supplies its same-source typecheck/unit result once. Build/smoke jobs compile each addon and upload it with source, workflow-run, platform and content identities. Detail jobs download only from that workflow run and verify the manifest before using the binary.
+The quick jobs need no addon, so they wait for no build. The Linux one supplies its same-source typecheck/unit result once. The Windows one runs only the unit tests: no other PR job runs them there, and a regression on Windows would otherwise wait for the daily full run, whose Windows regression lane runs them again. Build/smoke jobs compile each addon and upload it with source, workflow-run, platform and content identities. Detail jobs download only from that workflow run and verify the manifest before using the binary.
 
 Standard detail runs in independent jobs and checkouts, with up to twenty jobs in flight. A code PR takes about ten minutes, most of it the longest e2e lane on macOS:
 

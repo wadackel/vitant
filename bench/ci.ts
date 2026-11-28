@@ -33,6 +33,8 @@ const partitionedTruth = (profile: Profile) => profile === 'full' ? ['win32-x64'
 // e2e files no lane names run in the packed lane, so a new file is never left out.
 const e2eLanes = [['basic.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'], ['boundaries.test.ts', 'cache.test.ts']]
 const e2eSuites = e2eLanes.map((_, i) => `e2e-${i + 1}`)
+// Windows runs no other unit tests in a PR. Its quick job needs no addon, so unlike a detail lane it waits for no build.
+const quickTargets = ['linux-x64-gnu', 'win32-x64']
 const docs = (file: string) => ['README.md', 'CONTRIBUTING.md', 'LICENSE'].includes(file) || /^docs\/.+\.md$/.test(file)
 
 export function profileFor(input: { event: string; paths?: unknown; manual?: unknown }): { profile: Profile; reason: string } {
@@ -56,7 +58,7 @@ export function profileFor(input: { event: string; paths?: unknown; manual?: unk
 export function expectedChecks(profile: Profile): Check[] {
   if (profile === 'docs') return []
   return [
-    { target: 'linux-x64-gnu', suite: 'quick' },
+    ...quickTargets.map((target) => ({ target, suite: 'quick' })),
     ...targets.map(({ target }) => ({ target, suite: 'smoke' })),
     ...(profile === 'full'
       ? targets.flatMap(({ target }) => ['regression', 'truth'].map((suite) => ({ target, suite })))
@@ -77,6 +79,7 @@ export function commandsFor(name: string, suite: string): { name: string; args: 
   const unit = { name: 'unit', args: ['test:unit', '--reporter=json', '--outputFile=build/test-reports/unit.json'] }
   const typecheck = { name: 'typecheck', args: ['typecheck'] }
   if (suite === 'quick' && name === 'linux-x64-gnu') return [typecheck, unit]
+  if (suite === 'quick' && name === 'win32-x64') return [unit]
   if (suite === 'smoke') return [{ name: 'smoke', args: ['test:smoke', '--reporter=json', '--outputFile=build/test-reports/smoke.json'] }]
   if (suite === 'truth') return [{ name: 'truth', args: ['test:truth'] }]
   const e2e = (files: string[]) => ({ name: 'e2e', args: ['test:e2e', ...files.map((file) => `test/e2e/${file}`),
@@ -189,14 +192,16 @@ function plan() {
   const changed = changes(event)
   const selection = profileFor({ event, paths: changed.paths, manual: process.env.CI_PROFILE })
   const sha = git('rev-parse', 'HEAD').trim()
-  const detail = expectedChecks(selection.profile).filter((check) => !['quick', 'smoke'].includes(check.suite))
+  const checks = expectedChecks(selection.profile)
+  const quick = checks.filter((check) => check.suite === 'quick').map((check) => targetFor(check.target))
+  const detail = checks.filter((check) => !['quick', 'smoke'].includes(check.suite))
     .map((check) => ({ ...targetFor(check.target), suite: check.suite }))
   // Queuing Windows truth after the shorter jobs would add their time to its long critical path.
   const truth = (check: Check) => check.suite.startsWith('truth')
   detail.sort((a, b) => Number(b.target === 'win32-x64' && truth(b)) - Number(a.target === 'win32-x64' && truth(a))
     || Number(b.suite === 'truth') - Number(a.suite === 'truth'))
   const output = { ...selection, sha, base: changed.base, head: changed.head, comparison: changed.comparison, diff: changed.diff,
-    platforms: JSON.stringify({ include: targets }), detail: JSON.stringify({ include: detail }) }
+    quick: JSON.stringify({ include: quick }), platforms: JSON.stringify({ include: targets }), detail: JSON.stringify({ include: detail }) }
   if (!process.env.GITHUB_OUTPUT) throw new Error('GITHUB_OUTPUT is required')
   fs.appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(output).map(([key, value]) => `${key}=${value}\n`).join(''))
   console.log(`${selection.profile}: ${selection.reason}\nSource: ${sha}\nComparison: ${changed.comparison} ${changed.base || 'unavailable'} -> ${changed.head || 'unavailable'} (${changed.diff})`)
@@ -296,9 +301,9 @@ function gate() {
     rows.push(`| ${target} | ${suite} | ${object(result) ? String(result.status) : 'missing'} | ${times} |`)
   }
   for (const target of targets) {
-    if (!expectedChecks(profile).some((check) => check.target === target.target && ['regression', 'packed'].includes(check.suite))) {
-      rows.push(`| ${target.target} | unit/e2e/packed | not selected (${profile}) | |`)
-    }
+    const suites = expectedChecks(profile).filter((check) => check.target === target.target).map((check) => check.suite)
+    if (suites.some((suite) => ['regression', 'packed'].includes(suite))) continue
+    rows.push(`| ${target.target} | ${suites.includes('quick') ? 'e2e/packed' : 'unit/e2e/packed'} | not selected (${profile}) | |`)
   }
   for (const target of targets) {
     if (!expectedChecks(profile).some((check) => check.target === target.target && check.suite.startsWith('truth'))) {
