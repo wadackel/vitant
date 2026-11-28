@@ -255,7 +255,8 @@ function check(jobs: Job[], dir: string): boolean {
   let detections = 0
   let explainedMoves = 0
   const groups = slotsOf(jobs)
-  const untruthed = groups.filter(({ slot }) => !fs.existsSync(path.join(import.meta.dirname, 'truth', `${slot.target}-${slot.scope}.json`))).length
+  const untruthed = [...new Set(groups.filter(({ slot }) => !fs.existsSync(path.join(import.meta.dirname, 'truth', `${slot.target}-${slot.scope}.json`))).map(({ slot }) => `${slot.target} ${slot.scope}`))]
+  const unchecked = untruthed.length > 0 ? `no stored ground truth for ${untruthed.join(', ')}` : ''
   for (const { slot, jobs: slotJobs } of groups) {
     // One scope's reports that cannot be read or merged leave the others' moves to be read.
     let outcome: Outcome
@@ -270,8 +271,8 @@ function check(jobs: Job[], dir: string): boolean {
     explainedMoves += outcome.explained
   }
   const verdict = detections === 0 && problems === 0
-    ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite${untruthed > 0 ? `; ${untruthed} scope run(s) have no stored ground truth` : ''}.`
-    : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**${untruthed > 0 ? ` ${untruthed} scope run(s) have no stored ground truth.` : ''}`
+    ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite${unchecked ? `; ${unchecked}` : ''}.`
+    : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**${unchecked ? ` There is ${unchecked}.` : ''}`
   console.log(['## Verdicts at two commits', '', verdict, '', ...lines].join('\n'))
   return detections === 0 && problems === 0
 }
@@ -347,6 +348,11 @@ function compareSlot(slot: Slot, slotJobs: Job[], dir: string): Outcome {
   const explained = new Set((stored?.mutants ?? []).filter((entry) => entry.note).map((entry) =>
     keyOf({ file: entry.file, location: { start: { line: entry.start[0], column: entry.start[1] }, end: { line: entry.end[0], column: entry.end[1] } }, mutator: entry.mutator, replacement: entry.replacement })))
   const { moved, onlyBase, onlyHead } = movesBetween(merged[baseTool], merged[headTool], explained)
+  // Two runs that mutated nothing agree on everything and compare nothing.
+  if (merged[baseTool].mutants.length === 0 && merged[headTool].mutants.length === 0) {
+    problems++
+    lines.push('**Neither commit reported a mutant.**', '')
+  }
   // A share that ran and reported fewer mutants is as missing as one that did not run.
   if (onlyBase.length + onlyHead.length > 0) {
     problems++

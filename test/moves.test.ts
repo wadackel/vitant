@@ -125,7 +125,7 @@ it('passes where only benign moves happened, and fails where a share or a run is
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Static')]), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
   const benign = check([first, second])
   expect(benign.status, benign.stdout).toBe(0)
-  expect(benign.stdout).toContain('No mutant moved between detected and undetected in 1 scope runs, and every report holds against the suite; 1 scope run(s) have no stored ground truth.')
+  expect(benign.stdout).toContain('No mutant moved between detected and undetected in 1 scope runs, and every report holds against the suite; no stored ground truth for .moves-test scope.')
   expect(benign.stdout).toContain('To or from a status without a verdict (Static, Unconfirmed, Led, Pending): 1')
 
   fs.rmSync(path.join(dir, second.artifact), { recursive: true })
@@ -185,6 +185,14 @@ it('fails on a report that cannot be read or shares that cannot be merged, and s
   expect(unmerged.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
   expect(unmerged.stdout).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
 
+  // A share that cannot be merged keeps the other problems of its scope in the summary.
+  job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Pending')]) })
+  const both = check([first, second, other])
+  expect(both.stdout).toContain('**0 mutant(s) moved between detected and undetected; 2 other problem(s).**')
+  expect(both.stdout).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
+  expect(both.stdout).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
+  job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Killed')]) })
+
   // JSON that is no report gets past the reading and fails inside the comparison of its scope.
   fs.writeFileSync(path.join(dir, second.artifact, 'vitant.json'), '{}')
   const broken = check([first, second, other])
@@ -192,6 +200,14 @@ it('fails on a report that cannot be read or shares that cannot be merged, and s
   expect(broken.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
   expect(broken.stdout).toContain('- **Not compared: ')
   expect(broken.stdout).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
+})
+
+it('fails a scope where neither commit reported a mutant', () => {
+  const [only] = jobsOf([{ ...slot, shards: 1 }])
+  job(only, { 'vitant-base': report(1, 1, []), vitant: report(1, 1, []) })
+  const run = check([only])
+  expect(run.status).toBe(1)
+  expect(run.stdout).toContain('**Neither commit reported a mutant.**')
 })
 
 it('prints the whole summary into a pipe however long it is', () => {
