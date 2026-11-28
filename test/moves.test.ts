@@ -204,6 +204,8 @@ it('prints the whole summary into a pipe however long it is', () => {
   expect(run.status).toBe(1)
   expect(run.stdout.length).toBeGreaterThan(200_000)
   expect(run.stdout).toContain('- z.ts:1:5 BooleanLiteral `false`: Killed → Survived')
+  // The benign moves come last, the last line of all with them.
+  expect(run.stdout.trimEnd().endsWith('- a.ts:4000:5 BooleanLiteral `false`: Killed → Timeout')).toBe(true)
 })
 
 it('holds each merged report against the stored ground truth and passes a move the truth explains', () => {

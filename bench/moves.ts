@@ -263,7 +263,7 @@ function check(jobs: Job[], dir: string): boolean {
   }
   const verdict = detections === 0 && problems === 0
     ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite${untruthed > 0 ? `; ${untruthed} scope run(s) have no stored ground truth` : ''}.`
-    : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**`
+    : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**${untruthed > 0 ? ` ${untruthed} scope run(s) have no stored ground truth.` : ''}`
   console.log(['## Verdicts at two commits', '', verdict, '', ...lines].join('\n'))
   return detections === 0 && problems === 0
 }
