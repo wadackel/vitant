@@ -1,7 +1,7 @@
 # The before-and-after check of a change to the runner, the planning, the
 # addon or the instrumentation: this tool at the workflow's commit and at a
 # base, over the scopes bench/moves.ts names, and every mutant whose verdict
-# moved. Manual, as bench.yml is; docs/development.md says when it suffices.
+# moved. Manual, as bench.yml's measurements are; docs/development.md says when it suffices.
 name: compare
 
 on:

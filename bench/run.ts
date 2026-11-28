@@ -67,9 +67,11 @@ interface Timing {
 
 function time(tool: string, command: string, args: string[], cwd: string): Timing {
   const timing: Timing = { tool, seconds: [], exitCodes: [] }
+  timings.push(timing)
   for (let i = 0; i < Number(values.runs); i++) {
     // A run of StrykerJS that failed leaves its copy of the project, tests and all, where the next run finds them.
     prepareStrykerSandbox(dir)
+    writeSummary({ tool, run: i + 1, of: Number(values.runs), startedAt: new Date().toISOString() })
     const startedAt = performance.now()
     const log = fs.openSync(path.join(outDir, `${tool}.log`), 'w')
     const limitMs = values.limit && tool !== 'stryker' ? Math.max(Number(values.limit), targets[targetName].limit ?? 0) * 60_000 : undefined
@@ -104,6 +106,7 @@ function time(tool: string, command: string, args: string[], cwd: string): Timin
     }
     timing.seconds.push(Number(((performance.now() - startedAt) / 1000).toFixed(1)))
     timing.exitCodes.push(result.status)
+    writeSummary()
     console.log(`${tool} run ${i + 1}: ${timing.seconds.at(-1)}s (exit ${result.status})`)
   }
   return timing
@@ -156,6 +159,43 @@ const reports: Record<string, unknown> = {}
 let wrong = false
 
 const skipped = tools.has('stryker') ? targets[targetName].strykerSkip : undefined
+
+const summaryPath = path.join(outDir, 'summary.json')
+// The target's setting is recorded on a run of StrykerJS alone as well: recorded only where this tool ran, the
+// machine would differ between the two halves of a scope run one tool at a time, and the second would drop the first.
+const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version, ...(workers ? { workers, workersOf: values.workers ? 'both tools' : 'this tool' } : {}) }
+console.log(`machine: ${JSON.stringify(machine)}`)
+// Times taken on another machine do not belong next to these.
+const earlier = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
+const previous = JSON.stringify(earlier.machine) === JSON.stringify(machine) ? earlier : {}
+// Nor does an earlier time of StrykerJS belong next to the reason it was left out this time.
+if (skipped && previous.timings) delete previous.timings.stryker
+// Nor the times of a run that was ended part way, beside counts its report did not get to write.
+if (previous.running) {
+  delete previous.timings?.[previous.running.tool]
+  delete previous.reports?.[previous.running.tool]
+}
+
+/**
+ * Written before every run as well as at the end: a job that its own limit
+ * ends never reaches the end of this script, and would otherwise leave no
+ * word of the machine or of what was done by then.
+ */
+function writeSummary(running?: { tool: string; run: number; of: number; startedAt: string }): void {
+  const summary = {
+    ...previous,
+    target: targetName,
+    scope: scopeName,
+    commit: targets[targetName].commit,
+    machine,
+    timings: { ...previous.timings, ...Object.fromEntries(timings.map((t) => [t.tool, t])) },
+    reports: { ...previous.reports, ...reports },
+    ...(skipped ? { notRun: { ...previous.notRun, stryker: skipped } } : {}),
+    running,
+  }
+  fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2))
+}
+
 if (skipped) {
   console.log(`stryker not run: ${skipped}`)
   // A report of an earlier run would otherwise be compared as if it were of this one.
@@ -205,7 +245,7 @@ if (skipped) {
       2,
     ),
   )
-  timings.push(time('stryker', 'npx', [...(targets[targetName].strykerForce ? ['--force'] : []), 'stryker', 'run', config], dir))
+  time('stryker', 'npx', [...(targets[targetName].strykerForce ? ['--force'] : []), 'stryker', 'run', config], dir)
 }
 
 interface Reported {
@@ -245,7 +285,6 @@ for (const tool of ['vitant-no-clone-base', 'vitant-no-clone', 'vitant-base', 'v
   fs.rmSync(report, { force: true })
   // From the project, as its own scripts run: configs resolve paths against the working directory.
   const timing = time(tool, process.execPath, args, dir)
-  timings.push(timing)
   // What the workers wrote down goes with a run that went wrong: the report
   // says what came of it, and only this says how. The next run of the
   // project writes over it, and on a CI runner it is gone with the job.
@@ -322,26 +361,7 @@ for (const tool of ['vitant-no-clone-base', 'vitant-no-clone', 'vitant-base', 'v
   if (check.status !== 0) keep()
 }
 
-const summaryPath = path.join(outDir, 'summary.json')
-// The target's setting is recorded on a run of StrykerJS alone as well: recorded only where this tool ran, the
-// machine would differ between the two halves of a scope run one tool at a time, and the second would drop the first.
-const machine = { platform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, cores: os.cpus().length, node: process.version, ...(workers ? { workers, workersOf: values.workers ? 'both tools' : 'this tool' } : {}) }
-// Times taken on another machine do not belong next to these.
-const earlier = fs.existsSync(summaryPath) ? JSON.parse(fs.readFileSync(summaryPath, 'utf8')) : {}
-const previous = JSON.stringify(earlier.machine) === JSON.stringify(machine) ? earlier : {}
-// Nor does an earlier time of StrykerJS belong next to the reason it was left out this time.
-if (skipped && previous.timings) delete previous.timings.stryker
-const summary = {
-  ...previous,
-  target: targetName,
-  scope: scopeName,
-  commit: targets[targetName].commit,
-  machine,
-  timings: { ...previous.timings, ...Object.fromEntries(timings.map((t) => [t.tool, t])) },
-  reports: { ...previous.reports, ...reports },
-  ...(skipped ? { notRun: { ...previous.notRun, stryker: skipped } } : {}),
-}
-fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2))
+writeSummary()
 
 if (fs.existsSync(strykerReport) && fs.existsSync(vitantReport)) {
   const compare = spawnSync(

@@ -5,6 +5,10 @@ name: bench
 on:
   workflow_dispatch:
     inputs:
+      check:
+        description: Check that every target this workflow lists still sets up and starts - this tool alone over a share of each scope on Linux, whatever tools, runs, runners and jobs say
+        type: boolean
+        default: false
       tools:
         description: Tools to run, as bench/run.ts takes them
         default: stryker,vitant-no-clone,vitant
@@ -46,7 +50,7 @@ permissions:
 
 # One group for every manual run would discard measurements of other commits or scopes.
 concurrency:
-  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}-${{ inputs.runners }}-${{ inputs.jobs }}
+  group: bench-${{ github.ref }}-${{ github.event_name }}-${{ inputs.check }}-${{ inputs.tools }}-${{ inputs.ref }}-${{ inputs.only }}-${{ inputs.base }}-${{ inputs.runners }}-${{ inputs.jobs }}
   cancel-in-progress: true
 
 jobs:
@@ -62,8 +66,8 @@ jobs:
       - id: pick
         env:
           ONLY: ${{ inputs.only }}
-          RUNNERS: ${{ inputs.runners || 'ubuntu-24.04 macos-15' }}
-          JOBS: ${{ inputs.jobs || '1' }}
+          RUNNERS: ${{ inputs.check && 'ubuntu-24.04' || inputs.runners || 'ubuntu-24.04 macos-15' }}
+          JOBS: ${{ inputs.check && '1' || inputs.jobs || '1' }}
           SLOTS: ${{ inputs.slots || '2' }}
           ALL: |
             ufo all
@@ -155,17 +159,20 @@ jobs:
     needs: plan
     runs-on: ${{ matrix.runner }}
     # StrykerJS took 315 minutes on actual on macOS.
-    timeout-minutes: 360
+    timeout-minutes: ${{ inputs.check && 100 || 360 }}
     concurrency:
       group: ${{ matrix.slot && format('bench-macos-{0}', matrix.slot) || format('bench-{0}-{1}', github.run_id, strategy.job-index) }}
       queue: max
     strategy:
       fail-fast: false
+      # The check leaves most of the account's runners to the pull requests that come while it runs.
+      max-parallel: ${{ inputs.check && 6 || 256 }}
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: pnpm/action-setup@v6.1.0
         with:
           version: 12.4.2
@@ -184,6 +191,7 @@ jobs:
         with:
           ref: ${{ inputs.base }}
           path: base
+          persist-credentials: false
       - name: Build the tool to compare with
         if: ${{ inputs.base }}
         run: |
@@ -192,10 +200,16 @@ jobs:
       - name: Set up ${{ matrix.bench.target }}
         run: node bench/setup.ts "${{ matrix.bench.target }}" > setup.log 2>&1 || { tail -n 80 setup.log; exit 1; }
       - name: Run
+        # A check that hangs is to end failed, not cancelled as a job its own limit ends does,
+        # and the step's limit leaves the summary and the upload their minutes.
+        timeout-minutes: ${{ inputs.check && 80 || 360 }}
         env:
           VITANT_BASE: ${{ inputs.base && format('{0}/base', github.workspace) || '' }}
-          TOOLS: ${{ inputs.tools || 'vitant' }}
-          RUNS: ${{ inputs.runs || '1' }}
+          TOOLS: ${{ inputs.check && 'vitant' || inputs.tools || 'vitant' }}
+          RUNS: ${{ inputs.check && '1' || inputs.runs || '1' }}
+          # A share of the files rather than none: with no mutant this tool ends before it starts Vitest.
+          # The first share is never empty, holding the file with the most mutants.
+          SHARD: ${{ inputs.check && '1/64' || '' }}
           # On Linux, the longest run of this tool but actual's, freelens's, headlamp's and fast-check's, one that starts a worker for every run of a file, took 106 minutes; actual's took 185 on an EPYC 7763, freelens's 133, headlamp's 131 and fast-check's 119. On macOS immich services' took 193, freelens's 200, and headlamp's 268 to past 345 with three workers and 231 and 257, twice past 345, with the two its target gives this tool on three processors. Each of these sets a limit of its own; on macOS headlamp's run does not always end within its 300 minutes, nor within a job's six hours with a longer one.
           LIMIT: ${{ inputs.limit || '150' }}
         run: |
@@ -204,21 +218,27 @@ jobs:
           # here, and the processes and memory as the run goes, are kept with the records.
           ${{ inputs.records && 'node --max-old-space-size=4096 bench/forkcost.mjs build/fork.*.node > machine.log 2>&1 || true' || '' }}
           ${{ inputs.records && 'bench/machine.sh >> machine.log 2>&1 &' || '' }}
-          node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS" --runs "$RUNS" --limit "$LIMIT" ${{ inputs.records && '--records' || '' }}
-      - name: Summary
-        if: ${{ !cancelled() }}
+          node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS" --runs "$RUNS" --limit "$LIMIT" ${SHARD:+--shard "$SHARD"} ${{ inputs.records && '--records' || '' }}
+      - name: Keep the machine's log
+        if: ${{ always() && inputs.records }}
         run: |
+          mkdir -p "bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}"
           if [ -f machine.log ]; then mv machine.log "bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}/"; fi
+      # Also after the job's own limit has ended it, which counts as cancelled: bench/run.ts
+      # writes the summary before each run, so the processor and what was done are not lost.
+      - name: Summary
+        if: ${{ always() && hashFiles(format('bench/results/{0}-{1}/summary.json', matrix.bench.target, matrix.bench.scope)) != '' }}
+        run: |
           node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7.0.1
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         with:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-${{ matrix.runner }}-${{ matrix.job }}
           path: bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}
 
   long:
     name: ${{ matrix.bench.target }} ${{ matrix.bench.scope }} (ubuntu-24.04)
-    if: ${{ inputs.math }}
+    if: ${{ inputs.math && !inputs.check }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     strategy:
@@ -232,6 +252,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - uses: pnpm/action-setup@v6.1.0
         with:
           version: 12.4.2
@@ -252,10 +273,10 @@ jobs:
           TOOLS: ${{ inputs.tools }}
         run: node bench/run.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" --tool "$TOOLS"
       - name: Summary
-        if: ${{ !cancelled() }}
+        if: ${{ always() && hashFiles(format('bench/results/{0}-{1}/summary.json', matrix.bench.target, matrix.bench.scope)) != '' }}
         run: node bench/summary.ts "${{ matrix.bench.target }}" "${{ matrix.bench.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7.0.1
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         with:
           name: bench-${{ matrix.bench.target }}-${{ matrix.bench.scope }}-ubuntu-24.04
           path: bench/results/${{ matrix.bench.target }}-${{ matrix.bench.scope }}
