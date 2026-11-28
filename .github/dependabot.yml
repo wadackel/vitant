@@ -7,9 +7,9 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
-    # Each update edits every workflow and actions.lock, so a change to them on
-    # main makes every open one conflict and be rebased, and each rebase runs the
-    # whole PR CI with seven macOS jobs, of the five the account runs at once.
+    # Every update edits actions.lock, so a change to it on main makes every open
+    # one conflict and be rebased, and each rebase runs the whole PR CI with seven
+    # macOS jobs, of the five the account runs at once.
     groups:
       actions:
         patterns:
