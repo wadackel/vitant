@@ -214,7 +214,7 @@ jobs:
       actions: read
     strategy:
       fail-fast: false
-      max-parallel: ${{ needs.plan.outputs.profile == 'full' && fromJSON(inputs.parallel || 4) || 20 }}
+      max-parallel: ${{ needs.plan.outputs.profile == 'full' && fromJSON(inputs.parallel || '4') || 20 }}
       matrix: ${{ fromJSON(needs.plan.outputs.detail) }}
     env:
       CI_SHA: ${{ needs.plan.outputs.sha }}
