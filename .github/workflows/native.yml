@@ -36,6 +36,7 @@ jobs:
       head: ${{ steps.plan.outputs.head }}
       comparison: ${{ steps.plan.outputs.comparison }}
       diff: ${{ steps.plan.outputs.diff }}
+      quick: ${{ steps.plan.outputs.quick }}
       platforms: ${{ steps.plan.outputs.platforms }}
       detail: ${{ steps.plan.outputs.detail }}
     steps:
@@ -52,12 +53,17 @@ jobs:
         run: node bench/ci.ts plan
 
   quick:
-    name: Typecheck and unit tests
+    name: Quick checks (${{ matrix.target }})
     needs: plan
     if: ${{ needs.plan.outputs.profile != 'docs' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.quick) }}
     env:
       CI_SHA: ${{ needs.plan.outputs.sha }}
+      TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -72,18 +78,18 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Check
-        run: node bench/ci.ts run quick linux-x64-gnu
+        run: node bench/ci.ts run quick "$TARGET"
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
-          name: check-linux-x64-gnu-quick
+          name: check-${{ matrix.target }}-quick
           path: build/ci/result-*.json
           if-no-files-found: error
           overwrite: true
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
-          name: reports-linux-x64-gnu-quick
+          name: reports-${{ matrix.target }}-quick
           path: build/test-reports
           if-no-files-found: ignore
           overwrite: true

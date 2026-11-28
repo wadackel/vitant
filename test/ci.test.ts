@@ -70,6 +70,10 @@ describe('CI profiles', () => {
 
   it('retains all e2e files, packed, units and typechecking across the PR lanes', () => {
     expect(commandsFor('linux-x64-gnu', 'quick').map((c) => c.name)).toEqual(['typecheck', 'unit'])
+    expect(commandsFor('win32-x64', 'quick').map((c) => c.name)).toEqual(['unit'])
+    for (const profile of ['standard', 'full'] as const) {
+      expect(expectedChecks(profile).filter((c) => c.suite === 'quick').map((c) => c.target)).toEqual(['linux-x64-gnu', 'win32-x64'])
+    }
     for (const target of ['linux-x64-gnu', 'darwin-arm64']) {
       const commands = ['e2e-1', 'e2e-2', 'e2e-3', 'e2e-4', 'packed'].flatMap((suite) => commandsFor(target, suite))
       expect(commandsFor(target, 'e2e-1')[0].args.slice(0, 2)).toEqual(['test:e2e', 'test/e2e/basic.test.ts'])
@@ -90,7 +94,7 @@ describe('CI profiles', () => {
       expect(commandsFor(target.target, 'smoke').map((c) => c.name)).toEqual(['smoke'])
     }
     expect(() => commandsFor('unknown', 'regression')).toThrow()
-    expect(() => commandsFor('win32-x64', 'quick')).toThrow()
+    expect(() => commandsFor('darwin-arm64', 'quick')).toThrow()
   })
 })
 
@@ -217,6 +221,9 @@ describe('CI command boundaries', { timeout: 30_000 }, () => {
     expect(fs.readFileSync(output, 'utf8')).toContain('profile=standard\n')
     expect(fs.readFileSync(output, 'utf8')).toContain(`head=${source}\n`)
     expect(fs.readFileSync(output, 'utf8')).toContain('diff=invalid-refs\n')
+    const quick = JSON.parse(fs.readFileSync(output, 'utf8').match(/^quick=(.*)$/m)![1]).include
+    expect(quick.map((entry: { target: string; runner: string }) => [entry.target, entry.runner]))
+      .toEqual([['linux-x64-gnu', 'ubuntu-24.04'], ['win32-x64', 'windows-2025']])
     fs.writeFileSync(event, JSON.stringify({ before: 'b'.repeat(40), after: source }))
     fs.writeFileSync(output, '')
     expect(command(['plan'], { GITHUB_EVENT_NAME: 'push', GITHUB_EVENT_PATH: event, GITHUB_OUTPUT: output }).status).toBe(0)
@@ -244,6 +251,8 @@ describe('CI command boundaries', { timeout: 30_000 }, () => {
     const passing = command(['gate'], env)
     expect(passing.status, passing.stderr).toBe(0)
     expect(passing.stdout).toContain('| darwin-arm64 | truth | not selected (standard) |')
+    expect(passing.stdout).toContain('| win32-x64 | e2e/packed | not selected (standard) |')
+    expect(passing.stdout).toContain('| darwin-x64 | unit/e2e/packed | not selected (standard) |')
     fs.rmSync(path.join(directory, 'result-linux-x64-gnu-quick.json'))
     const missing = command(['gate'], env)
     expect(missing.status).toBe(1)
