@@ -46,6 +46,7 @@ node bench/run.ts <target> <scope> [--tool stryker,vitant,vitant-no-clone]   # a
 node bench/truth.ts make --target <target> --report <report.json> --out <truth.json> [--related]   # the target's config, variables and Vitest arguments; --root <project> for any other project
 gh workflow run truth.yml -f target=<target> -f scope=<scope> [-f shards=8]   # the same on CI, its mutants dealt over jobs and merged into one file (docs/development.md)
 node bench/conformance.ts bench/.work/test262   # instrumented code against test262
+gh workflow run compare.yml --ref <branch>      # on CI: the branch against where it leaves main, over the scopes in bench/moves.ts, in about half an hour
 ```
 
 ## Layout
@@ -63,7 +64,7 @@ node bench/conformance.ts bench/.work/test262   # instrumented code against test
 | `npm/` | One package per platform for the built addon |
 | `fixtures/basic/` | A small project whose tests each pin down one way a verdict can go wrong |
 | `test/` | Tests of the instrumenter and the end-to-end run |
-| `bench/` | Benchmark targets, runner, comparison with StrykerJS, test262 conformance |
+| `bench/` | Benchmark targets, runner, comparison with StrykerJS and between two commits, test262 conformance |
 | `docs/` | The record: `design.md` (how a verdict is reached and what each rule cost), `benchmark.md` (targets, times, how the verdicts are checked), `decisions.md` (ideas measured and dropped), `limits.md` (what cannot be judged) |
 
 ## Verifying a change
@@ -71,7 +72,7 @@ node bench/conformance.ts bench/.work/test262   # instrumented code against test
 - Run `pnpm typecheck` and `pnpm test`.
 - Use `pnpm check:quick` and a selected e2e group while iterating; neither replaces the complete checks before finishing. Preserve the original test inventory and assertions when reorganizing tests.
 - Do not run `test`, `test:truth` or `test:packed` together in one checkout, or two vitant runs on one project root. Truth changes tracked files, and each vitant run replaces its root's session. CI parallelizes these operations only in separate jobs and checkouts. Do not edit tracked files while a test or benchmark uses them.
-- For anything that touches instrumentation, planning, the runner or the addon, also run at least two benchmark targets and compare every mutant's verdict with a report made before the change. A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference. `bench/run.ts` prints every mutant that is not as the last run of the scope on this machine had it. That holds between two runs of unchanged code as well: one of the two is wrong, so write the mutant into the source and run the suite before anything else.
+- For anything that touches instrumentation, planning, the runner or the addon, also run the compare workflow (`gh workflow run compare.yml --ref <branch>`): it runs the branch and the commit it starts from over a fixed set of scopes, lists every mutant whose verdict moved, and fails on one that moved between detected and undetected or on a report that disagrees with `bench/truth/`. A move of a mutant whose `bench/truth/` entry has a note is listed apart and passes: read that group before taking a green run as clean. What the set cannot show, and when the full benchmark is still needed, is in [Comparing two commits](docs/development.md#comparing-two-commits). A changed verdict is a defect until explained; Killed and Timeout swapping for a mutant that both fails a test and loops is the one known benign difference. `bench/run.ts` prints every mutant that is not as the last run of the scope on this machine had it. That holds between two runs of unchanged code as well: one of the two is wrong, so write the mutant into the source and run the suite before anything else.
 - Judge a change to how much work is done by the counts first: `bench/tier.ts` prints whole-file runs, trials and the time added up over the processes, which a busy machine changes by a few in a hundred between identical runs. Seconds come second and need a quiet machine: they vary by about a tenth between identical runs there, so one run does not show a small gain. The times in `docs/benchmark.md` are taken on CI runners; the table under Benchmark in `README.md` is a copy of its "On hosted CI runners" table and changes with it.
 - A trap that produced a wrong verdict gets a minimal reproduction in `fixtures/basic/`. `pnpm test:truth` must agree on every mutant there; it finds what nobody thought to assert.
 - A change to values the target's code observes through Date, performance, fs or process also needs truth comparisons on the full application scopes (umami lib, formbricks utils, actual server, immich utils and services). Small tier scopes missed a fractional Date.now result that broke an application using BigInt; passing them alone is insufficient.
