@@ -37,6 +37,9 @@ on:
       jobs:
         description: Jobs each scope is run in, each making its own runs; the applications take hours a run
         default: '1'
+      slots:
+        description: macOS jobs of every bench run together that may run at once, out of the five the account runs; the rest stay free for pull requests
+        default: '2'
 
 permissions:
   contents: read
@@ -54,15 +57,14 @@ jobs:
   plan:
     runs-on: ubuntu-24.04
     outputs:
-      bench: ${{ steps.pick.outputs.bench }}
-      runners: ${{ steps.pick.outputs.runners }}
-      jobs: ${{ steps.pick.outputs.jobs }}
+      matrix: ${{ steps.pick.outputs.matrix }}
     steps:
       - id: pick
         env:
           ONLY: ${{ inputs.only }}
           RUNNERS: ${{ inputs.runners || 'ubuntu-24.04 macos-15' }}
           JOBS: ${{ inputs.jobs || '1' }}
+          SLOTS: ${{ inputs.slots || '2' }}
           ALL: |
             ufo all
             zustand all
@@ -92,41 +94,60 @@ jobs:
             commitlint lint
             umami lib
             formbricks utils
-            actual server
-            immich utils
-            immich services
+            actual server 159
+            immich utils 113
+            immich services 187
             roo-code utils
             koel composables
             homepage utils
-            tailwindcss parsers
+            tailwindcss parsers 189
             sentry utils
-            lobehub topic
+            lobehub topic 87
             shopify node
             promptfoo assertions
             comfyui stores
-            freelens utils
+            freelens utils 209
             n8n proxy
-            headlamp api
+            headlamp api 216
             zod core
             vercel-ai node
             vercel-ai-edge edge
             sveltekit server
             renovate util
-            lint-staged lib
+            lint-staged lib 101
             happy-dom selectors
-            mikro-orm core
+            mikro-orm core 79
             coder agents
-            element-plus table
-            element-plus hooks
-            fast-check check
+            element-plus table 145
+            element-plus hooks 112
+            fast-check check 142
+        # A number after a scope is its macOS job's usual minutes, where that is over an hour.
+        # Each macOS job is dealt a slot, the longest first to the slot with the least work, and
+        # the run job waits for its slot's concurrency group, which every bench run shares: a
+        # run's max-parallel would bound one run only, and two or three runs at once were what
+        # held pull requests' macOS jobs back. A slot that empties does not take another's jobs,
+        # so dealing them in turn would leave one slot with all five longest scopes.
         run: |
           node -e '
             const only = process.env.ONLY.split(/\s+/).filter(Boolean)
             const all = process.env.ALL.trim().split("\n").map((line) => line.trim().split(" "))
-            const bench = all.filter(([target]) => only.length === 0 || only.includes(target)).map(([target, scope]) => ({ target, scope }))
-            console.log("bench=" + JSON.stringify(bench))
-            console.log("runners=" + JSON.stringify(process.env.RUNNERS.split(/\s+/).filter(Boolean)))
-            console.log("jobs=" + JSON.stringify(Array.from({ length: Number(process.env.JOBS) }, (_, i) => i + 1)))
+            const bench = all.filter(([target]) => only.length === 0 || only.includes(target)).map(([target, scope, minutes]) => ({ target, scope, minutes: Number(minutes ?? 15) }))
+            const runners = process.env.RUNNERS.split(/\s+/).filter(Boolean)
+            const jobs = Array.from({ length: Number(process.env.JOBS) }, (_, i) => i + 1)
+            const slots = Number(process.env.SLOTS)
+            if (!Number.isInteger(slots) || slots < 1) throw new Error(`slots must be a whole number of at least 1, not ${process.env.SLOTS}`)
+            const include = runners.flatMap((runner) => bench.flatMap(({ target, scope, minutes }) => jobs.map((job) => ({ runner, bench: { target, scope }, job, slot: 0, minutes }))))
+            const load = Array(slots).fill(0)
+            const count = Array(slots).fill(0)
+            for (const entry of include.filter((entry) => entry.runner.startsWith("macos")).sort((a, b) => b.minutes - a.minutes)) {
+              const slot = load.indexOf(Math.min(...load))
+              load[slot] += entry.minutes
+              count[slot]++
+              entry.slot = slot + 1
+            }
+            // A concurrency group keeps at most 100 jobs waiting, over every run, and cancels any beyond.
+            if (Math.max(...count) > 100) throw new Error(`${Math.max(...count)} macOS jobs would wait for one slot, over the 100 a concurrency group keeps; raise slots or run fewer`)
+            console.log("matrix=" + JSON.stringify({ include: include.map(({ minutes, ...entry }) => entry) }))
           ' >> "$GITHUB_OUTPUT"
 
   run:
@@ -135,12 +156,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     # StrykerJS took 315 minutes on actual on macOS.
     timeout-minutes: 360
+    concurrency:
+      group: ${{ matrix.slot && format('bench-macos-{0}', matrix.slot) || format('bench-{0}-{1}', github.run_id, strategy.job-index) }}
+      queue: max
     strategy:
       fail-fast: false
-      matrix:
-        runner: ${{ fromJSON(needs.plan.outputs.runners) }}
-        bench: ${{ fromJSON(needs.plan.outputs.bench) }}
-        job: ${{ fromJSON(needs.plan.outputs.jobs) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
