@@ -49,11 +49,29 @@ describe('limits on a run of a whole file', () => {
 describe('a mutant that keeps a test file from ever finishing to load', () => {
   it('is a timeout, and the run ends', () => {
     const report = reportPath('stuck')
-    const cli = tool(['--root', fixture('stuck'), '--report', report], { timeout: 110_000 })
+    const project = fixture('stuck')
+    const start = Date.now()
+    const cli = tool(['--root', project, '--report', report])
+    const took = Date.now() - start
     expect(cli.status, cli.stderr).toBe(0)
     const stuck: RunResult = JSON.parse(fs.readFileSync(report, 'utf8'))
     expect(stuck.mutants.map((mutant) => mutant.status)).toEqual(['Timeout'])
-  }, 120_000)
+    // Two runs of the file with the mutant, the second to confirm the first,
+    // each ended by the clock at five times the limit a try has over the
+    // file's time (defaults 4 and 3,000 ms) and Vitest's hook timeout: 25 s
+    // and twenty times the file's time, which a slow runner makes seconds.
+    // The plan takes the shortest time a run of the file has had so far; the
+    // longest of them all is not under it whichever round it planned.
+    const results = path.join(project, 'node_modules/.vitant/session/results')
+    const fileMs = Math.max(...fs.readdirSync(results)
+      .flatMap((name) => fs.readFileSync(path.join(results, name), 'utf8').split('\n'))
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { type: string; complete?: boolean; wallMs?: number })
+      .filter((record) => record.type === 'file' && record.complete)
+      .map((record) => record.wallMs!))
+    expect(fileMs).toBeGreaterThan(0)
+    expect(took).toBeLessThan(2 * (5 * (fileMs * 4 + 3_000) + 10_000) + 30_000)
+  }, 600_000)
 })
 
 describe('test files whose runs do not stand each other, or that fail now and then', () => {

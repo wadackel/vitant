@@ -1889,6 +1889,9 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
     /**
      * Copies this process for one whole-file run and, in the process that
      * was copied, waits for the copy to end. Returns whether this is the copy.
+     * The job is claimed: one not copied names its mutant, or the main
+     * process takes the claim with no word for a copy that ended without a
+     * verdict, and makes the run in a worker started for it.
      */
     private async clone(job: WholeJob, beforeLoad: boolean): Promise<boolean> {
       await this.standStill()
@@ -1896,12 +1899,13 @@ export function withMutationTesting<T extends RunnerClass>(Base: T, vitest: Vite
       // mutant's code since it was looked at, and a copy from here would
       // have had it off for that.
       if (!beforeLoad && job.trial === undefined && (job.again ?? [job.site]).some((site) => runtime.h[site] === 1)) {
-        emit({ type: 'early', file: this.wholeFile, site: job.site })
+        emit({ type: 'early', file: this.wholeFile, site: job.site, mutant: job.mutant })
         return false
       }
       // So may it have started a thread, the end of a read the file began.
       if (!beforeLoad && threadsStarted(this.threadsBeforeLoad)) {
-        emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], threads: true })
+        // A test's one run is no run of the main process's plan, and its mutant would withdraw one that is.
+        emit({ type: 'early', file: this.wholeFile, site: -1, held: [...activeResources()], threads: true, ...(job.trial === undefined ? { mutant: job.mutant } : {}) })
         // A test that was to have its one run in such a copy has had its turn, as where the file shares what it holds.
         if (job.trial !== undefined) untold(job, this.wholeFile!)
         this.threaded = true

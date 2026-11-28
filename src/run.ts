@@ -624,7 +624,11 @@ interface EarlyRecord {
    * not one a copy's clocks stand still with.
    */
   clock?: boolean
-  /** With `clock`, from a copy that ended without a verdict for it: the mutant of the run it was made for. */
+  /**
+   * The mutant of a run this process had claimed and did not make: with
+   * `clock`, the run of a copy that ended without a verdict for it; else the
+   * run of a copy it did not make once the file had loaded.
+   */
   mutant?: number
 }
 
@@ -3231,7 +3235,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
           fs.existsSync(path.join(paths.claims, `whole.${job.id}`)),
       )
       // A copy whose clocks stood still and that met another clock ended
-      // without a verdict, and the file's runs are made before it loads next.
+      // without a verdict, or one was not made once the file had loaded, and
+      // that run, or every run of the file, is made before it loads next.
       const withdrawn = new Set(recent.flatMap((record) => (record.type === 'early' && record.mutant !== undefined ? [wholeKey(record.mutant, record.file)] : [])))
       // A run that was taken on and left no word otherwise ended with its
       // process. In a worker started for it, that is how the suite would go

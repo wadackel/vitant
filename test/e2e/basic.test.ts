@@ -15,8 +15,8 @@ let result: RunResult
 let output = ''
 /** What each worker of that run said of the tests it drove. */
 let tests: { file: string; id: string; name: string; baseline?: string; nonRepeatable?: boolean; needsReplay?: boolean }[] = []
-/** Where its workers' watchdogs stopped them. */
-let stalls: { id: string; mutant: number; cold?: boolean }[] = []
+/** The test file of each run of that run made again in a worker started for it, its copy having ended without a verdict. */
+let lost: string[] = []
 
 function statusOf(file: string, line: number, replacement: string): string {
   const matches = result.mutants.filter(
@@ -33,7 +33,8 @@ beforeAll(() => {
   const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
   const lines = fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n'))
   tests = lines.filter((line) => line.includes('"type":"test"')).map((line) => JSON.parse(line))
-  stalls = lines.filter((line) => line.includes('"type":"stall"')).map((line) => JSON.parse(line))
+  lost = lines.filter((line) => line.includes('"type":"plain"')).map((line) => JSON.parse(line) as { file: string; memory?: boolean })
+    .filter((record) => !record.memory).map((record) => record.file)
 }, basicRunMs)
 
 describe('running the fixture project', () => {
@@ -76,9 +77,12 @@ describe('running the fixture project', () => {
     expect(runs['copied while loading']).toBeGreaterThan(0)
     expect(runs['copied after load']).toBeGreaterThan(0)
     // A copy that ends without a verdict is run again in a worker started for
-    // it, and with the other test files of this suite running next to it
-    // that happens to one now and then.
+    // it: the one `guard.ts` ends with SIGKILL in every run, and now and then
+    // another on a busy machine. A copy not made because the mutant's code
+    // ran while it waited, as `queue-ready.ts`'s chain of promises makes it,
+    // is none, though its run was claimed: it is made before the file loads.
     expect(runs.lost).toBeLessThan(3)
+    expect(lost.filter((file) => file.endsWith('test/queue.test.ts'))).toEqual([])
     // What is left to workers started for the run: mutants that block or end
     // the process, and the runs made alone, four of them for `delay.ts` and
     // three in a run of `nest.ts` alone; the count varies by a few between runs.
@@ -262,13 +266,27 @@ describe('running the fixture project', () => {
   })
 
   // The run would not end: a try of the first test leaves a level open, and
-  // the second test then loops for good with no mutant on.
+  // the second test then loops for good with no mutant on. Whether the run
+  // above meets that depends on the machine: the first test tries its
+  // mutants in the first round only if it took less than `--cheap-ms`, and
+  // later a worker may take the second test's own mutants after them. A
+  // run of the first round alone, with every test cheap, always meets it.
   it('ends a test that what an earlier try left makes endless with no mutant on', () => {
-    const ids = new Set(tests.filter((test) => test.file.endsWith('test/nest.test.ts') && test.name === 'finds every level closed').map((test) => test.id))
-    expect(stalls.filter((stall) => ids.has(stall.id) && stall.mutant === -1 && stall.cold)).not.toHaveLength(0)
     expect(statusOf('src/nest.ts', 9, 'open++')).toBe('Timeout')
     expect(statusOf('src/nest.ts', 15, 'true')).toBe('Survived')
-  })
+    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/nest.ts', '--cheap-ms', '1000', '--max-rounds', '1',
+      '--timeout-factor', '1', '--timeout-ms', '100', '--report', reportPath('nest')])
+    expect(cli.stdout).toContain('test/nest.test.ts: still had runs to make after 1 rounds')
+    const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
+    const lines = fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n')).filter(Boolean)
+    const seen = lines.map((line) => JSON.parse(line) as { type: string; name?: string; id?: string; mutant?: number; cold?: boolean; survived?: number[]; pid: number })
+    // The mutants that survive the first test are those that leave a level open.
+    const tried = seen.find((record) => record.type === 'test' && record.name === 'returns what the work returns')!
+    expect(tried.survived?.length, JSON.stringify(tried)).toBeGreaterThan(0)
+    const [endless] = tests.filter((test) => test.file.endsWith('test/nest.test.ts') && test.name === 'finds every level closed').map((test) => test.id)
+    const stopped = seen.filter((record) => record.type === 'stall' && record.pid === tried.pid)
+    expect(stopped.map(({ id, mutant, cold }) => ({ id, mutant, cold }))).toEqual([{ id: endless, mutant: -1, cold: true }])
+  }, basicRunMs)
 
   it('does not go by what a test reached in a worker a mutant had left its mark on', () => {
     // With the module a level off, the test that fails on this mutant returns before the line.
