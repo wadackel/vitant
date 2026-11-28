@@ -117,7 +117,9 @@ export function targetEnv(
   return env
 }
 
-const stryker = '@stryker-mutator/core@10.0.0 @stryker-mutator/vitest-runner@10.0.0'
+// 10.0.0's Vitest runner names a test by its describe blocks joined with a space, where Vitest 5 matches
+// `testNamePattern` against them joined with ` > `: on Vitest 5 it ran no test inside a describe for a mutant.
+const stryker = '@stryker-mutator/core@10.1.1 @stryker-mutator/vitest-runner@10.1.1'
 
 // The two configs of vercel/ai's `packages/ai`, which `vitest.config.js` makes with a function it exports.
 const vercelAi: Omit<Target, 'config' | 'scopes'> = {
@@ -955,8 +957,8 @@ export const targets: Record<string, Target> = {
     commit: 'e2e174deff987cf3e0d48eac0ef8b59f68f736c0',
     // pnpm as `devEngines` names it, 12.18.0, which the pnpm on PATH fetches and hands over to.
     install: ['pnpm install --frozen-lockfile'],
-    // Tests call `process.chdir()`, which `threads` does not allow, and StrykerJS 10.0.0 takes no pool.
-    installStryker: 'pnpm add -D -w @stryker-mutator/core@10.1.1 @stryker-mutator/vitest-runner@10.1.1',
+    // Tests call `process.chdir()`, which `threads` does not allow.
+    installStryker: `pnpm add -D -w ${stryker}`,
     strykerPool: 'forks',
     strykerForce: true,
     scopes: {
