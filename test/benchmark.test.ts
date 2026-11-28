@@ -314,6 +314,42 @@ it('probes the copies for every mutated file without running a mutant, and names
   }
 })
 
+it('checks a second run of the tool against the same truth, and fails where either report is wrong', { timeout: 120_000 }, () => {
+  // The tool finds nothing to mutate in `value.ts` and mutates `sign.ts`; `report.json` holds a mutant of `value.ts` alone.
+  const project = truthProject({
+    'src/value.ts': 'export const value = 1\n',
+    'src/sign.ts': 'export const positive = (x: number) => x > 0\n',
+    'test/value.test.ts': "import { expect, it } from 'vitest'\nimport { value } from '../src/value.ts'\nit('is one', () => expect(value).toBe(1))\n",
+    'test/sign.test.ts': "import { expect, it } from 'vitest'\nimport { positive } from '../src/sign.ts'\nit('tells', () => expect([positive(1), positive(0)]).toEqual([true, false]))\n",
+  })
+  const also = path.join(import.meta.dirname, '../build', `${path.basename(project)}-also.json`)
+  try {
+    const right = makeTruth(project, '--also-tool=--max-workers=1')
+    expect(right.status, right.stdout + right.stderr).toBe(0)
+    const tool = JSON.parse(fs.readFileSync(also, 'utf8')) as { mutants: { status: string }[] }
+    expect(tool.mutants.length).toBeGreaterThan(0)
+    const lines = right.stdout.split('\n').filter((line) => line.includes('mutants checked against the suite'))
+    expect(lines).toHaveLength(2)
+    // Each report is checked on every mutant either holds: the tool's are not in `report.json`.
+    expect(lines[0]).toMatch(/report\.json: \d+ mutants checked against the suite: 1 agree, \d+ not in the report$/)
+    expect(lines[1]).toContain(`${path.basename(also)}: `)
+    expect(lines[1]).not.toContain('wrong')
+    // The suite kills the mutant this report says survived; the tool's own report is still checked.
+    const report = JSON.parse(fs.readFileSync(path.join(project, 'report.json'), 'utf8'))
+    report.mutants[0].status = 'Survived'
+    fs.writeFileSync(path.join(project, 'report.json'), JSON.stringify(report))
+    const wrong = makeTruth(project, '--also-tool=--max-workers=1')
+    expect(wrong.status).toBe(1)
+    const checked = wrong.stdout.split('\n').filter((line) => line.includes('mutants checked against the suite'))
+    expect(checked[0]).toContain('1 wrong')
+    expect(checked[1]).not.toContain('wrong')
+    expect(wrong.source).toBe('export const value = 1\n')
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true })
+    fs.rmSync(also, { force: true })
+  }
+})
+
 it("puts the project's node_modules/.bin first on PATH only for a target that asks for it", () => {
   const base = { PATH: ['/usr/bin', '/bin'].join(path.delimiter) }
   const bin = path.join('/p', 'node_modules', '.bin')
