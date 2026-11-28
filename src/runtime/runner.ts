@@ -1472,11 +1472,48 @@ const WINDOW_MS = 1000
 const IDLE_POLL_MS = 100
 const IDLE_MS = 500
 
-/** What keeps the event loop alive, counted by kind. */
+/**
+ * What keeps the event loop alive, counted by kind, less the worker's
+ * standard input while nothing reads it. Node makes that pipe's handle when
+ * `process.stdin` is first touched, which importing `node:process` as a
+ * module does: Vitest 4's worker does as it starts, Vitest 5's does not,
+ * and a dependency that imports it while a file loads looked like a file
+ * that opened a pipe, so no copy was made while that file loaded. A handle
+ * that reads nothing shares nothing with a copy beyond descriptor 0, which
+ * every copy has from the worker either way. It is not touched before
+ * loading as standard output is: that sets descriptor 0 non-blocking, and
+ * `fs.readSync(0)` in a test would throw `EAGAIN` where the suite's worker
+ * waits.
+ */
 function activeResources(): Map<string, number> {
   const counts = new Map<string, number>()
   for (const kind of process.getActiveResourcesInfo()) counts.set(kind, (counts.get(kind) ?? 0) + 1)
+  const pipes = counts.get('PipeWrap') ?? 0
+  if (pipes > 0 && idleStandardInput()) {
+    if (pipes === 1) counts.delete('PipeWrap')
+    else counts.set('PipeWrap', pipes - 1)
+  }
   return counts
+}
+
+interface StreamHandle {
+  _handle?: { fd?: number; reading?: boolean; constructor?: { name?: string } } | null
+  readableFlowing?: boolean | null
+  listenerCount?(event: string): number
+}
+
+/** Whether a pipe on descriptor 0 is among the handles and nothing reads from it, nor is about to. */
+function idleStandardInput(): boolean {
+  const handles = (process as unknown as { _getActiveHandles(): StreamHandle[] })._getActiveHandles()
+  return handles.some(
+    (handle) =>
+      handle?._handle?.fd === 0 &&
+      handle._handle.constructor?.name === 'Pipe' &&
+      handle._handle.reading !== true &&
+      handle.readableFlowing !== true &&
+      handle.listenerCount?.('data') === 0 &&
+      handle.listenerCount('readable') === 0,
+  )
 }
 
 /** What the worker holds open before any test file is loaded, the watchdog's thread included. */
