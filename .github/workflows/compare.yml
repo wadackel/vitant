@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       base:
-        description: Commit to compare with; where the workflow's commit leaves main when empty
+        description: Commit or branch to compare with; where the workflow's commit leaves main when empty
         default: ''
       scopes:
         description: Scopes as target:scope[:shards], separated by spaces, to run on Linux in place of the set
@@ -44,7 +44,7 @@ jobs:
         env:
           BASE: ${{ inputs.base }}
         run: |
-          if [ -n "$BASE" ]; then base=$(git rev-parse --verify "$BASE^{commit}"); else base=$(git merge-base origin/main HEAD); fi
+          if [ -n "$BASE" ]; then base=$(git rev-parse --verify --quiet "$BASE^{commit}" || git rev-parse --verify "origin/$BASE^{commit}"); else base=$(git merge-base origin/main HEAD); fi
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "Head $(git rev-parse HEAD), base $base" >> "$GITHUB_STEP_SUMMARY"
       - id: plan
@@ -57,9 +57,10 @@ jobs:
     name: ${{ matrix.job.name }}
     needs: plan
     runs-on: ${{ matrix.job.runner }}
-    # A share's run of one commit is meant to take ten minutes; `--limit` ends one at 25, and
-    # records what it was doing, before the job's limit would end both and keep nothing. A target
-    # with a longer limit of its own (actual, headlamp) keeps it and is for bench.yml instead.
+    # A share's run of one commit is meant to take ten minutes; `--limit` ends one at 20, killed
+    # two minutes later, and records what it was doing, so that two such runs and the setup end
+    # before the job's limit would end both and keep nothing. A target with a longer limit of its
+    # own (actual, freelens, headlamp, immich, fast-check) keeps it and is for bench.yml instead.
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -99,7 +100,7 @@ jobs:
           VITANT_BASE: ${{ github.workspace }}/base
           TOOLS: ${{ matrix.job.tools }}
           SHARD: ${{ matrix.job.shard }}
-        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit 25
+        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit 20
       - name: Summary
         if: ${{ !cancelled() }}
         run: node bench/summary.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"

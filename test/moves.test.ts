@@ -124,7 +124,7 @@ it('passes where only benign moves happened, and fails where a share or a run is
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Static')]), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
   const benign = check([first, second])
   expect(benign.status, benign.stdout).toBe(0)
-  expect(benign.stdout).toContain('No mutant moved between detected and undetected in 1 scope runs, and every report holds against the suite.')
+  expect(benign.stdout).toContain('No mutant moved between detected and undetected in 1 scope runs, and every report holds against the suite; 1 scope run(s) have no stored ground truth.')
   expect(benign.stdout).toContain('To or from a status without a verdict (Static, Unconfirmed, Led, Pending): 1')
 
   fs.rmSync(path.join(dir, second.artifact), { recursive: true })

@@ -12,8 +12,9 @@
 // and prints Markdown: every mutant that moved, and each merged report held
 // against bench/truth/. It exits with 1 where a mutant moved between detected
 // and undetected, where a merged report disagrees with the suite, where a
-// mutant is in one commit's report only, and where a job left no report, a
-// run exited with another code than 0 or left a mutant pending. A move of a
+// mutant is in one commit's report only, where shares cannot be merged, and
+// where a job left no report that can be read, a run exited with another code
+// than 0 or left a mutant pending. A move of a
 // mutant whose stored ground truth has a note is listed apart and passes.
 
 import { spawnSync } from 'node:child_process'
@@ -246,6 +247,7 @@ function check(jobs: Job[], dir: string): boolean {
   let detections = 0
   let explainedMoves = 0
   const groups = slotsOf(jobs)
+  const untruthed = groups.filter(({ slot }) => !fs.existsSync(path.join(import.meta.dirname, 'truth', `${slot.target}-${slot.scope}.json`))).length
   for (const { slot, jobs: slotJobs } of groups) {
     // One scope's reports that cannot be read or merged leave the others' moves to be read.
     let outcome: Outcome
@@ -260,7 +262,7 @@ function check(jobs: Job[], dir: string): boolean {
     explainedMoves += outcome.explained
   }
   const verdict = detections === 0 && problems === 0
-    ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite.`
+    ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite${untruthed > 0 ? `; ${untruthed} scope run(s) have no stored ground truth` : ''}.`
     : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**`
   console.log(['## Verdicts at two commits', '', verdict, '', ...lines].join('\n'))
   return detections === 0 && problems === 0
