@@ -56,14 +56,14 @@ describe('CI profiles', () => {
     expect(checks.filter((c) => targets.find((t) => t.target === c.target)!.runner.startsWith('macos') && c.suite !== 'smoke')).toHaveLength(5)
     expect(checks.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
       ...[1, 2, 3, 4, 5, 6, 7, 8].map((shard) => ['linux-x64-gnu', `truth-basic-${shard}`]),
-      ...['stuck', 'clash', 'walk'].map((name) => ['linux-x64-gnu', `truth-${name}-1`]),
+      ...['stuck', 'clash', 'walk', 'nest'].map((name) => ['linux-x64-gnu', `truth-${name}-1`]),
     ])
     const full = expectedChecks('full')
     expect(full.filter((c) => c.suite === 'regression').map((c) => c.target)).toEqual(targets.map((t) => t.target))
     expect(full.filter((c) => c.suite === 'truth').map((c) => c.target)).toEqual(targets.map((t) => t.target).filter((t) => t !== 'win32-x64'))
     expect(full.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
       ...[1, 2, 3, 4, 5, 6, 7, 8].map((shard) => ['win32-x64', `truth-basic-${shard}`]),
-      ...['stuck', 'clash', 'walk'].map((name) => ['win32-x64', `truth-${name}-1`]),
+      ...['stuck', 'clash', 'walk', 'nest'].map((name) => ['win32-x64', `truth-${name}-1`]),
     ])
     expect(expectedChecks('docs')).toEqual([])
   })
@@ -119,6 +119,8 @@ describe('CI profiles', () => {
       expect(commandsFor(target.target, 'truth').map((c) => c.name)).toEqual(['truth'])
       expect(commandsFor(target.target, 'truth-basic-2')[0].args).toEqual(['exec', 'node', 'bench/truth.ts', 'make', '--root', 'fixtures/basic',
         '--jobs', '4', '--shard', '2/8', '--out', 'build/test-reports/truth-basic-2-truth.json', '--also-tool=--static'])
+      expect(commandsFor(target.target, 'truth-nest-1')[0].args).toEqual(['exec', 'node', 'bench/truth.ts', 'make', '--root', 'fixtures/nest',
+        '--jobs', '1', '--shard', '1/1', '--out', 'build/test-reports/truth-nest-1-truth.json', '--also-tool=--static'])
       expect(commandsFor(target.target, 'smoke').map((c) => c.name)).toEqual(['smoke'])
     }
     expect(() => commandsFor('unknown', 'regression')).toThrow()

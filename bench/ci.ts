@@ -24,6 +24,7 @@ const object = (value: unknown): value is Record<string, unknown> => typeof valu
 const truthCases = [
   { name: 'basic', root: 'basic', shards: 8, jobs: 4, args: ['--also-tool=--static'] },
   ...['stuck', 'clash', 'walk'].map((name) => ({ name, root: name, shards: 1, jobs: 1, args: [] as string[] })),
+  { name: 'nest', root: 'nest', shards: 1, jobs: 1, args: ['--also-tool=--static'] },
 ]
 const truthLanes = truthCases.flatMap((test) => Array.from({ length: test.shards }, (_, i) => ({
   ...test, suite: `truth-${test.name}-${i + 1}`, shard: `${i + 1}/${test.shards}`,

@@ -7,7 +7,7 @@ import type { createE2E } from './e2e.ts'
  * How long a test gives one run of the whole fixture: a hosted runner with
  * an Intel processor has taken more than a minute over a run that takes ten
  * seconds elsewhere, and one with three Apple cores 186 s over `--static`
- * once `nest.ts` made six more mutants time out.
+ * on a fixture that also held what `fixtures/nest` holds.
  */
 export const basicRunMs = 300_000
 

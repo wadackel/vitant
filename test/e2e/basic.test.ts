@@ -84,9 +84,9 @@ describe('running the fixture project', () => {
     expect(runs.lost).toBeLessThan(3)
     expect(lost.filter((file) => file.endsWith('test/queue.test.ts'))).toEqual([])
     // What is left to workers started for the run: mutants that block or end
-    // the process, and the runs made alone, four of them for `delay.ts` and
-    // three in a run of `nest.ts` alone; the count varies by a few between runs.
-    expect(runs.started).toBeLessThan(25)
+    // the process, and the runs made alone, four of them for `delay.ts`; the
+    // count varies by a few between runs.
+    expect(runs.started).toBeLessThan(22)
   })
 
   it('kills a mutant a test fails on and keeps one no test notices', () => {
@@ -265,27 +265,63 @@ describe('running the fixture project', () => {
     expect(statusOf('src/notify.ts', 3, 'strict || listeners.length === 0')).toBe('Killed')
   })
 
+  // The loop of `nest.test.ts` is the test's own, which no count of the
+  // tool's ends: at the default limits each mutant's run of the file waits
+  // about 18 s on a CI runner for the watchdog, in every run of a fixture that
+  // holds it. What stops the run is the same at any limit.
+  const nestLimits = ['--timeout-factor', '1', '--timeout-ms', '100']
+  // A mutant that leaves a level open fails no test it reaches: only the run
+  // of the whole file, where the second test then loops, shows it.
+  const nestVerdicts = [
+    '4:44 {} Killed',
+    '5:2 open-- Timeout',
+    '6:6 {} Killed',
+    '8:12 {} Timeout',
+    '9:4 open++ Timeout',
+    '14:34 {} Timeout',
+    '15:9 open !== 0 Timeout',
+    '15:9 true Survived',
+    '15:9 false Timeout',
+  ]
+  function nestRun(name: string, options: string[]): string[] {
+    const cli = tool(['--root', fixture('nest'), ...nestLimits, ...options, '--report', reportPath(name)])
+    expect(cli.status, cli.stdout.slice(-2000)).toBe(0)
+    const run: RunResult = JSON.parse(fs.readFileSync(reportPath(name), 'utf8'))
+    return run.mutants.map((m) => `${m.location.start.line}:${m.location.start.column} ${m.replacement} ${m.status}`)
+  }
+
   // The run would not end: a try of the first test leaves a level open, and
-  // the second test then loops for good with no mutant on. Whether the run
-  // above meets that depends on the machine: the first test tries its
-  // mutants in the first round only if it took less than `--cheap-ms`, and
-  // later a worker may take the second test's own mutants after them. A
+  // the second test then loops for good with no mutant on. Whether a run of
+  // the whole fixture meets that depends on the machine: the first test tries
+  // its mutants in the first round only if it took less than `--cheap-ms`,
+  // and later a worker may take the second test's own mutants after them. A
   // run of the first round alone, with every test cheap, always meets it.
   it('ends a test that what an earlier try left makes endless with no mutant on', () => {
-    expect(statusOf('src/nest.ts', 9, 'open++')).toBe('Timeout')
-    expect(statusOf('src/nest.ts', 15, 'true')).toBe('Survived')
-    const cli = tool(['--root', fixture('basic'), '--mutate', 'src/nest.ts', '--cheap-ms', '1000', '--max-rounds', '1',
-      '--timeout-factor', '1', '--timeout-ms', '100', '--report', reportPath('nest')])
+    expect(nestRun('nest', [])).toEqual(nestVerdicts)
+    const records = path.join(fixture('nest'), 'node_modules/.vitant/session/results')
+    const read = () => fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n')).filter(Boolean)
+      .map((line) => JSON.parse(line) as { type: string; name?: string; id?: string; mutant?: number; cold?: boolean; survived?: number[]; pid: number })
+    // Read now: the run below replaces them.
+    const endless = read().find((record) => record.type === 'test' && record.name === 'finds every level closed')!.id
+    const cli = tool(['--root', fixture('nest'), '--cheap-ms', '1000', '--max-rounds', '1', ...nestLimits, '--report', reportPath('nest-round-1')])
     expect(cli.stdout).toContain('test/nest.test.ts: still had runs to make after 1 rounds')
-    const records = path.join(fixture('basic'), 'node_modules/.vitant/session/results')
-    const lines = fs.readdirSync(records).flatMap((name) => fs.readFileSync(path.join(records, name), 'utf8').split('\n')).filter(Boolean)
-    const seen = lines.map((line) => JSON.parse(line) as { type: string; name?: string; id?: string; mutant?: number; cold?: boolean; survived?: number[]; pid: number })
+    const seen = read()
     // The mutants that survive the first test are those that leave a level open.
     const tried = seen.find((record) => record.type === 'test' && record.name === 'returns what the work returns')!
     expect(tried.survived?.length, JSON.stringify(tried)).toBeGreaterThan(0)
-    const [endless] = tests.filter((test) => test.file.endsWith('test/nest.test.ts') && test.name === 'finds every level closed').map((test) => test.id)
     const stopped = seen.filter((record) => record.type === 'stall' && record.pid === tried.pid)
     expect(stopped.map(({ id, mutant, cold }) => ({ id, mutant, cold }))).toEqual([{ id: endless, mutant: -1, cold: true }])
+  }, basicRunMs)
+
+  // `--no-clone` takes the path of a platform without the addon: each run of
+  // the whole file is made in a worker started for it, which a stop ends.
+  it('gives the mutants that an earlier try makes endless the same verdicts without copies of a worker', () => {
+    expect(nestRun('nest-no-clone', ['--no-clone'])).toEqual(nestVerdicts)
+  }, basicRunMs)
+
+  it('gives the mutants that an earlier try makes endless the same verdicts with two workers and with every confirming run alone', () => {
+    expect(nestRun('nest-two-workers', ['--max-workers', '2'])).toEqual(nestVerdicts)
+    expect(nestRun('nest-strict', ['--strict'])).toEqual(nestVerdicts)
   }, basicRunMs)
 
   it('does not go by what a test reached in a worker a mutant had left its mark on', () => {
