@@ -257,7 +257,8 @@ interface Outcome {
   explained: number
 }
 
-function check(jobs: Job[], dir: string): boolean {
+/** The Markdown summary of every scope of the plan, and whether the head passes against the base. */
+export function check(jobs: Job[], dir: string): { passed: boolean; summary: string } {
   const lines: string[] = []
   let problems = 0
   let detections = 0
@@ -281,8 +282,7 @@ function check(jobs: Job[], dir: string): boolean {
   const verdict = detections === 0 && problems === 0
     ? `No mutant moved between detected and undetected in ${groups.length} scope runs${explainedMoves > 0 ? ` but ${explainedMoves} whose verdict bench/truth/ explains` : ''}, and every report holds against the suite${unchecked ? `; ${unchecked}` : ''}.`
     : `**${detections} mutant(s) moved between detected and undetected; ${problems} other problem(s).**${unchecked ? ` There is ${unchecked}.` : ''}`
-  console.log(['## Verdicts at two commits', '', verdict, '', ...lines].join('\n'))
-  return detections === 0 && problems === 0
+  return { passed: detections === 0 && problems === 0, summary: ['## Verdicts at two commits', '', verdict, '', ...lines].join('\n') }
 }
 
 function compareSlot(slot: Slot, slotJobs: Job[], dir: string): Outcome {
@@ -394,8 +394,10 @@ if (import.meta.main) {
     console.log(`jobs=${JSON.stringify(jobsOf(planSlots(values.scopes, values.macos)))}`)
     console.log(`limit=${runLimit}`)
   } else if (mode === 'check' && values.plan && dir) {
+    const { passed, summary } = check(JSON.parse(fs.readFileSync(values.plan, 'utf8')) as Job[], dir)
+    console.log(summary)
     // `process.exit` would drop what a pipe has not yet taken of the summary.
-    process.exitCode = check(JSON.parse(fs.readFileSync(values.plan, 'utf8')) as Job[], dir) ? 0 : 1
+    process.exitCode = passed ? 0 : 1
   } else {
     console.error("usage: node bench/moves.ts plan [--scopes 'target:scope[:shards] ...'] [--macos]\n       node bench/moves.ts check --plan <jobs.json> <dir>")
     process.exit(2)
