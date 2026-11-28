@@ -868,6 +868,7 @@
     {"file":"src/utils/body.ts","start":[66,10],"end":[66,34],"mutator":"ConditionalExpression","replacement":"false","suite":"fail"},
     {"file":"src/utils/body.ts","start":[66,36],"end":[68,7],"mutator":"BlockStatement","replacement":"{}","suite":"fail"},
     {"file":"src/utils/session.ts","start":[163,6],"end":[163,21],"mutator":"ConditionalExpression","replacement":"false","suite":"fail","note":"the suite failed 15 runs in 25 with the mutant written in and passed 10: three calls at once each make a session of their own, and whether the test finds them loaded is a race"},
-    {"file":"src/utils/session.ts","start":[163,23],"end":[165,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail","note":"the related suite failed 5 runs in 10 with the mutant written in on an Apple M6 and passed 5: the same race as `false` for the condition above it"}
+    {"file":"src/utils/session.ts","start":[163,23],"end":[165,3],"mutator":"BlockStatement","replacement":"{}","suite":"fail","note":"the related suite failed 5 runs in 10 with the mutant written in on an Apple M6 and passed 5: the same race as `false` for the condition above it"},
+    {"file":"src/utils/proxy.ts","start":[304,6],"end":[304,56],"mutator":"ConditionalExpression","replacement":"true","suite":"fail","note":"`passes upstream redirects through to the client by default (node)` failed in 11 related runs in 12 with the mutant written in on an Apple M6, and in 9 runs in 20 of test/proxy.test.ts alone, and in none of 20 without it: with no timeout given the mutant sets a timer for NaN milliseconds, which Node fires after one, and whether the upstream answers first is a race"}
   ]
 }
