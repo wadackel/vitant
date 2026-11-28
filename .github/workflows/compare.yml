@@ -136,6 +136,9 @@ jobs:
           JOBS: ${{ needs.plan.outputs.jobs }}
         run: |
           printf '%s' "$JOBS" > jobs.json
+          # download-artifact unpacks a lone artifact into the path itself, not into a directory of its name.
+          only=$(node -e 'const jobs = JSON.parse(require("fs").readFileSync("jobs.json", "utf8")); if (jobs.length === 1) console.log(jobs[0].artifact)')
+          if [ -n "$only" ] && [ -f results/summary.json ]; then mv results "$RUNNER_TEMP/$only" && mkdir results && mv "$RUNNER_TEMP/$only" results/; fi
           node bench/moves.ts check --plan jobs.json results | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ !cancelled() }}
