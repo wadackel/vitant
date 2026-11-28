@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import { defaultSet, type Job, jobsOf, moveOf, movesBetween, planSlots } from '../bench/moves.ts'
+import { check, defaultSet, type Job, jobsOf, moveOf, movesBetween, planSlots } from '../bench/moves.ts'
 import type { RunResult } from '../src/run.ts'
 
 let dir: string
@@ -80,7 +80,12 @@ function job(entry: Job, reports: Record<string, ReturnType<typeof report>>, exi
   for (const [tool, made] of Object.entries(reports)) fs.writeFileSync(path.join(at, `${tool}.json`), JSON.stringify(made))
 }
 
-function check(jobs: Job[]) {
+// In this process rather than through the command: a slow runner busy with the other test files
+// took seconds to start each `node`, and a case with several checks outran Vitest's timeout.
+const compare = (jobs: Job[]) => check(jobs, dir)
+
+/** Runs the command the compare workflow runs, for what only the process shows. */
+function cli(jobs: Job[]) {
   const plan = path.join(dir, 'jobs.json')
   fs.writeFileSync(plan, JSON.stringify(jobs))
   return spawnSync(process.execPath, [path.join(import.meta.dirname, '../bench/moves.ts'), 'check', '--plan', plan, dir], { encoding: 'utf8' })
@@ -101,15 +106,15 @@ it('lists every moved mutant of the merged shares and fails on a move between de
     vitant: report(2, 2, [mutant('c.ts', 3, 'NoCoverage')]),
   })
   fs.writeFileSync(path.join(dir, first.artifact, 'vitant.json'), JSON.stringify(report(1, 2, [mutant('a.ts', 1, 'Timeout'), mutant('a.ts', 1, 'Survived', 9), mutant('b.ts', 2, 'Killed')])))
-  const run = check([first, second])
-  expect(run.status, run.stderr).toBe(1)
-  expect(run.stdout).toContain('**1 mutant(s) moved between detected and undetected; 0 other problem(s).**')
-  expect(run.stdout).toContain('- b.ts:2:5-2:6 BooleanLiteral `false`: Survived → Killed')
-  expect(run.stdout).toContain('Between Killed and Timeout, benign: 1')
-  expect(run.stdout).toContain('- a.ts:1:5-1:6 BooleanLiteral `false`: Killed → Timeout')
-  expect(run.stdout).toContain('Between Survived and NoCoverage, which the suite passes alike: 1')
-  expect(run.stdout).not.toContain('a.ts:1:5-1:10')
-  expect(run.stdout).toContain('| vitant | Killed 1, Survived 1, Timeout 1, NoCoverage 1 | 6 whole-file runs, 6 trials | 10 s | Test CPU | no ground truth stored |')
+  const run = compare([first, second])
+  expect(run.passed, run.summary).toBe(false)
+  expect(run.summary).toContain('**1 mutant(s) moved between detected and undetected; 0 other problem(s).**')
+  expect(run.summary).toContain('- b.ts:2:5-2:6 BooleanLiteral `false`: Survived → Killed')
+  expect(run.summary).toContain('Between Killed and Timeout, benign: 1')
+  expect(run.summary).toContain('- a.ts:1:5-1:6 BooleanLiteral `false`: Killed → Timeout')
+  expect(run.summary).toContain('Between Survived and NoCoverage, which the suite passes alike: 1')
+  expect(run.summary).not.toContain('a.ts:1:5-1:10')
+  expect(run.summary).toContain('| vitant | Killed 1, Survived 1, Timeout 1, NoCoverage 1 | 6 whole-file runs, 6 trials | 10 s | Test CPU | no ground truth stored |')
 })
 
 it('lists apart a move of a mutant whose verdict the stored ground truth explains', () => {
@@ -123,46 +128,46 @@ it('passes where only benign moves happened, and fails where a share or a run is
   const [first, second] = jobsOf([slot])
   job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Timeout')]) })
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Static')]), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
-  const benign = check([first, second])
-  expect(benign.status, benign.stdout).toBe(0)
-  expect(benign.stdout).toContain('No mutant moved between detected and undetected in 1 scope runs, and every report holds against the suite; no stored ground truth for .moves-test scope.')
-  expect(benign.stdout).toContain('To or from a status without a verdict (Static, Unconfirmed, Led, Pending): 1')
+  const benign = compare([first, second])
+  expect(benign.passed, benign.summary).toBe(true)
+  expect(benign.summary).toContain('No mutant moved between detected and undetected in 1 scope runs, and every report holds against the suite; no stored ground truth for .moves-test scope.')
+  expect(benign.summary).toContain('To or from a status without a verdict (Static, Unconfirmed, Led, Pending): 1')
 
   fs.rmSync(path.join(dir, second.artifact), { recursive: true })
-  const missing = check([first, second])
-  expect(missing.status).toBe(1)
-  expect(missing.stdout).toContain(`**${second.name}: no results**`)
-  expect(missing.stdout).toContain('Not compared: a share of one commit is missing.')
+  const missing = compare([first, second])
+  expect(missing.passed).toBe(false)
+  expect(missing.summary).toContain(`**${second.name}: no results**`)
+  expect(missing.summary).toContain('Not compared: a share of one commit is missing.')
 
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Static')]), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) }, 1)
-  const failed = check([first, second])
-  expect(failed.status).toBe(1)
-  expect(failed.stdout).toContain(`**${second.name}: vitant exited with 1**`)
+  const failed = compare([first, second])
+  expect(failed.passed).toBe(false)
+  expect(failed.summary).toContain(`**${second.name}: vitant exited with 1**`)
 })
 
-// Each case has one problem alone, so that the exit code says that this problem fails the run.
+// Each case has one problem alone, so that the verdict says that this problem fails the run.
 it('fails on a mutant left pending', () => {
   const [only] = jobsOf([{ ...slot, shards: 1 }])
   job(only, { 'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 1, [mutant('a.ts', 1, 'Pending')]) })
-  const run = check([only])
-  expect(run.status).toBe(1)
-  expect(run.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
-  expect(run.stdout).toContain(`**${only.name}: vitant left 1 mutant(s) pending**`)
+  const run = compare([only])
+  expect(run.passed).toBe(false)
+  expect(run.summary).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(run.summary).toContain(`**${only.name}: vitant left 1 mutant(s) pending**`)
 })
 
 it('fails on mutants of one commit only, of the base or of the head', () => {
   const [first, second] = jobsOf([slot])
   job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Killed')]) })
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed'), mutant('b.ts', 2, 'Killed')]), vitant: report(2, 2, []) })
-  const dropped = check([first, second])
-  expect(dropped.status).toBe(1)
-  expect(dropped.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
-  expect(dropped.stdout).toContain('**Mutants of one commit only: 2 of the base (b.ts 2), 0 of the head.**')
+  const dropped = compare([first, second])
+  expect(dropped.passed).toBe(false)
+  expect(dropped.summary).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(dropped.summary).toContain('**Mutants of one commit only: 2 of the base (b.ts 2), 0 of the head.**')
 
   job(second, { 'vitant-base': report(2, 2, []), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
-  const added = check([first, second])
-  expect(added.status).toBe(1)
-  expect(added.stdout).toContain('**Mutants of one commit only: 0 of the base, 1 of the head (b.ts 1).**')
+  const added = compare([first, second])
+  expect(added.passed).toBe(false)
+  expect(added.summary).toContain('**Mutants of one commit only: 0 of the base, 1 of the head (b.ts 1).**')
 })
 
 it('fails on a report that cannot be read or shares that cannot be merged, and still prints the other scopes', () => {
@@ -171,53 +176,63 @@ it('fails on a report that cannot be read or shares that cannot be merged, and s
   job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Killed')]) })
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitant: report(2, 2, [mutant('b.ts', 1, 'Killed')]) })
   job(other, { 'vitant-base': report(1, 1, [mutant('c.ts', 1, 'Killed')]), vitant: report(1, 1, [mutant('c.ts', 1, 'Killed')]) })
-  expect(check([first, second, other]).status).toBe(0)
+  expect(compare([first, second, other]).passed).toBe(true)
 
   fs.writeFileSync(path.join(dir, second.artifact, 'vitant.json'), '{"mutants": [')
-  const unread = check([first, second, other])
-  expect(unread.status).toBe(1)
-  expect(unread.stdout).toContain(`**${second.name}: no report of vitant that can be read**`)
-  expect(unread.stdout).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
+  const unread = compare([first, second, other])
+  expect(unread.passed).toBe(false)
+  expect(unread.summary).toContain(`**${second.name}: no report of vitant that can be read**`)
+  expect(unread.summary).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
 
   job(second, { 'vitant-base': report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitant: { ...report(2, 2, [mutant('b.ts', 1, 'Killed')]), vitestVersion: '4.0.0' } })
-  const unmerged = check([first, second, other])
-  expect(unmerged.status).toBe(1)
-  expect(unmerged.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
-  expect(unmerged.stdout).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
+  const unmerged = compare([first, second, other])
+  expect(unmerged.passed).toBe(false)
+  expect(unmerged.summary).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(unmerged.summary).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
 
   // A share that cannot be merged keeps the other problems of its scope in the summary.
   job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Pending')]) })
-  const both = check([first, second, other])
-  expect(both.stdout).toContain('**0 mutant(s) moved between detected and undetected; 2 other problem(s).**')
-  expect(both.stdout).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
-  expect(both.stdout).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
+  const both = compare([first, second, other])
+  expect(both.summary).toContain('**0 mutant(s) moved between detected and undetected; 2 other problem(s).**')
+  expect(both.summary).toContain(`**${first.name}: vitant left 1 mutant(s) pending**`)
+  expect(both.summary).toContain('- **Not compared: the shares ran different versions of Vitest: 5.1.0, 4.0.0**')
   job(first, { 'vitant-base': report(1, 2, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 2, [mutant('a.ts', 1, 'Killed')]) })
 
   // JSON that is no report gets past the reading and fails inside the comparison of its scope.
   fs.writeFileSync(path.join(dir, second.artifact, 'vitant.json'), '{}')
-  const broken = check([first, second, other])
-  expect(broken.status).toBe(1)
-  expect(broken.stdout).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
-  expect(broken.stdout).toContain('- **Not compared: ')
-  expect(broken.stdout).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
+  const broken = compare([first, second, other])
+  expect(broken.passed).toBe(false)
+  expect(broken.summary).toContain('**0 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+  expect(broken.summary).toContain('- **Not compared: ')
+  expect(broken.summary).toContain('### .moves-test other (ubuntu-24.04, copies), 1 shard')
 })
 
 it('fails a scope where neither commit reported a mutant', () => {
   const [only] = jobsOf([{ ...slot, shards: 1 }])
   job(only, { 'vitant-base': report(1, 1, []), vitant: report(1, 1, []) })
-  const run = check([only])
-  expect(run.status).toBe(1)
-  expect(run.stdout).toContain('**Neither commit reported a mutant.**')
+  const run = compare([only])
+  expect(run.passed).toBe(false)
+  expect(run.summary).toContain('**Neither commit reported a mutant.**')
 })
 
-it('prints the whole summary into a pipe however long it is', () => {
+// These two cases and the two that store ground truth start processes, the command here and
+// bench/truth.ts for each tool there, each of which can take seconds on such a runner.
+it('exits with 0 where nothing fails the run', { timeout: 30_000 }, () => {
+  const [only] = jobsOf([{ ...slot, shards: 1 }])
+  job(only, { 'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Killed')]), vitant: report(1, 1, [mutant('a.ts', 1, 'Timeout')]) })
+  const run = cli([only])
+  expect(run.status, run.stdout + run.stderr).toBe(0)
+  expect(run.stdout).toContain('No mutant moved between detected and undetected in 1 scope runs')
+})
+
+it('prints the whole summary into a pipe however long it is', { timeout: 30_000 }, () => {
   const [only] = jobsOf([{ ...slot, shards: 1 }])
   const many = Array.from({ length: 4000 }, (_, i) => i + 1)
   job(only, {
     'vitant-base': report(1, 1, [...many.map((line) => mutant('a.ts', line, 'Killed')), mutant('z.ts', 1, 'Killed')]),
     vitant: report(1, 1, [...many.map((line) => mutant('a.ts', line, 'Timeout')), mutant('z.ts', 1, 'Survived')]),
   })
-  const run = check([only])
+  const run = cli([only])
   expect(run.status).toBe(1)
   expect(run.stdout.length).toBeGreaterThan(200_000)
   expect(run.stdout).toContain('- z.ts:1:5-1:6 BooleanLiteral `false`: Killed → Survived')
@@ -225,7 +240,7 @@ it('prints the whole summary into a pipe however long it is', () => {
   expect(run.stdout.trimEnd().endsWith('- a.ts:4000:5-4000:6 BooleanLiteral `false`: Killed → Timeout')).toBe(true)
 })
 
-it('holds each merged report against the stored ground truth and passes a move the truth explains', () => {
+it('holds each merged report against the stored ground truth and passes a move the truth explains', { timeout: 30_000 }, () => {
   const truth = path.join(import.meta.dirname, '../bench/truth/.moves-test-scope.json')
   const entry = (line: number, suite: string, note?: string) =>
     ({ file: 'a.ts', start: [line, 4], end: [line, 5], mutator: 'BooleanLiteral', replacement: 'false', suite, ...(note ? { note } : {}) })
@@ -236,21 +251,21 @@ it('holds each merged report against the stored ground truth and passes a move t
       'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Killed')]),
       vitant: report(1, 1, [mutant('a.ts', 1, 'Timeout'), mutant('a.ts', 2, 'Killed')]),
     })
-    const explained = check([only])
-    expect(explained.status, explained.stdout).toBe(0)
-    expect(explained.stdout).toContain('but 1 whose verdict bench/truth/ explains')
-    expect(explained.stdout).toContain('Between detected and undetected, of a mutant whose verdict bench/truth/ explains: 1')
-    expect(explained.stdout).toContain('- a.ts:1:5-1:6 BooleanLiteral `false`: Survived → Timeout; bench/truth/: the suite passes, times out in some runs')
+    const explained = compare([only])
+    expect(explained.passed, explained.summary).toBe(true)
+    expect(explained.summary).toContain('but 1 whose verdict bench/truth/ explains')
+    expect(explained.summary).toContain('Between detected and undetected, of a mutant whose verdict bench/truth/ explains: 1')
+    expect(explained.summary).toContain('- a.ts:1:5-1:6 BooleanLiteral `false`: Survived → Timeout; bench/truth/: the suite passes, times out in some runs')
 
     job(only, {
       'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Killed')]),
       vitant: report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 2, 'Survived')]),
     })
-    const wrong = check([only])
-    expect(wrong.status).toBe(1)
-    expect(wrong.stdout).toContain('**1 mutant(s) moved between detected and undetected; 1 other problem(s).**')
-    expect(wrong.stdout).toMatch(/\*\*2 mutants checked against the suite: 1 agree, 1 wrong/)
-    expect(wrong.stdout).toContain('- a.ts:2:5-2:6 BooleanLiteral `false`: Killed → Survived; bench/truth/: the suite fails')
+    const wrong = compare([only])
+    expect(wrong.passed).toBe(false)
+    expect(wrong.summary).toContain('**1 mutant(s) moved between detected and undetected; 1 other problem(s).**')
+    expect(wrong.summary).toMatch(/\*\*2 mutants checked against the suite: 1 agree, 1 wrong/)
+    expect(wrong.summary).toContain('- a.ts:2:5-2:6 BooleanLiteral `false`: Killed → Survived; bench/truth/: the suite fails')
   } finally {
     fs.rmSync(truth, { force: true })
   }
@@ -258,7 +273,7 @@ it('holds each merged report against the stored ground truth and passes a move t
 
 // Two mutants of one condition can share start, mutator and replacement, and the truth check
 // judges only the one stored: a line naming the start alone reads as the stored one's.
-it('names the end of a moved mutant and says where bench/truth/ has no entry for it', () => {
+it('names the end of a moved mutant and says where bench/truth/ has no entry for it', { timeout: 30_000 }, () => {
   const truth = path.join(import.meta.dirname, '../bench/truth/.moves-test-scope.json')
   const [only] = jobsOf([{ ...slot, shards: 1 }])
   try {
@@ -267,11 +282,11 @@ it('names the end of a moved mutant and says where bench/truth/ has no entry for
       'vitant-base': report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 1, 'Survived', 9)]),
       vitant: report(1, 1, [mutant('a.ts', 1, 'Survived'), mutant('a.ts', 1, 'Killed', 9)]),
     })
-    const run = check([only])
-    expect(run.status).toBe(1)
-    expect(run.stdout).toContain('**1 mutant(s) moved between detected and undetected; 0 other problem(s).**')
-    expect(run.stdout).toContain('1 mutants checked against the suite: 1 agree')
-    expect(run.stdout).toContain('- a.ts:1:5-1:10 BooleanLiteral `false`: Survived → Killed; not in bench/truth/')
+    const run = compare([only])
+    expect(run.passed).toBe(false)
+    expect(run.summary).toContain('**1 mutant(s) moved between detected and undetected; 0 other problem(s).**')
+    expect(run.summary).toContain('1 mutants checked against the suite: 1 agree')
+    expect(run.summary).toContain('- a.ts:1:5-1:10 BooleanLiteral `false`: Survived → Killed; not in bench/truth/')
   } finally {
     fs.rmSync(truth, { force: true })
   }
