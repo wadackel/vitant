@@ -75,6 +75,11 @@ gh workflow run truth.yml --ref <branch> -f target=sveltekit -f scope=server [-f
 
 Each share is a Linux job of its own, among the twenty the account runs at once with PR checks; more shards than are free wait for a runner. SvelteKit `server`'s 2,485 mutants took 47.5 and 46.0 minutes in two runs from dispatch to the merged file in eight shards, against 3.9 and 3.3 hours of making added up over the jobs ([Checking the verdicts](benchmark.md#checking-the-verdicts)).
 
+The hour holds only where the shards and the report are sized for it:
+
+- **Shards.** Count them from the scope's seconds a mutant: mutants times seconds, divided by about 2,400, gives shares of about 40 minutes on average. The slowest share took 1.3 and 1.5 times the mean in SvelteKit's two runs. SvelteKit took about 5 s a mutant on these runners, and local ground truth has taken from 1 to 171 s a mutant. A scope of 1,000 mutants at headlamp's 56 s or so needs about 23 shards, more than the twenty jobs the account runs at once, so some of them wait for a runner.
+- **The report.** A report made in the workflow adds the tool's own time on the scope before any share starts: about 9 minutes for SvelteKit, but 40 to 85 minutes for ComfyUI `stores` and element-plus on Linux ([On hosted CI runners](benchmark.md#on-hosted-ci-runners)). For such a scope, take the report of a bench run with `report=<run id>`.
+
 ## Evidence and timings
 
 E2e evidence stays under `build/test-reports/<group>-<unique-id>/`: named reports, per-invocation stdout/stderr, session records and `runs.jsonl` with start/end times and exit status. This also preserves a successful CLI report that a later assertion rejects. The fixture directory is removed independently of those records.
