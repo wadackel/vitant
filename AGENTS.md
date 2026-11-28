@@ -29,7 +29,7 @@ pnpm check:quick     # typecheck and unit tests for the editing loop
 pnpm test:smoke      # native supervision and small CLI fixtures
 pnpm test:e2e test/e2e/cache.test.ts  # one independent e2e group; no separating --
 pnpm test            # all unit, smoke and e2e tests
-pnpm test:truth      # full basic/default, basic/static, stuck, clash and walk truth checks
+pnpm test:truth      # full basic (default and --static reports), stuck, clash and walk truth checks
 pnpm test:packed     # the tool packed (pnpm build first, by itself), installed and run, against a run from the sources
 pnpm typecheck
 

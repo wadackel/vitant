@@ -2,7 +2,7 @@
 // mutant written into the source for real.
 //
 //   node bench/truth.ts make (--root <project> | --target <name>) [--report <report.json>] [--out <truth.json>]
-//        [--related] [--jobs N] [--sample N] [--timeout seconds] [--statuses Killed,Survived,...]
+//        [--related] [--jobs N] [--sample N] [--timeout seconds] [--statuses Killed,Survived,...] [--also-tool <arg>...]
 //   node bench/truth.ts check --report <report.json> --truth <truth.json>
 //   node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]
 //   node bench/truth.ts merge --report <report.json> --out <truth.json> <part.json>...
@@ -24,6 +24,12 @@
 // says where two ground truths of one scope disagree on what the suite does,
 // exiting with 1 where one detects a mutant the other does not or they hold
 // different mutants.
+//
+// `make --also-tool` runs the tool a second time, with those arguments in
+// place of `--tool`'s, and checks that report against the same truth: what
+// the suite does with a mutant does not depend on how the tool ran, so
+// `--static` and the default need the suite run once for each mutant, not
+// twice. The truth is made for every mutant either report holds eligible.
 //
 // `--related` runs only the test files that import the mutated file
 // (`vitest related`) in place of the whole suite.
@@ -89,6 +95,7 @@ const { values, positionals } = parseArgs({
     vitest: { type: 'string', multiple: true, default: [] },
     // Arguments for the tool alone, where it is run here.
     tool: { type: 'string', multiple: true, default: [] },
+    'also-tool': { type: 'string', multiple: true, default: [] },
     statuses: { type: 'string', default: 'Killed,Timeout,Survived,NoCoverage,Static' },
   },
 })
@@ -98,9 +105,9 @@ const invalid = mode === 'make' ? !values.root && !values.target
   : mode === 'merge' ? !values.report || !values.out || files.length === 0
   : mode === 'diff' ? files.length !== 2
   : mode !== 'check' || !values.report || !values.truth
-if (invalid) {
+if (invalid || (mode !== 'make' && values['also-tool']!.length > 0)) {
   console.error(
-    'usage: node bench/truth.ts make (--root <project> | --target <name>) --report <report.json> [--out <truth.json>] [--related] [--jobs N]\n' +
+    'usage: node bench/truth.ts make (--root <project> | --target <name>) --report <report.json> [--out <truth.json>] [--related] [--jobs N] [--also-tool <arg>...]\n' +
       '       node bench/truth.ts check --report <report.json> --truth <truth.json>\n' +
       '       node bench/truth.ts probe (--root <project> | --target <name>) --report <report.json> --jobs N [--related]\n' +
       '       node bench/truth.ts merge --report <report.json> --out <truth.json> <part.json>...\n' +
@@ -144,22 +151,33 @@ if (values.shard) {
   }
 }
 
-if (!values.report) {
-  values.report = path.join(import.meta.dirname, '..', 'build', `${path.basename(values.root!)}.json`)
+/** Runs the tool over the project with `args`, its report written to `file`. */
+function runTool(file: string, args: string[]) {
   const cli = path.join(import.meta.dirname, '..', 'src', 'cli.ts')
   const root = path.resolve(values.root!)
   // From the project, as bench/run.ts runs it: configs resolve paths against the working directory.
-  const run = spawnSync(process.execPath, [cli, '--root', root, '--report', path.resolve(values.report), ...targetArgs, ...values.vitest!, ...values.tool!], {
+  const run = spawnSync(process.execPath, [cli, '--root', root, '--report', path.resolve(file), ...targetArgs, ...values.vitest!, ...args], {
     cwd: root,
     stdio: 'ignore',
     env: targetEnv(target ?? {}, { dir: root }),
   })
   if (run.status !== 0) {
-    console.error(`the tool exited with ${run.status} on ${values.root}`)
+    console.error(`the tool exited with ${run.status} on ${values.root}${args.length > 0 ? ` with ${args.join(' ')}` : ''}`)
     process.exit(1)
   }
 }
-const report: RunResult = JSON.parse(fs.readFileSync(values.report, 'utf8'))
+const readReport = (file: string): RunResult => JSON.parse(fs.readFileSync(file, 'utf8'))
+const build = path.join(import.meta.dirname, '..', 'build')
+const also = values['also-tool']!.length > 0 ? path.join(build, `${path.basename(values.root!)}-also.json`) : undefined
+// Before the run `--tool` makes, so that where there is one the session the project keeps is its own.
+if (also) runTool(also, values['also-tool']!)
+if (!values.report) {
+  values.report = path.join(build, `${path.basename(values.root!)}.json`)
+  runTool(values.report, values.tool!)
+}
+const report = readReport(values.report)
+/** Every report checked against the truth: the first is the one `--report` names or `--tool` made. */
+const reports = [{ file: values.report, report }, ...(also ? [{ file: also, report: readReport(also) }] : [])]
 
 const describe = (mutant: MutantResult): Omit<TruthEntry, 'suite'> => ({
   file: mutant.file,
@@ -394,6 +412,16 @@ async function make(): Promise<Truth> {
   const argsFor = (file: string) => [...(values.related ? ['related', '--run', file] : ['run']), ...suiteArgs]
   const wanted = new Set(values.statuses!.split(','))
   const eligible = report.mutants.filter((mutant) => wanted.has(mutant.status))
+  // A mutant eligible in only one report, as one Unconfirmed in the other, is made too.
+  const keys = new Set(eligible.map((mutant) => keyOf(describe(mutant))))
+  for (const { report: other } of reports.slice(1)) {
+    for (const mutant of other.mutants) {
+      const key = keyOf(describe(mutant))
+      if (!wanted.has(mutant.status) || keys.has(key)) continue
+      eligible.push(mutant)
+      keys.add(key)
+    }
+  }
   const step = values.sample ? Math.max(1, eligible.length / Number(values.sample)) : 1
   const partition = values.shard ? partitionKeys(eligible.map((mutant) => keyOf(describe(mutant))), values.shard) : undefined
   const selected = new Set(partition?.selected)
@@ -482,11 +510,12 @@ async function make(): Promise<Truth> {
     // Several suites at once make a busy machine, on which a test that
     // waits on the clock can fail by itself. Where the suite and the report
     // disagree the suite is run once more, with nothing beside it.
-    const reported = new Map(report.mutants.map((mutant) => [keyOf(describe(mutant)), mutant.status]))
+    const reported = reports.map(({ report: run }) => new Map(run.mutants.map((mutant) => [keyOf(describe(mutant)), mutant.status])))
+    const disagrees = (status: string | undefined, suite: Suite) =>
+      status !== undefined && status !== 'Static' && (status === 'Killed' || status === 'Timeout') !== (suite !== 'pass')
     const learned = new Set<string>()
     for (const entry of entries) {
-      const status = reported.get(keyOf(entry))
-      if (status === 'Static' || (status === 'Killed' || status === 'Timeout') === (entry.suite !== 'pass')) continue
+      if (!reported.some((statuses) => disagrees(statuses.get(keyOf(entry)), entry.suite))) continue
       const file = path.join(root, entry.file)
       const source = fs.readFileSync(file, 'utf8')
       // A test that fails one run in four with no mutant passes for a
@@ -525,7 +554,7 @@ async function make(): Promise<Truth> {
   } } : {}) }
 }
 
-function check(truth: Truth): boolean {
+function check(truth: Truth, report: RunResult, label?: string): boolean {
   const byKey = new Map(report.mutants.map((mutant) => [keyOf(describe(mutant)), mutant]))
   const tally = { agree: 0, explained: 0, 'not judged': 0, 'not judged that fail the suite': 0, led: 0, 'led that pass the suite': 0, 'not in the report': 0 }
   const wrong: string[] = []
@@ -561,7 +590,7 @@ function check(truth: Truth): boolean {
     }
   }
   console.log(
-    `${truth.mutants.length} mutants checked against the suite: ` +
+    `${label ? `${label}: ` : ''}${truth.mutants.length} mutants checked against the suite: ` +
       Object.entries({ ...tally, wrong: wrong.filter((line) => !line.startsWith('  ')).length })
         .filter(([, count]) => count > 0)
         .map(([name, count]) => `${count} ${name}`)
@@ -592,4 +621,6 @@ if (mode !== 'check' && values.out) {
   const partition = truth.partition ? `,\n  "partition": ${JSON.stringify(truth.partition)}` : ''
   fs.writeFileSync(values.out, `{\n  "command": "${truth.command}",\n  "mutants": [\n${lines}\n  ]${partition}\n}\n`)
 }
-process.exit(check(truth) ? 0 : 1)
+// Every report is checked, so that one wrong verdict does not hide another report's.
+const passed = reports.map(({ file, report: run }) => check(truth, run, reports.length > 1 ? path.relative(process.cwd(), file) : undefined))
+process.exit(passed.every(Boolean) ? 0 : 1)

@@ -99,9 +99,10 @@ jobs:
           overwrite: true
 
   # The environments the detail jobs need an addon or a result from; the
-  # others build in build-others, which nothing but the gate waits for.
+  # others build in build-others, which nothing but the gate waits for. An
+  # environment with a packed lane smokes there, so that no detail job waits for it.
   build:
-    name: Build and smoke (${{ matrix.target }})
+    name: ${{ matrix.smoke && 'Build and smoke' || 'Build' }} (${{ matrix.target }})
     needs: plan
     if: ${{ needs.plan.outputs.profile != 'docs' }}
     runs-on: ${{ matrix.runner }}
@@ -138,7 +139,7 @@ jobs:
           pnpm build:native
           node bench/ci.ts stamp-addon "$TARGET"
       - name: Smoke
-        if: ${{ !matrix.musl }}
+        if: ${{ !matrix.musl && matrix.smoke }}
         run: node bench/ci.ts run smoke "$TARGET"
       - name: Build and smoke on Alpine
         if: ${{ matrix.musl }}
@@ -177,13 +178,13 @@ jobs:
             build/addon.${{ matrix.target }}.json
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.1
-        if: ${{ always() }}
+        if: ${{ always() && matrix.smoke }}
         with:
           name: check-${{ matrix.target }}-smoke-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.1
-        if: ${{ always() }}
+        if: ${{ always() && matrix.smoke }}
         with:
           name: reports-${{ matrix.target }}-smoke
           path: build/test-reports

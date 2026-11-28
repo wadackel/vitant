@@ -4,14 +4,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { buildsFor, commandsFor, expectedChecks, latestArtifacts, profileFor, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
+import { buildsFor, commandsFor, expectedChecks, latestArtifacts, profileFor, suitesOf, validateAddon, validateJobs, validateResults, targets } from '../bench/ci.ts'
 
 import { partitionKeys } from '../bench/truth-shards.ts'
 
 const identity = { sha: 'a'.repeat(40), run: '1234' }
 const proofFor = (suite: string) => {
   if (!suite.startsWith('truth-')) return undefined
-  const total = suite.startsWith('truth-basic-') ? 4 : 1
+  const total = suite.startsWith('truth-basic-') ? 8 : 1
   const index = suite.split('-').at(-1)
   const { selected, ...partition } = partitionKeys(['a', 'b', 'c', 'd', 'e'], `${index}/${total}`)
   return { ...partition, checked: selected }
@@ -55,14 +55,14 @@ describe('CI profiles', () => {
     // Five macOS jobs run at once on the account; a sixth would wait for one of them.
     expect(checks.filter((c) => targets.find((t) => t.target === c.target)!.runner.startsWith('macos') && c.suite !== 'smoke')).toHaveLength(5)
     expect(checks.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
-      ...['basic-default', 'basic-static'].flatMap((name) => [1, 2, 3, 4].map((shard) => ['linux-x64-gnu', `truth-${name}-${shard}`])),
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((shard) => ['linux-x64-gnu', `truth-basic-${shard}`]),
       ...['stuck', 'clash', 'walk'].map((name) => ['linux-x64-gnu', `truth-${name}-1`]),
     ])
     const full = expectedChecks('full')
     expect(full.filter((c) => c.suite === 'regression').map((c) => c.target)).toEqual(targets.map((t) => t.target))
     expect(full.filter((c) => c.suite === 'truth').map((c) => c.target)).toEqual(targets.map((t) => t.target).filter((t) => t !== 'win32-x64'))
     expect(full.filter((c) => c.suite.startsWith('truth-')).map((c) => [c.target, c.suite])).toEqual([
-      ...['basic-default', 'basic-static'].flatMap((name) => [1, 2, 3, 4].map((shard) => ['win32-x64', `truth-${name}-${shard}`])),
+      ...[1, 2, 3, 4, 5, 6, 7, 8].map((shard) => ['win32-x64', `truth-basic-${shard}`]),
       ...['stuck', 'clash', 'walk'].map((name) => ['win32-x64', `truth-${name}-1`]),
     ])
     expect(expectedChecks('docs')).toEqual([])
@@ -77,6 +77,23 @@ describe('CI profiles', () => {
     }
     expect(buildsFor('standard').needed.map((t) => t.target)).toEqual(['darwin-arm64', 'linux-x64-gnu'])
     expect(buildsFor('full').others).toEqual([])
+  })
+
+  it('smokes an environment with a packed lane at the start of that lane, and every other in its build', () => {
+    for (const profile of ['standard', 'full'] as const) {
+      const checks = expectedChecks(profile)
+      const { needed, others } = buildsFor(profile)
+      for (const build of [...needed, ...others]) {
+        const lanes = checks.filter((c) => c.target === build.target && c.suite !== 'smoke').flatMap((c) => suitesOf(c.suite))
+        // Exactly one job smokes each environment.
+        expect(Number(build.smoke) + lanes.filter((suite) => suite === 'smoke').length, `${profile} ${build.target}`).toBe(1)
+      }
+    }
+    expect(buildsFor('standard').needed.map((t) => [t.target, t.smoke])).toEqual([['darwin-arm64', false], ['linux-x64-gnu', false]])
+    expect(buildsFor('standard').others.every((t) => t.smoke)).toBe(true)
+    expect(buildsFor('full').needed.every((t) => t.smoke)).toBe(true)
+    expect(suitesOf('packed')).toEqual(['smoke', 'packed'])
+    expect(suitesOf('e2e-1')).toEqual(['e2e-1'])
   })
 
   it('retains all e2e files, packed, units and typechecking across the PR lanes', () => {
@@ -100,8 +117,8 @@ describe('CI profiles', () => {
       expect(commandsFor(target.target, 'regression').map((c) => c.name)).toEqual(target.target === 'linux-x64-gnu' ? ['e2e', 'packed']
         : target.musl ? ['unit', 'e2e', 'packed'] : ['typecheck', 'unit', 'e2e', 'packed'])
       expect(commandsFor(target.target, 'truth').map((c) => c.name)).toEqual(['truth'])
-      expect(commandsFor(target.target, 'truth-basic-static-2')[0].args).toEqual(['exec', 'node', 'bench/truth.ts', 'make', '--root', 'fixtures/basic',
-        '--jobs', '4', '--shard', '2/4', '--out', 'build/test-reports/truth-basic-static-2-truth.json', '--tool=--static'])
+      expect(commandsFor(target.target, 'truth-basic-2')[0].args).toEqual(['exec', 'node', 'bench/truth.ts', 'make', '--root', 'fixtures/basic',
+        '--jobs', '4', '--shard', '2/8', '--out', 'build/test-reports/truth-basic-2-truth.json', '--also-tool=--static'])
       expect(commandsFor(target.target, 'smoke').map((c) => c.name)).toEqual(['smoke'])
     }
     expect(() => commandsFor('unknown', 'regression')).toThrow()
@@ -144,7 +161,7 @@ describe('required CI results', () => {
 
   it.each(['standard', 'full'] as const)('rejects successful %s lanes whose truth partitions omit or repeat mutants', (profile) => {
     const results = valid(profile)
-    const at = results.findIndex((row) => row.suite === 'truth-basic-default-1')
+    const at = results.findIndex((row) => row.suite === 'truth-basic-1')
     for (const truth of [undefined, { ...results[at].truth, checked: [] },
       { ...results[at].truth, checked: ['a', 'a'] }, { ...results[at].truth, universe: ['different'] }]) {
       const changed = results.map((row, index) => index === at ? { ...row, truth } : row)
@@ -155,8 +172,8 @@ describe('required CI results', () => {
 
   it('binds proof indices to their lanes and rejects vacuous fixed-fixture checks', () => {
     const results = valid('standard')
-    const first = results.find((row) => row.suite === 'truth-basic-default-1')!
-    const second = results.find((row) => row.suite === 'truth-basic-default-2')!
+    const first = results.find((row) => row.suite === 'truth-basic-1')!
+    const second = results.find((row) => row.suite === 'truth-basic-2')!
     const swapped = results.map((row) => row === first ? { ...row, truth: second.truth } : row === second ? { ...row, truth: first.truth } : row)
     expect(validateResults('standard', identity, swapped)).not.toEqual([])
     const empty = results.map((row) => row.truth ? { ...row, truth: { ...row.truth, universe: [], checked: [] } } : row)
@@ -278,6 +295,22 @@ describe('CI command boundaries', { timeout: 30_000 }, () => {
     expect(record).toMatchObject({ sha: source, run: '1234', status: 'failure' })
     expect(record.steps.map((step: { name: string; exit: number }) => [step.name, step.exit])).toEqual([['typecheck', 0], ['unit', 7]])
     expect(fs.existsSync(path.join(work, 'build/test-reports/quick-unit.log'))).toBe(true)
+  })
+
+  it('makes a packed lane\'s check after its smoke has failed, and records both', () => {
+    fs.mkdirSync(path.join(work, 'test/e2e'), { recursive: true })
+    const pkg = JSON.parse(fs.readFileSync(path.join(work, 'package.json'), 'utf8'))
+    Object.assign(pkg.scripts, { 'test:smoke': 'node -e "process.exit(3)" --', 'test:unit': 'node -e "process.exit(0)" --', 'test:packed': 'node -e "process.exit(0)"' })
+    fs.writeFileSync(path.join(work, 'package.json'), JSON.stringify(pkg))
+    git('add', 'package.json')
+    git('commit', '-qm', 'smoke failure')
+    source = git('rev-parse', 'HEAD')
+    const result = command(['run', 'packed', 'win32-x64'])
+    expect(result.status, result.stdout + result.stderr).toBe(1)
+    const record = (suite: string) => JSON.parse(fs.readFileSync(path.join(work, `build/ci/result-win32-x64-${suite}.json`), 'utf8'))
+    expect(record('smoke')).toMatchObject({ sha: source, suite: 'smoke', status: 'failure', steps: [{ name: 'smoke', exit: 3 }] })
+    expect(record('packed')).toMatchObject({ sha: source, suite: 'packed', status: 'success' })
+    expect(record('packed').steps.map((step: { name: string }) => step.name)).toEqual(['typecheck', 'unit', 'packed'])
   })
 
   it('only lets the real gate pass with all result files from this checkout and successful jobs', () => {

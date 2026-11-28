@@ -19,19 +19,20 @@ type Profile = 'docs' | 'standard' | 'full'
 type Identity = { sha: string; run: string }
 type Check = { target: string; suite: string }
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+// The suite does with a mutant what it does however the tool ran, so one truth of the basic fixture is checked against
+// both its default and its `--static` report: two cases of it made the same truth, each mutant's suite run twice.
 const truthCases = [
-  { name: 'basic-default', root: 'basic', shards: 4, jobs: 4, tool: [] as string[] },
-  { name: 'basic-static', root: 'basic', shards: 4, jobs: 4, tool: ['--tool=--static'] },
-  ...['stuck', 'clash', 'walk'].map((name) => ({ name, root: name, shards: 1, jobs: 1, tool: [] as string[] })),
+  { name: 'basic', root: 'basic', shards: 8, jobs: 4, args: ['--also-tool=--static'] },
+  ...['stuck', 'clash', 'walk'].map((name) => ({ name, root: name, shards: 1, jobs: 1, args: [] as string[] })),
 ]
 const truthLanes = truthCases.flatMap((test) => Array.from({ length: test.shards }, (_, i) => ({
   ...test, suite: `truth-${test.name}-${i + 1}`, shard: `${i + 1}/${test.shards}`,
 })))
 // Windows starts processes so slowly that the whole truth command on one runner came within minutes of its 200-minute limit.
 const partitionedTruth = (profile: Profile) => profile === 'full' ? ['win32-x64'] : ['linux-x64-gnu']
-// About nine minutes each on macOS arm64, the longest setting the PR's time. With the packed lane that is five macOS jobs,
-// as many as an account runs at once, but macOS x64's build still holds one when they start: the packed lane, last of them,
-// is kept about two minutes shorter so that waiting for that slot does not make it the longest.
+// About nine minutes each on macOS arm64, the longest setting the PR's time. With the packed lane, which also smokes the
+// environment and so is about as long, that is five macOS jobs, as many as an account runs at once; macOS x64's build still
+// holds one when they start, and which lane waits for it differs from run to run, the matrix order notwithstanding.
 // e2e files no lane names run in the packed lane, so a new file is never left out.
 const e2eLanes = [['basic.test.ts', 'process-listeners.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'],
   ['boundaries.test.ts', 'cache.test.ts', 'hooks.test.ts', 'pool-argv.test.ts']]
@@ -96,7 +97,7 @@ export function commandsFor(name: string, suite: string): { name: string; args: 
   const truth = truthLanes.find((lane) => lane.suite === suite)
   if (truth) return [{ name: 'truth', args: ['exec', 'node', 'bench/truth.ts', 'make',
     '--root', `fixtures/${truth.root}`, '--jobs', String(truth.jobs), '--shard', truth.shard,
-    '--out', `build/test-reports/${suite}-truth.json`, ...truth.tool] }]
+    '--out', `build/test-reports/${suite}-truth.json`, ...truth.args] }]
   if (suite === 'regression') return [
     ...(name === 'linux-x64-gnu' ? [] : [...(target.musl ? [] : [typecheck]), unit]),
     { name: 'e2e', args: ['test:e2e', '--reporter=json', '--outputFile=build/test-reports/e2e.json'] },
@@ -137,13 +138,22 @@ export function validateResults(profile: Profile, identity: Identity, results: u
   return errors
 }
 
+// An environment with a packed lane smokes at its start, not in the build every detail job of it waits for.
+const smokeLane = 'packed'
+
+/** The checks `ci.ts run <suite>` makes in one job: smoke goes with the packed lane. */
+export const suitesOf = (suite: string) => suite === smokeLane ? ['smoke', suite] : [suite]
+
 /**
- * The environments whose build and smoke the detail jobs wait for, those with
- * a detail check, and the others, which build and smoke beside the detail jobs.
+ * The environments whose build the detail jobs wait for, those with a detail
+ * check, and the others, which build and smoke beside the detail jobs; each
+ * with whether its build job smokes.
  */
 export function buildsFor(profile: Profile) {
-  const detail = new Set(expectedChecks(profile).filter((check) => !['quick', 'smoke'].includes(check.suite)).map((check) => check.target))
-  return { needed: targets.filter((target) => detail.has(target.target)), others: targets.filter((target) => !detail.has(target.target)) }
+  const checks = expectedChecks(profile)
+  const detail = new Set(checks.filter((check) => !['quick', 'smoke'].includes(check.suite)).map((check) => check.target))
+  const withSmoke = (target: typeof targets[number]) => ({ ...target, smoke: !checks.some((check) => check.target === target.target && check.suite === smokeLane) })
+  return { needed: targets.filter((target) => detail.has(target.target)).map(withSmoke), others: targets.filter((target) => !detail.has(target.target)).map(withSmoke) }
 }
 
 // Every attempt names its artifacts with its number, and the latest attempt's of each name is taken. A job rerun
@@ -368,7 +378,17 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
   try {
     const [command, first, second] = process.argv.slice(2)
     if (command === 'plan') plan()
-    else if (command === 'run') await run(first, second)
+    else if (command === 'run') {
+      // The packed check runs after a failed smoke, so that the gate gets both results.
+      for (const suite of suitesOf(first)) {
+        try {
+          await run(suite, second)
+        } catch (error) {
+          console.error(error instanceof Error ? error.message : error)
+          process.exitCode = 1
+        }
+      }
+    }
     else if (command === 'stamp-addon') addon(first, true)
     else if (command === 'artifacts') artifacts(first)
     else if (command === 'sessions') collectSessions()
