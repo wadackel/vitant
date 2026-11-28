@@ -49,6 +49,7 @@ it('plans the scopes given in place of the set, and refuses one the benchmark do
   expect(() => planSlots('ufo:all:0', false)).toThrow('shards must be a whole number above 0')
   expect(() => planSlots('h3:toString', false)).toThrow('no scope h3 toString')
   expect(() => planSlots('ufo:all ufo:all:2', false)).toThrow('ufo:all is given twice')
+  expect(() => planSlots('headlamp:api:8', false)).toThrow('headlamp lets a run take 300 minutes, more than a compare job has')
 })
 
 const mutant = (file: string, line: number, status: string, end = 5) => ({

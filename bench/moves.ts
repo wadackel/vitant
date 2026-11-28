@@ -4,8 +4,9 @@
 //   node bench/moves.ts plan [--scopes 'target:scope[:shards] ...'] [--macos]
 //   node bench/moves.ts check --plan <jobs.json> <dir>
 //
-// `plan` prints `jobs=<JSON>` for the workflow's matrix: the set below, or
-// the scopes given, each on Linux with copies in as many shards as given.
+// `plan` prints `jobs=<JSON>`, the workflow's matrix: the set below, or the
+// scopes given, each on Linux with copies in as many shards as given; and
+// `limit=<minutes>`, how long one run may take.
 // `check` reads what every job of the plan left under <dir>, one directory a
 // job named as the job's `artifact`, merges each tool's shares, matches the
 // base's mutants with the head's by file, start, end, mutator and replacement,
@@ -53,6 +54,8 @@ export interface Job {
 }
 
 const linux = 'ubuntu-24.04'
+/** The minutes `--limit` gives one run in the compare workflow, which takes it from `plan`. */
+const runLimit = 20
 const macos = 'macos-15'
 
 /**
@@ -70,11 +73,11 @@ export const defaultSet: Slot[] = [
   // Many small files with timeouts and the copy made before a test; macOS again.
   { target: 'es-toolkit', scope: 'array', shards: 1, runner: macos, path: 'copies' },
   // Files run only in copies made before they load (child processes, native threads), Vitest projects;
-  // two wrong verdicts of the last fixes showed here first. Its mutants are nearly all in one file.
+  // the wrong verdicts at its lines 432 and 1134 (#43, #63) showed here first. Its mutants are nearly all in one file.
   { target: 'n8n', scope: 'proxy', shards: 1, runner: linux, path: 'copies', apart: true },
   // An application suite: copies refused for native threads and open descriptors, many Static mutants.
   { target: 'formbricks', scope: 'utils', shards: 3, runner: linux, path: 'copies' },
-  // Timeouts, Unconfirmed and explained mutants in 39 files; a wrong Survived of the last fixes showed here.
+  // Timeouts, Unconfirmed and explained mutants in 39 files; the wrong Survived of #76 showed here.
   { target: 'h3', scope: 'utils', shards: 3, runner: linux, path: 'copies' },
   // An application suite that reads Date, with the most Static mutants.
   { target: 'umami', scope: 'lib', shards: 3, runner: linux, path: 'copies' },
@@ -88,7 +91,7 @@ export const defaultSet: Slot[] = [
   { target: 'immer', scope: 'all', shards: 1, runner: linux, path: 'copies' },
   // Lines a change touched (`--changed`) rather than globs.
   { target: 'es-toolkit', scope: 'pr', shards: 1, runner: linux, path: 'copies' },
-  // Without copies: two wrong verdicts of the last fixes were on this path alone.
+  // Without copies, the path the wrong verdicts of #41 and #52 were on alone.
   { target: 'hono', scope: 'router', shards: 1, runner: linux, path: 'no-clone' },
   { target: 'immer', scope: 'all', shards: 1, runner: linux, path: 'no-clone' },
   { target: 'es-toolkit', scope: 'array', shards: 1, runner: linux, path: 'no-clone' },
@@ -131,6 +134,11 @@ export function planSlots(scopes: string, withMacos: boolean): Slot[] {
     // `in` and a plain lookup would take `toString` for a scope.
     if (!Object.hasOwn(targets, slot.target) || !Object.hasOwn(targets[slot.target].scopes, slot.scope)) {
       throw new Error(`no scope ${slot.target} ${slot.scope} in bench/targets.ts`)
+    }
+    // Its own limit outlasts a compare job, which would end with no report to say why.
+    const limit = targets[slot.target].limit
+    if (limit !== undefined && limit > runLimit) {
+      throw new Error(`${slot.target} lets a run take ${limit} minutes, more than a compare job has: compare it with bench.yml and base`)
     }
     const name = slotName(slot)
     if (seen.has(name)) throw new Error(`${slot.target}:${slot.scope} is given twice`)
@@ -366,6 +374,7 @@ if (import.meta.main) {
   const [mode, dir] = positionals
   if (mode === 'plan') {
     console.log(`jobs=${JSON.stringify(jobsOf(planSlots(values.scopes, values.macos)))}`)
+    console.log(`limit=${runLimit}`)
   } else if (mode === 'check' && values.plan && dir) {
     // `process.exit` would drop what a pipe has not yet taken of the summary.
     process.exitCode = check(JSON.parse(fs.readFileSync(values.plan, 'utf8')) as Job[], dir) ? 0 : 1

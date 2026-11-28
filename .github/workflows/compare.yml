@@ -31,6 +31,7 @@ jobs:
     outputs:
       base: ${{ steps.base.outputs.base }}
       jobs: ${{ steps.plan.outputs.jobs }}
+      limit: ${{ steps.plan.outputs.limit }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -100,15 +101,21 @@ jobs:
           VITANT_BASE: ${{ github.workspace }}/base
           TOOLS: ${{ matrix.job.tools }}
           SHARD: ${{ matrix.job.shard }}
-        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit 20
+          LIMIT: ${{ needs.plan.outputs.limit }}
+        run: node bench/run.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" --tool "$TOOLS" --shard "$SHARD" --limit "$LIMIT"
       - name: Summary
         if: ${{ !cancelled() }}
         run: node bench/summary.ts "${{ matrix.job.target }}" "${{ matrix.job.scope }}" | tee -a "$GITHUB_STEP_SUMMARY"
+      # Inside a directory of its own name, so that the compare job finds every artifact at
+      # results/<name> however many were uploaded: download-artifact unpacks a lone one flat.
+      - name: Gather the results
+        if: ${{ !cancelled() }}
+        run: mkdir -p upload && cp -R "bench/results/${{ matrix.job.target }}-${{ matrix.job.scope }}" "upload/${{ matrix.job.artifact }}"
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.job.artifact }}
-          path: bench/results/${{ matrix.job.target }}-${{ matrix.job.scope }}
+          path: upload
 
   compare:
     needs: [plan, run]
@@ -130,15 +137,13 @@ jobs:
         with:
           pattern: compare-*
           path: results
+          merge-multiple: true
       - name: Compare
         shell: bash
         env:
           JOBS: ${{ needs.plan.outputs.jobs }}
         run: |
           printf '%s' "$JOBS" > jobs.json
-          # download-artifact unpacks a lone artifact into the path itself, not into a directory of its name.
-          only=$(node -e 'const jobs = JSON.parse(require("fs").readFileSync("jobs.json", "utf8")); if (jobs.length === 1) console.log(jobs[0].artifact)')
-          if [ -n "$only" ] && [ -f results/summary.json ]; then mv results "$RUNNER_TEMP/$only" && mkdir results && mv "$RUNNER_TEMP/$only" results/; fi
           node bench/moves.ts check --plan jobs.json results | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ !cancelled() }}
