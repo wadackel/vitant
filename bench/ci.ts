@@ -34,8 +34,8 @@ const partitionedTruth = (profile: Profile) => profile === 'full' ? ['win32-x64'
 // environment and so is about as long, that is five macOS jobs, as many as an account runs at once; macOS x64's build still
 // holds one when they start, and which lane waits for it differs from run to run, the matrix order notwithstanding.
 // e2e files no lane names run in the packed lane, so a new file is never left out.
-const e2eLanes = [['basic.test.ts', 'process-listeners.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'],
-  ['boundaries.test.ts', 'cache.test.ts', 'hooks.test.ts', 'pool-argv.test.ts']]
+const e2eLanes = [['basic.test.ts', 'hooks.test.ts', 'pool-argv.test.ts'], ['basic-modes.test.ts'], ['basic-options.test.ts'],
+  ['boundaries.test.ts', 'cache.test.ts', 'process-listeners.test.ts']]
 const e2eSuites = e2eLanes.map((_, i) => `e2e-${i + 1}`)
 // Windows runs no other unit tests in a PR. Its quick job needs no addon, so unlike a detail lane it waits for no build.
 const quickTargets = ['linux-x64-gnu', 'win32-x64']
