@@ -146,6 +146,24 @@ export function buildsFor(profile: Profile) {
   return { needed: targets.filter((target) => detail.has(target.target)), others: targets.filter((target) => !detail.has(target.target)) }
 }
 
+// Every attempt names its artifacts with its number, and the latest attempt's of each name is taken. A job rerun
+// leaves its earlier attempts' artifacts listed, some of them refused with a 404 when downloaded; a download by
+// pattern would take those too, and one by name picks the highest ID, which does not follow upload order.
+export function latestArtifacts(rows: { id: number; name: string }[], pattern: string): number[] {
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const base = pattern.endsWith('*') ? `${escape(pattern.slice(0, -1))}.+` : escape(pattern)
+  const named = new RegExp(`^(${base})-(\\d+)$`)
+  const latest = new Map<string, { id: number; attempt: number }>()
+  for (const row of rows) {
+    const match = named.exec(row.name)
+    if (!match) continue
+    const attempt = Number(match[2])
+    const seen = latest.get(match[1])
+    if (!seen || attempt > seen.attempt) latest.set(match[1], { id: row.id, attempt })
+  }
+  return [...latest.values()].map(({ id }) => id)
+}
+
 export function validateJobs(profile: Profile, needs: unknown): string[] {
   if (!object(needs)) return ['Missing prerequisite jobs']
   return ['plan', 'quick', 'build', 'build-others', 'detail'].flatMap((job) => {
@@ -173,6 +191,22 @@ function identity(): Identity {
   if (!validSha(sha) || !run || !/^\d+$/.test(run)) throw new Error('CI_SHA and GITHUB_RUN_ID must identify this workflow run')
   if (git('rev-parse', 'HEAD').trim() !== sha) throw new Error('Checkout differs from CI_SHA')
   return { sha, run }
+}
+
+function artifacts(pattern: string) {
+  const run = process.env.GITHUB_RUN_ID
+  if (!run || !/^\d+$/.test(run) || !process.env.GITHUB_REPOSITORY) throw new Error('GITHUB_RUN_ID and GITHUB_REPOSITORY must name this workflow run')
+  const listing = execFileSync('gh', ['api', '--paginate', `repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${run}/artifacts?per_page=100`,
+    '--jq', '.artifacts[] | select(.expired | not) | "\\(.id) \\(.name)"'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
+  const rows = listing.split('\n').filter(Boolean).map((line) => {
+    const [id, name] = line.split(' ')
+    return { id: Number(id), name }
+  })
+  const ids = latestArtifacts(rows, pattern)
+  if (ids.length === 0) throw new Error(`No artifact of this run is named ${pattern}-<attempt>`)
+  for (const row of rows) if (ids.includes(row.id)) console.log(`${row.name} (ID: ${row.id})`)
+  if (!process.env.GITHUB_OUTPUT) throw new Error('GITHUB_OUTPUT is required')
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `ids=${ids.join(',')}\n`)
 }
 
 function changes(event: string) {
@@ -336,9 +370,10 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
     if (command === 'plan') plan()
     else if (command === 'run') await run(first, second)
     else if (command === 'stamp-addon') addon(first, true)
+    else if (command === 'artifacts') artifacts(first)
     else if (command === 'sessions') collectSessions()
     else if (command === 'gate') gate()
-    else throw new Error('usage: node bench/ci.ts plan | run <suite> <target> | stamp-addon <target> | sessions | gate')
+    else throw new Error('usage: node bench/ci.ts plan | run <suite> <target> | stamp-addon <target> | artifacts <pattern> | sessions | gate')
   } catch (error) {
     console.error(error instanceof Error ? error.message : error)
     process.exitCode = 1

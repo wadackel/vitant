@@ -13,6 +13,10 @@ on:
         type: choice
         options: [full, standard]
         default: full
+      parallel:
+        description: Detail jobs at once in a full run; 4 leaves pull requests their runners, 20 is all the account runs
+        type: number
+        default: 4
 
 permissions:
   contents: read
@@ -83,10 +87,9 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
-          name: check-${{ matrix.target }}-quick
+          name: check-${{ matrix.target }}-quick-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
-          overwrite: true
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
@@ -168,19 +171,17 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ matrix.addon }}
         with:
-          name: fork.${{ matrix.target }}
+          name: fork.${{ matrix.target }}-${{ github.run_attempt }}
           path: |
             build/fork.${{ matrix.target }}.node
             build/addon.${{ matrix.target }}.json
           if-no-files-found: error
-          overwrite: true
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
-          name: check-${{ matrix.target }}-smoke
+          name: check-${{ matrix.target }}-smoke-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
-          overwrite: true
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
@@ -208,9 +209,12 @@ jobs:
     if: ${{ needs.plan.outputs.profile != 'docs' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ needs.plan.outputs.profile == 'full' && 240 || 30 }}
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
-      max-parallel: ${{ needs.plan.outputs.profile == 'full' && 4 || 20 }}
+      max-parallel: ${{ needs.plan.outputs.profile == 'full' && (inputs.parallel || 4) || 20 }}
       matrix: ${{ fromJSON(needs.plan.outputs.detail) }}
     env:
       CI_SHA: ${{ needs.plan.outputs.sha }}
@@ -221,11 +225,6 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@v8.0.2
-        if: ${{ matrix.addon }}
-        with:
-          name: fork.${{ matrix.target }}
-          path: build
       - uses: pnpm/action-setup@v6.1.0
         if: ${{ !matrix.musl }}
         with:
@@ -233,6 +232,16 @@ jobs:
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
+      - id: addon
+        if: ${{ matrix.addon }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node bench/ci.ts artifacts "fork.$TARGET"
+      - uses: actions/download-artifact@v8.0.2
+        if: ${{ matrix.addon }}
+        with:
+          artifact-ids: ${{ steps.addon.outputs.ids }}
+          path: build
       - name: Install
         if: ${{ !matrix.musl }}
         run: pnpm install --frozen-lockfile
@@ -264,10 +273,9 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
-          name: check-${{ matrix.target }}-${{ matrix.suite }}
+          name: check-${{ matrix.target }}-${{ matrix.suite }}-${{ github.run_attempt }}
           path: build/ci/result-*.json
           if-no-files-found: error
-          overwrite: true
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ always() }}
         with:
@@ -283,6 +291,9 @@ jobs:
     needs: [plan, quick, build, build-others, detail]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
     env:
       CI_SHA: ${{ needs.plan.outputs.sha }}
       CI_PROFILE: ${{ needs.plan.outputs.profile }}
@@ -300,10 +311,15 @@ jobs:
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
+      - id: checks
+        if: ${{ needs.plan.outputs.profile != 'docs' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node bench/ci.ts artifacts 'check-*'
       - uses: actions/download-artifact@v8.0.2
         if: ${{ needs.plan.outputs.profile != 'docs' }}
         with:
-          pattern: check-*
+          artifact-ids: ${{ steps.checks.outputs.ids }}
           path: build/ci-results
       - name: Check completeness and identity
         if: ${{ always() }}
